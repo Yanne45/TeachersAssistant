@@ -1,0 +1,275 @@
+/* ============================================================================
+   DashboardPage — Styles
+   Spec §5.1 : Indicateurs, Mini-timeline, Aujourd'hui, Alertes, Couverture
+   ============================================================================ */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Indicateurs rapides — grille 5 colonnes ── */
+
+.dashboard__indicators {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+}
+
+.dashboard-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+}
+
+.dashboard-indicator__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.dashboard-indicator__value {
+  font-size: 22px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1;
+}
+
+.dashboard-indicator__label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── Mini-timeline semaine ── */
+
+.dashboard__section-title {
+  font-size: 14px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-3);
+}
+
+.mini-timeline {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.mini-timeline__day {
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  padding: var(--space-1);
+  transition: background-color var(--transition-fast);
+}
+
+.mini-timeline__day:hover {
+  background-color: var(--color-bg);
+}
+
+.mini-timeline__day--today {
+  background-color: rgba(61, 180, 198, 0.15);
+  border-radius: 4px;
+}
+
+.mini-timeline__day--selected {
+  background-color: rgba(61, 180, 198, 0.10);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+  border-radius: 4px;
+}
+
+.mini-timeline__header {
+  display: block;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  padding: 2px 4px;
+  margin-bottom: 4px;
+}
+
+.mini-timeline__day--today .mini-timeline__header {
+  color: var(--color-primary);
+}
+
+.mini-timeline__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mini-timeline__empty {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 4px;
+}
+
+/* Mini slot */
+.mini-slot {
+  border-left: 3px solid;
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.mini-slot__subject {
+  display: block;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+}
+
+.mini-slot__time {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ── Bloc Aujourd'hui + Alertes / Couverture ── */
+
+.dashboard__middle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* Today slots */
+.today-slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.today-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background-color: var(--color-bg);
+  border-radius: var(--radius-xs);
+  border-left: 3px solid;
+  padding: 10px 12px;
+}
+
+.today-slot__time {
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.today-slot__subject {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  flex: 1;
+}
+
+.today-slots__empty {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.today-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* Right column */
+.dashboard__right-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ── Alertes ── */
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dashboard-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border-radius: var(--radius-xs);
+  border-left: 3px solid;
+  cursor: pointer;
+  font-size: 12px;
+  transition: opacity var(--transition-fast);
+}
+
+.dashboard-alert:hover {
+  opacity: 0.85;
+}
+
+.dashboard-alert--danger {
+  border-left-color: var(--color-danger);
+  background-color: rgba(231, 76, 60, 0.08);
+}
+
+.dashboard-alert--warn {
+  border-left-color: var(--color-warn);
+  background-color: rgba(245, 166, 35, 0.08);
+}
+
+.dashboard-alert__icon {
+  font-size: 10px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.dashboard-alert__message {
+  color: var(--color-text);
+}
+
+/* ── Couverture programme ── */
+
+.coverage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.coverage-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+.coverage-item__label {
+  font-size: 11px;
+  color: var(--color-text);
+}
+
+.coverage-item__pct {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Accès rapides ── */
+
+.dashboard__quick-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 1200px) {
+  .dashboard__indicators {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .dashboard__middle {
+    grid-template-columns: 1fr;
+  }
+}

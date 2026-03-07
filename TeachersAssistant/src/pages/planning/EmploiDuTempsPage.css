@@ -1,0 +1,121 @@
+/* ============================================================================
+   EmploiDuTempsPage — Styles (Spec §5.3)
+   Grille : 50px col heures + 5 col jours, header turquoise, 36px/h
+   ============================================================================ */
+
+.edt-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.edt-page__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edt-page__title {
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+}
+
+.edt-page__actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+/* ── Grille EDT ── */
+
+.edt-grid-wrapper { padding: 0; overflow: hidden; }
+
+.edt-grid {
+  display: grid;
+  grid-template-columns: 50px repeat(5, 1fr);
+}
+
+/* Corner */
+.edt-grid__corner {
+  background-color: var(--color-primary);
+}
+
+/* Day headers */
+.edt-grid__day-header {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  text-align: center;
+  padding: 8px;
+}
+
+/* Hour column */
+.edt-grid__hour {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 8px 4px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.edt-grid__hour--break {
+  background-color: rgba(224, 224, 224, 0.25);
+}
+
+.edt-grid__pause-label {
+  font-size: 8px;
+  color: var(--color-danger);
+  font-weight: var(--font-weight-bold);
+}
+
+/* Content cells */
+.edt-grid__cell {
+  border-top: 1px solid var(--border-color);
+  border-left: 1px solid var(--border-color);
+  min-height: 36px;
+  position: relative;
+}
+
+.edt-grid__cell--break {
+  background-color: rgba(224, 224, 224, 0.25);
+}
+
+/* ── Course slots ── */
+
+.edt-slot {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  border-left: 3px solid;
+  border-radius: 4px;
+  padding: 4px 6px;
+  cursor: pointer;
+  overflow: hidden;
+  z-index: 1;
+  transition: box-shadow var(--transition-fast);
+}
+
+.edt-slot:hover {
+  box-shadow: var(--shadow-floating);
+  z-index: 2;
+}
+
+.edt-slot__subject {
+  display: block;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edt-slot__class {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}

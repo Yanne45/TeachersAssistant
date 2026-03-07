@@ -1,0 +1,80 @@
+/* ============================================================================
+   Drawer — Styles (panneau latéral droit)
+   Spec §3.5 : 420-520px, animation slide-in
+   ============================================================================ */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: var(--z-drawer);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-floating);
+  z-index: calc(var(--z-drawer) + 1);
+  display: flex;
+  flex-direction: column;
+  animation: drawer-slide-in var(--transition-slow);
+}
+
+.drawer--standard {
+  width: 480px;
+}
+
+.drawer--large {
+  width: 520px;
+}
+
+.drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-default);
+  flex-shrink: 0;
+}
+
+.drawer__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.drawer__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  transition: background-color var(--transition-fast);
+}
+
+.drawer__close:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.drawer__body {
+  padding: var(--space-5);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.drawer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border-default);
+  flex-shrink: 0;
+}

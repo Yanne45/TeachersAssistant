@@ -1,0 +1,327 @@
+/* ============================================================================
+   ParametresPage — Styles (Spec §5.11)
+   Grille 2 colonnes de cards cliquables
+   ============================================================================ */
+
+.parametres-page { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.parametres-page__title {
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+}
+
+.parametres-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.param-card { padding: 14px; }
+
+.param-card__header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: var(--space-3);
+}
+
+.param-card__icon {
+  font-size: 20px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.param-card__text {
+  display: flex;
+  flex-direction: column;
+}
+
+.param-card__title {
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.param-card__desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.param-card__details {
+  list-style: disc;
+  padding-left: 30px;
+  font-size: 12px;
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Breadcrumb (sub-pages) */
+.parametres-page__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.parametres-page__back {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 0;
+}
+
+.parametres-page__back:hover {
+  text-decoration: underline;
+}
+
+.parametres-page__breadcrumb-sep {
+  color: var(--color-text-muted);
+}
+
+.parametres-page__breadcrumb-current {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+/* Actions */
+.parametres-page__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.parametres-page__action-btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-xs);
+  border: var(--border-default);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  transition: all 0.12s;
+}
+
+.parametres-page__action-btn:hover {
+  background: rgba(61, 180, 198, 0.06);
+}
+
+/* ── Interface settings sub-page ── */
+
+.interface-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.interface-settings__card {
+  padding: 20px !important;
+}
+
+.interface-settings__section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.interface-settings__section-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 14px;
+}
+
+.interface-settings__toggle-group {
+  display: flex;
+  gap: 8px;
+}
+
+.interface-settings__toggle-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 2px solid var(--border-default, #e0e0e0);
+  border-radius: var(--radius-s);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.interface-settings__toggle-btn:hover {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.05);
+}
+
+.interface-settings__toggle-btn--active {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.1);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.interface-settings__toggle-icon {
+  font-size: 20px;
+}
+
+.interface-settings__toggle-detail {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.interface-settings__toggle-btn--active .interface-settings__toggle-detail {
+  color: var(--color-primary);
+}
+
+/* ── Settings sub-pages common styles ── */
+
+.settings-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 700px;
+}
+
+.settings-sub__card {
+  padding: 20px !important;
+}
+
+.settings-sub__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-sub__count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.1);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.settings-sub__desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.settings-sub__field {
+  margin-bottom: 12px;
+  flex: 1;
+}
+
+.settings-sub__row {
+  display: flex;
+  gap: 12px;
+}
+
+.settings-sub__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.settings-sub__input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-sizing: border-box;
+}
+
+.settings-sub__input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.settings-sub__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.settings-sub__table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 6px 10px;
+  border-bottom: var(--border-default);
+}
+
+.settings-sub__table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  color: var(--color-text);
+}
+
+.settings-sub__color-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+.settings-sub__badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(61, 180, 198, 0.1);
+  color: var(--color-primary);
+  margin-right: 6px;
+  margin-bottom: 6px;
+}
+
+/* ── New year copy summary ── */
+.settings-sub__new-year {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: var(--border-default);
+}
+
+.settings-sub__copy-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--color-bg);
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+}
+
+.settings-sub__copy-title {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+.settings-sub__copy-item {
+  color: var(--color-text-muted);
+  padding-left: 4px;
+}

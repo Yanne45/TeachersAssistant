@@ -1,0 +1,37 @@
+/* ============================================================================
+   Card — Styles
+   Spec §3.5 : fond surface, ombre card, hover → floating + translateY(-1px)
+   ============================================================================ */
+
+.card {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-s);
+  padding: var(--space-4);
+  transition:
+    box-shadow var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.card--compact {
+  padding: var(--space-3);
+}
+
+/* Hover — ombre renforcée + léger soulèvement */
+.card--hoverable:hover {
+  box-shadow: var(--shadow-floating);
+  transform: translateY(-1px);
+}
+
+/* Cliquable */
+.card--clickable {
+  cursor: pointer;
+}
+
+.card--clickable:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.card--clickable:active {
+  transform: scale(0.98);
+}

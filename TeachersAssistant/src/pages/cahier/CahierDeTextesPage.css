@@ -1,0 +1,87 @@
+/* ============================================================================
+   CahierDeTextesPage — Styles (Spec §5.6)
+   ============================================================================ */
+
+.cahier-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cahier-page__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cahier-page__title {
+  font-size: 16px;
+  font-weight: var(--font-weight-bold);
+}
+
+.cahier-page__actions { display: flex; gap: var(--space-2); }
+
+.cahier-page__filters { display: flex; gap: var(--space-2); }
+
+/* ── Entries ── */
+
+.cahier-page__entries {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cahier-entry__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.cahier-entry__date-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.cahier-entry__date {
+  font-size: 18px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.cahier-entry__day {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.cahier-entry__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cahier-entry__title {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+}
+
+.cahier-entry__activities {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: var(--line-height-relaxed);
+}
+
+.cahier-entry__homework {
+  font-size: 12px;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-relaxed);
+}
+
+.cahier-entry__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

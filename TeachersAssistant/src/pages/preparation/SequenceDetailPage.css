@@ -1,0 +1,121 @@
+/* ============================================================================
+   SequenceDetailPage — Séquences & séances
+   ============================================================================ */
+
+.seq-detail {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: var(--space-4);
+  height: 100%;
+}
+
+/* ── Liste séquences (gauche) ── */
+
+.seq-detail__list {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  overflow-y: auto;
+}
+
+.seq-detail__list-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.seq-detail__list-title { font-size: 13px; font-weight: 600; }
+
+.seq-detail__seq-card {
+  padding: var(--space-2) var(--space-3);
+  border-left: 4px solid transparent;
+  border-radius: var(--radius-xs);
+  cursor: pointer; transition: background 0.15s;
+  background: var(--color-surface);
+}
+
+.seq-detail__seq-card:hover { background: var(--color-bg); }
+.seq-detail__seq-card--active {
+  background: rgba(61, 180, 198, 0.06);
+  box-shadow: inset 3px 0 0 0 var(--color-primary);
+}
+
+.seq-detail__seq-title { font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px; }
+
+.seq-detail__seq-meta {
+  display: flex; align-items: center; gap: var(--space-1);
+}
+
+.seq-detail__seq-hours {
+  font-size: 10px; color: var(--color-text-muted); margin-left: auto;
+}
+
+/* ── Zone principale (droite) ── */
+
+.seq-detail__main {
+  overflow-y: auto;
+}
+
+/* Header séquence */
+.seq-detail__header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: var(--space-3);
+}
+
+.seq-detail__context { font-size: 11px; color: var(--color-text-muted); }
+
+.seq-detail__title { font-size: 16px; font-weight: 600; margin: 2px 0 0; }
+
+.seq-detail__badges { display: flex; gap: var(--space-1); align-items: center; }
+
+.seq-detail__actions {
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-4);
+}
+
+/* ── Sessions accordion ── */
+
+.seq-detail__sessions {
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+
+.seq-detail__session { padding: 0 !important; overflow: hidden; }
+
+.seq-detail__session-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; cursor: pointer;
+}
+
+.seq-detail__session-left {
+  display: flex; align-items: center; gap: var(--space-2);
+}
+
+.seq-detail__chevron {
+  font-size: 10px; color: var(--color-text-muted); width: 14px; flex-shrink: 0;
+}
+
+.seq-detail__session-title { font-size: 13px; font-weight: 600; }
+
+.seq-detail__session-right {
+  display: flex; align-items: center; gap: var(--space-1);
+}
+
+/* Session body */
+.seq-detail__session-body {
+  padding: 0 16px 16px;
+  border-top: var(--border-default);
+  margin-top: 0;
+}
+
+.seq-detail__session-section {
+  margin-top: var(--space-3);
+}
+
+.seq-detail__section-label {
+  font-size: 12px; font-weight: 600; color: var(--color-text-muted);
+  display: block; margin-bottom: 4px;
+}
+
+.seq-detail__section-text {
+  font-size: 12px; line-height: 1.6; color: var(--color-text); margin: 0;
+}
+
+.seq-detail__session-actions {
+  display: flex; gap: var(--space-2); margin-top: var(--space-3);
+}

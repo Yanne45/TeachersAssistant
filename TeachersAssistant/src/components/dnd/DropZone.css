@@ -1,0 +1,35 @@
+/* DropZone — File drag & drop zone */
+
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 2px dashed var(--color-text-muted);
+  border-radius: var(--radius-s);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.dropzone:hover {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.04);
+}
+
+.dropzone--active {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.08);
+  border-style: solid;
+}
+
+.dropzone__input { display: none; }
+
+.dropzone__icon { font-size: 28px; }
+
+.dropzone__label {
+  font-size: 13px; font-weight: 500; color: var(--color-text);
+}
+
+.dropzone__hint {
+  font-size: 11px; color: var(--color-text-muted);
+}

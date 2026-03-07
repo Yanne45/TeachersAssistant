@@ -1,0 +1,160 @@
+/* ============================================================================
+   AppHeader — Styles
+   Spec §4.2 : 52px, fond turquoise, texte/icônes blancs
+   ============================================================================ */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  height: var(--header-height);
+  background-color: var(--color-primary);
+  padding: 0 var(--space-4);
+  gap: var(--space-4);
+  user-select: none;
+  /* Draggable pour Tauri */
+  -webkit-app-region: drag;
+}
+
+.app-header button,
+.app-header a {
+  -webkit-app-region: no-drag;
+}
+
+/* ── Brand ── */
+
+.app-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.app-header__logo {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.app-header__title {
+  font-size: 15px;
+  font-weight: var(--font-weight-bold);
+  color: #FFFFFF;
+  letter-spacing: -0.5px;
+}
+
+/* ── Barre de recherche ── */
+
+.app-header__search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 32px;
+  padding: 0 var(--space-3);
+  background-color: rgba(255, 255, 255, 0.15);
+  border: none;
+  border-radius: 16px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  min-width: 200px;
+  max-width: 360px;
+  flex: 1;
+}
+
+.app-header__search:hover {
+  background-color: rgba(255, 255, 255, 0.22);
+}
+
+.app-header__search-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.app-header__search-placeholder {
+  font-size: 13px;
+}
+
+/* ── Actions droite ── */
+
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.app-header__action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+  position: relative;
+}
+
+.app-header__action:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+
+.app-header__action-label {
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+}
+
+/* ── Badge notifications ── */
+
+.app-header__notif-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-accent);
+  color: #FFFFFF;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── Pastille connectivité ── */
+
+.app-header__connectivity {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #999999;
+  flex-shrink: 0;
+  transition: background-color var(--transition-fast);
+}
+
+.app-header__connectivity--online {
+  background-color: var(--color-success);
+}
+
+/* ── Avatar ── */
+
+.app-header__avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}

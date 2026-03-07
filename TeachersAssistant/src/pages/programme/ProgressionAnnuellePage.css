@@ -1,0 +1,129 @@
+/* ============================================================================
+   ProgressionAnnuellePage — Styles (Spec §5.4)
+   ============================================================================ */
+
+.progression-page__layout {
+  display: flex;
+  gap: var(--space-4);
+}
+
+/* ── Panneau gauche ── */
+
+.progression-page__panel {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.progression-page__panel-title {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+}
+
+.progression-page__seq-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.progression-page__seq-card {
+  cursor: grab;
+}
+
+.progression-page__seq-title {
+  display: block;
+  font-size: 12px;
+  font-weight: var(--font-weight-bold);
+}
+
+.progression-page__seq-hours {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* ── Timeline ── */
+
+.progression-timeline {
+  flex: 1;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.progression-timeline__months {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.progression-timeline__month {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-2) 0;
+}
+
+.progression-timeline__body {
+  position: relative;
+  height: 280px;
+  padding: 0;
+}
+
+/* ── Bandes vacances ── */
+
+.vacation-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(231, 76, 60, 0.06) 4px,
+    rgba(231, 76, 60, 0.06) 8px
+  );
+  border-left: 2px dashed rgba(231, 76, 60, 0.4);
+  pointer-events: none;
+}
+
+.vacation-band__label {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-danger);
+  white-space: nowrap;
+}
+
+/* ── Barres séquences ── */
+
+.sequence-bar {
+  position: absolute;
+  height: 36px;
+  border-left: 4px solid;
+  border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-card);
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast);
+}
+
+.sequence-bar:hover {
+  box-shadow: var(--shadow-floating);
+}
+
+.sequence-bar__label {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

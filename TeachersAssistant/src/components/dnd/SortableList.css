@@ -1,0 +1,30 @@
+/* SortableList — Drag & drop list */
+
+.sortable-list {
+  display: flex; flex-direction: column; gap: 2px;
+}
+
+.sortable-row {
+  display: flex; align-items: stretch;
+  background: var(--color-surface);
+  border-radius: var(--radius-xs);
+  border: var(--border-default);
+  transition: box-shadow 0.15s;
+}
+
+.sortable-row:hover {
+  box-shadow: var(--shadow-card);
+}
+
+.sortable-row__handle {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; flex-shrink: 0;
+  border: none; background: none;
+  color: var(--color-text-muted); font-size: 14px;
+  cursor: grab; user-select: none;
+  border-right: var(--border-default);
+}
+
+.sortable-row__handle:active { cursor: grabbing; }
+
+.sortable-row__content { flex: 1; min-width: 0; }

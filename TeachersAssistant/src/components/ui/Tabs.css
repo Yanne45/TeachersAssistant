@@ -1,0 +1,61 @@
+/* ============================================================================
+   Tabs — Styles
+   Spec §4.3 : 42px, fond blanc, border-bottom gris
+   Actif: texte primary, font-weight 600, border-bottom 2px primary
+   ============================================================================ */
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  height: var(--tabs-height);
+  background-color: var(--color-surface);
+  border-bottom: var(--border-default);
+  padding: 0 var(--space-4);
+  overflow-x: auto;
+}
+
+.tabs__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 var(--space-4);
+  height: 100%;
+  font-size: 13px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.tabs__item:hover {
+  color: var(--color-text);
+}
+
+.tabs__item--active {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+  border-bottom-color: var(--color-primary);
+}
+
+.tabs__icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.tabs__label {
+  line-height: 1;
+}
+
+.tabs__item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+}

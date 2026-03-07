@@ -1,0 +1,130 @@
+/* ============================================================================
+   CalendrierScolairePage — Styles (Spec §5.2)
+   ============================================================================ */
+
+.calendrier-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.calendrier-page__summary {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.calendrier-page__layout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--space-4);
+}
+
+/* ── Calendrier annuel ── */
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-3);
+}
+
+.cal-month {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-s);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-card);
+}
+
+.cal-month__header {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+  text-align: center;
+}
+
+.cal-month__days-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  margin-bottom: 2px;
+}
+
+.cal-month__dh {
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.cal-month__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+}
+
+.cal-day {
+  font-size: 10px;
+  text-align: center;
+  padding: 2px;
+  border-radius: 3px;
+  line-height: 1.6;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.cal-day--empty { visibility: hidden; }
+.cal-day--weekend { color: var(--color-text-muted); opacity: 0.5; }
+.cal-day--vacation { background-color: var(--color-vacation-bg); color: var(--color-danger); }
+.cal-day--holiday { background-color: var(--color-danger); color: #fff; font-weight: var(--font-weight-bold); }
+.cal-day--exam { background-color: var(--color-exam-bg); color: var(--color-warn); }
+.cal-day--closure { background: repeating-linear-gradient(45deg, transparent, transparent 2px, var(--color-closure-bg) 2px, var(--color-closure-bg) 4px); }
+
+.cal-day:hover:not(.cal-day--empty):not(.cal-day--weekend) {
+  background-color: var(--color-primary-light);
+}
+
+/* ── Panneau paramètres ── */
+
+.calendrier-page__params {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.calendrier-page__param-title {
+  font-size: 13px;
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+}
+
+.calendrier-page__field-row {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.periods-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.period-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  background-color: var(--color-bg);
+  font-size: 11px;
+}
+
+.period-row__label {
+  font-weight: var(--font-weight-medium);
+  flex: 1;
+}
+
+.period-row__dates {
+  color: var(--color-text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}

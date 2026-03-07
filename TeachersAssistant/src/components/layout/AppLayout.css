@@ -1,0 +1,115 @@
+/* ============================================================================
+   AppLayout — Styles
+   Spec §4.1 : Header → Tabs → [Sidebar | Main | Inspector]
+   Breakpoints §4.6 : Compact (<1400), Standard (1400-2200), Confort (>2200)
+   ============================================================================ */
+
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-layout__header {
+  flex-shrink: 0;
+  z-index: var(--z-sticky);
+}
+
+.app-layout__tabs {
+  flex-shrink: 0;
+  z-index: calc(var(--z-sticky) - 1);
+}
+
+/* ── Zone de contenu ── */
+
+.app-layout__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+
+.app-layout__sidebar {
+  width: var(--sidebar-compact);       /* 220px par défaut */
+  flex-shrink: 0;
+  background-color: var(--color-surface);
+  border-right: var(--border-default);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ── Main content ── */
+
+.app-layout__main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  padding: var(--space-5);
+}
+
+/* Contrainte max-width centrée */
+.app-layout__main > * {
+  max-width: var(--main-max-width);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ── Inspector ── */
+
+.app-layout__inspector {
+  width: var(--inspector-width);       /* 360px */
+  flex-shrink: 0;
+  background-color: var(--color-surface);
+  border-left: var(--border-default);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Breakpoints responsive — Spec §4.6
+   ────────────────────────────────────────────────────────── */
+
+/* Compact : < 1400px — inspector en drawer overlay */
+@media (max-width: 1399px) {
+  .app-layout__sidebar {
+    width: var(--sidebar-compact);     /* 220px */
+  }
+
+  .app-layout__inspector {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: var(--z-drawer);
+    box-shadow: var(--shadow-floating);
+  }
+}
+
+/* Standard : 1400–2200px */
+@media (min-width: 1400px) and (max-width: 2199px) {
+  .app-layout__sidebar {
+    width: var(--sidebar-width);       /* 260px */
+  }
+
+  .app-layout__inspector {
+    width: var(--inspector-width);     /* 360px */
+  }
+}
+
+/* Confort : > 2200px */
+@media (min-width: 2200px) {
+  .app-layout__sidebar {
+    width: var(--sidebar-comfort);     /* 300px */
+  }
+
+  .app-layout__inspector {
+    width: var(--inspector-lg);        /* 420px */
+  }
+
+  .app-layout__main > * {
+    max-width: 1800px;
+  }
+}

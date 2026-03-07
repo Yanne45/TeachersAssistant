@@ -1,0 +1,74 @@
+/* ============================================================================
+   SkillLevelSelector — Styles
+   Spec §5.9 : 4 boutons 32×28px, border-radius 6px
+   Sélectionné: fond primary, texte blanc
+   En dessous: fond primary 30%, texte primary
+   Au dessus: fond bg, texte muted
+   ============================================================================ */
+
+.skill-level {
+  margin-bottom: var(--space-3);
+}
+
+.skill-level__label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.skill-level__buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.skill-level__btn {
+  width: 32px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+/* Sélectionné */
+.skill-level__btn--selected {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  border: 1px solid var(--color-primary);
+}
+
+/* Niveaux inférieurs au sélectionné */
+.skill-level__btn--below {
+  background-color: rgba(61, 180, 198, 0.30);
+  color: var(--color-primary);
+  border: var(--border-default);
+}
+
+[data-theme="dark"] .skill-level__btn--below {
+  background-color: rgba(77, 200, 218, 0.30);
+}
+
+/* Niveaux supérieurs au sélectionné */
+.skill-level__btn--above {
+  background-color: var(--color-bg);
+  color: var(--color-text-muted);
+  border: var(--border-default);
+}
+
+.skill-level__btn:hover:not(:disabled) {
+  opacity: 0.85;
+  box-shadow: var(--shadow-card);
+}
+
+.skill-level__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.skill-level__btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}

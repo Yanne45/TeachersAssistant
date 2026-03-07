@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(netstat -ano)",
+      "Read(//d/VSProjets/TeachersAssistant/**)",
+      "Bash(taskkill //PID 24796 //F)"
+    ]
+  }
+}

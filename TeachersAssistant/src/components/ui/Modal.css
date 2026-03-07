@@ -1,0 +1,86 @@
+/* ============================================================================
+   Modal — Styles
+   Spec §3.5 : Modal 720-960px, border-radius --radius-l (18px)
+   ============================================================================ */
+
+.modal {
+  border: none;
+  padding: 0;
+  background: transparent;
+  max-width: none;
+  max-height: none;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal::backdrop {
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.modal__container {
+  background-color: var(--color-surface);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-floating);
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  overflow: hidden;
+  animation: modal-fade-in var(--transition-normal);
+}
+
+.modal--standard .modal__container {
+  width: 720px;
+}
+
+.modal--large .modal__container {
+  width: 960px;
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: var(--border-default);
+}
+
+.modal__title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  transition: background-color var(--transition-fast);
+}
+
+.modal__close:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.modal__body {
+  padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-6);
+  border-top: var(--border-default);
+}

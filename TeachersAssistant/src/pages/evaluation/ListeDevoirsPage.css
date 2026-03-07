@@ -1,0 +1,139 @@
+/* ============================================================================
+   ListeDevoirsPage
+   ============================================================================ */
+
+.devoirs-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.devoirs-page__title { font-size: 16px; font-weight: 600; margin: 0; }
+
+.devoirs-page__header-actions {
+  display: flex; gap: var(--space-2); align-items: center;
+}
+
+.devoirs-page__search {
+  height: 34px; padding: 0 var(--space-3); border: var(--border-default);
+  border-radius: var(--radius-xs); background: var(--color-surface);
+  font-size: 12px; width: 220px; color: var(--color-text);
+}
+
+.devoirs-page__search:focus { outline: none; border: var(--border-focus); }
+
+.devoirs-page__btn-new {
+  height: 34px; padding: 0 var(--space-4); background: var(--color-accent);
+  color: white; border: none; border-radius: var(--radius-xs);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+}
+
+/* ── Filtres ── */
+
+.devoirs-page__filters {
+  display: flex; gap: var(--space-2); margin-bottom: var(--space-4);
+}
+
+.devoirs-page__filter {
+  padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+  border: none; cursor: pointer; background: var(--color-bg);
+  color: var(--color-text-muted); display: flex; align-items: center; gap: 4px;
+}
+
+.devoirs-page__filter--active {
+  background: rgba(61, 180, 198, 0.15); color: var(--color-primary);
+}
+
+.devoirs-page__filter-count {
+  background: var(--color-surface); border-radius: 8px; padding: 0 5px;
+  font-size: 10px;
+}
+
+/* ── Tableau ── */
+
+.devoirs-page__table-wrap {
+  background: var(--color-surface); border-radius: var(--radius-s);
+  box-shadow: var(--shadow-card); overflow: hidden;
+}
+
+.devoirs-page__table {
+  width: 100%; border-collapse: collapse;
+}
+
+.devoirs-page__table th {
+  text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600;
+  color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;
+  border-bottom: var(--border-default); background: var(--color-bg);
+  position: sticky; top: 0;
+}
+
+.devoirs-page__row { cursor: pointer; transition: background 0.15s; }
+.devoirs-page__row:hover { background: var(--color-bg); }
+
+.devoirs-page__row td {
+  padding: 12px 14px; font-size: 13px; border-bottom: var(--border-default);
+  vertical-align: middle;
+}
+
+.devoirs-page__cell-date {
+  font-size: 12px; color: var(--color-text-muted); white-space: nowrap;
+}
+
+.devoirs-page__title-text {
+  font-weight: 600; border-left: 3px solid; padding-left: 8px;
+}
+
+.devoirs-page__cell-type {
+  font-size: 12px; color: var(--color-text-muted);
+}
+
+.devoirs-page__badge-class {
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  background: var(--color-bg); color: var(--color-text-muted);
+}
+
+/* ── Progress ── */
+
+.devoirs-page__progress {
+  display: flex; align-items: center; gap: var(--space-2);
+}
+
+.devoirs-page__progress-bar {
+  flex: 1; height: 6px; background: var(--color-bg);
+  border-radius: 3px; overflow: hidden; min-width: 60px;
+}
+
+.devoirs-page__progress-fill {
+  height: 100%; background: var(--color-primary); border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.devoirs-page__progress-text {
+  font-size: 11px; font-weight: 600; color: var(--color-text-muted); white-space: nowrap;
+}
+
+/* ── Skills ── */
+
+.devoirs-page__skills { display: flex; flex-wrap: wrap; gap: 3px; }
+
+.devoirs-page__skill-badge {
+  padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600;
+  background: rgba(123, 63, 160, 0.08); color: #7B3FA0;
+}
+
+/* ── Status ── */
+
+.devoirs-page__status-badge {
+  padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  display: inline-block;
+}
+
+/* ── Empty ── */
+
+.devoirs-page__empty {
+  text-align: center; padding: var(--space-10);
+  color: var(--color-text-muted); font-size: 14px;
+}
+
+.devoirs-page__empty span { font-size: 32px; display: block; margin-bottom: var(--space-2); }

@@ -1,0 +1,94 @@
+/* ============================================================================
+   BilanDevoirPage — Styles (Spec §5.9)
+   ============================================================================ */
+
+.bilan-page { display: flex; flex-direction: column; gap: var(--space-4); }
+
+.bilan-page__header {}
+.bilan-page__title { font-size: 16px; font-weight: var(--font-weight-bold); }
+.bilan-page__subtitle { font-size: 12px; color: var(--color-text-muted); }
+
+.bilan-page__card-title { font-size: 13px; font-weight: var(--font-weight-bold); margin-bottom: var(--space-3); }
+.bilan-page__card-title--success { color: var(--color-success); }
+.bilan-page__card-title--danger { color: var(--color-danger); }
+
+/* ── Grille 2×2 ── */
+
+.bilan-page__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+/* ── Histogramme ── */
+
+.histogram {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 140px;
+  padding-bottom: 20px;
+  position: relative;
+}
+
+.histogram__col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.histogram__bar {
+  width: 100%;
+  background-color: var(--color-primary);
+  border-radius: 3px 3px 0 0;
+  position: relative;
+  min-height: 2px;
+  transition: height var(--transition-slow);
+}
+
+.histogram__count {
+  position: absolute;
+  top: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+}
+
+.histogram__label {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.bilan-page__stats {
+  display: flex;
+  justify-content: space-around;
+  font-size: 12px;
+  color: var(--color-text);
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: var(--border-default);
+}
+
+/* ── Compétences ── */
+
+.bilan-skills { display: flex; flex-direction: column; gap: 10px; }
+.bilan-skill__header { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.bilan-skill__name { color: var(--color-text); }
+.bilan-skill__score { font-weight: var(--font-weight-bold); }
+
+/* ── Top items ── */
+
+.bilan-page__item { font-size: 12px; color: var(--color-text); line-height: 1.6; }
+
+/* ── Actions ── */
+
+.bilan-page__actions {
+  display: flex;
+  gap: var(--space-3);
+}

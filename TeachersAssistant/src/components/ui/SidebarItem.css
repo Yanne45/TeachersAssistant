@@ -1,0 +1,92 @@
+/* ============================================================================
+   SidebarItem — Styles
+   Spec §3.5 : hauteur 36px, padding 8px 12px, indent 16px/niveau
+   Actif : fond primary 10%, barre gauche 3px, texte primary bold
+   ============================================================================ */
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--sidebar-item-height); /* 36px */
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  border-radius: 0;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);     /* 14px */
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  position: relative;
+  text-align: left;
+}
+
+/* Hover */
+.sidebar-item:hover {
+  background-color: var(--color-primary-hover); /* primary 6% */
+}
+
+/* Actif */
+.sidebar-item--active {
+  background-color: var(--color-primary-light); /* primary 10% */
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Barre gauche active */
+.sidebar-item--active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  background-color: var(--color-primary);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Focus */
+.sidebar-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+/* Icône */
+.sidebar-item__icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  width: 18px;
+  flex-shrink: 0;
+}
+
+/* Label */
+.sidebar-item__label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Badge (compteur) */
+.sidebar-item__badge {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* ── Section label (séparateur) ── */
+
+.sidebar-section {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+  padding: 12px 12px 4px;
+  margin-top: 8px;
+  user-select: none;
+}

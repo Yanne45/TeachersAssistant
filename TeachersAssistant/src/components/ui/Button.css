@@ -1,0 +1,151 @@
+/* ============================================================================
+   Button — Styles
+   Spec §3.5 : Primary (CTA), Secondary, Ghost, Danger
+   Tailles : S (28-32px), M (34-36px), L (42-44px)
+   ============================================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast),
+    opacity var(--transition-fast);
+  white-space: nowrap;
+  user-select: none;
+  position: relative;
+}
+
+/* ── Tailles ── */
+
+.btn--s {
+  height: 30px;
+  padding: 0 10px;
+  font-size: var(--font-size-xs);    /* 12px */
+}
+
+.btn--m {
+  height: 35px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.btn--l {
+  height: 43px;
+  padding: 0 18px;
+  font-size: var(--font-size-sm);    /* 14px */
+}
+
+/* ── Variantes ── */
+
+/* Primary (CTA) — fond orange */
+.btn--primary {
+  background-color: var(--color-accent);
+  color: #FFFFFF;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+  box-shadow: var(--shadow-card);
+}
+
+.btn--primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Secondary — fond surface, bordure */
+.btn--secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-default);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background-color: var(--color-bg);
+  box-shadow: var(--shadow-card);
+}
+
+.btn--secondary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Ghost — transparent */
+.btn--ghost {
+  background-color: transparent;
+  color: var(--color-text-muted);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  color: var(--color-text);
+}
+
+.btn--ghost:active:not(:disabled) {
+  background-color: var(--color-primary-light);
+}
+
+/* Danger */
+.btn--danger {
+  background-color: var(--color-danger);
+  color: #FFFFFF;
+}
+
+.btn--danger:hover:not(:disabled) {
+  opacity: 0.9;
+  box-shadow: var(--shadow-card);
+}
+
+/* ── États ── */
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.btn--full {
+  width: 100%;
+}
+
+/* ── Loading spinner ── */
+
+.btn--loading {
+  pointer-events: none;
+}
+
+.btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.6s linear infinite;
+}
+
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Icône ── */
+
+.btn__icon {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1em;
+  line-height: 1;
+}
+
+.btn__label {
+  line-height: 1;
+}

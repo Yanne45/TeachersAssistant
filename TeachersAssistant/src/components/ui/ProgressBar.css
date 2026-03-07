@@ -1,0 +1,49 @@
+/* ============================================================================
+   ProgressBar + SegmentedBar — Styles
+   ============================================================================ */
+
+/* ── ProgressBar ── */
+
+.progress-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.progress-bar__track {
+  flex: 1;
+  border-radius: var(--radius-full);
+  background-color: var(--color-primary-light);
+  overflow: hidden;
+}
+
+.progress-bar__fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--transition-slow);
+}
+
+.progress-bar__label {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  min-width: 32px;
+  text-align: right;
+}
+
+/* ── SegmentedBar (compétences 1-4) ── */
+
+.segmented-bar {
+  display: flex;
+  gap: 3px;
+}
+
+.segmented-bar__segment {
+  flex: 1;
+  border-radius: 4px;
+  background-color: var(--color-primary-light);
+  transition: background-color var(--transition-fast);
+}
+
+.segmented-bar__segment--filled {
+  /* backgroundColor défini inline via style prop */
+}

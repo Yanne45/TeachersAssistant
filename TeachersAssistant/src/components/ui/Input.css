@@ -1,0 +1,77 @@
+/* ============================================================================
+   Input — Styles
+   Spec §3.5 : border-radius xs, border-focus primary 2px
+   ============================================================================ */
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.input-group--full {
+  width: 100%;
+}
+
+.input-group__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  background-color: var(--color-surface);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+.input-wrapper--error {
+  border-color: var(--color-danger);
+}
+
+.input-wrapper--error:focus-within {
+  box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.input-wrapper__icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.input-wrapper__field {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  height: 100%;
+}
+
+.input-wrapper__field::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.input-group__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+.input-group__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}

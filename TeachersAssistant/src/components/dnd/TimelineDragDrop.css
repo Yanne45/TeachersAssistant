@@ -1,0 +1,55 @@
+/* TimelineDragDrop — Progression timeline (spec §5.4) */
+
+.timeline-dragdrop {
+  display: flex; flex-direction: column; gap: 0;
+  border: var(--border-default); border-radius: var(--radius-s);
+  overflow: hidden; background: var(--color-surface);
+}
+
+.timeline-months {
+  display: grid; grid-template-columns: repeat(10, 1fr);
+  border-bottom: var(--border-default);
+}
+
+.timeline-month {
+  text-align: center; font-size: 11px; font-weight: 600;
+  color: var(--color-text-muted); padding: var(--space-2) 0;
+}
+
+.timeline-area {
+  position: relative; min-height: 260px;
+  background: var(--color-bg);
+}
+
+/* Vacation bands */
+.timeline-vacation {
+  position: absolute; top: 0; bottom: 0;
+  background: repeating-linear-gradient(
+    45deg, transparent, transparent 4px,
+    rgba(231, 76, 60, 0.06) 4px, rgba(231, 76, 60, 0.06) 8px
+  );
+  border-left: 2px dashed rgba(231, 76, 60, 0.3);
+}
+
+.timeline-vacation__label {
+  position: absolute; top: 4px; left: 4px;
+  font-size: 9px; font-weight: 600; color: var(--color-danger);
+}
+
+/* Sequence bars */
+.timeline-bar {
+  height: 36px;
+  border-left: 4px solid; border-radius: var(--radius-xs);
+  box-shadow: var(--shadow-card);
+  padding: 4px 8px;
+  cursor: grab; user-select: none;
+  display: flex; align-items: center;
+  transition: opacity 0.15s;
+}
+
+.timeline-bar:active { cursor: grabbing; }
+
+.timeline-bar__title {
+  font-size: 11px; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}

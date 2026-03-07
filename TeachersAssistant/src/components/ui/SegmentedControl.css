@@ -1,0 +1,42 @@
+/* ============================================================================
+   SegmentedControl — Styles
+   Spec §5.3 : fond bg, border-radius xs, border default
+   Actif: fond primary, texte blanc, 12px bold
+   ============================================================================ */
+
+.segmented-control {
+  display: inline-flex;
+  background-color: var(--color-bg);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+
+.segmented-control__item {
+  padding: 6px 14px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.segmented-control__item--active {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+  font-weight: var(--font-weight-semibold);
+}
+
+.segmented-control__item:hover:not(.segmented-control__item--active) {
+  background-color: var(--color-primary-hover);
+  color: var(--color-text);
+}
+
+.segmented-control__item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}

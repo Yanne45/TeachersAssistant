@@ -1,0 +1,166 @@
+/* ============================================================================
+   ICSMappingModal — Modal de mapping ICS → matières / classes
+   ============================================================================ */
+
+.ics-modal__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.ics-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-floating);
+  width: 90%;
+  max-width: 960px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.ics-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 24px 16px;
+  border-bottom: var(--border-default);
+}
+
+.ics-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 4px;
+}
+
+.ics-modal__subtitle {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.ics-modal__close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+}
+.ics-modal__close:hover {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+/* Body */
+.ics-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.ics-modal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ics-modal__table thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.ics-modal__table th {
+  background: var(--color-bg);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: var(--border-default);
+}
+
+.ics-modal__table td {
+  padding: 8px 12px;
+  border-bottom: var(--border-default);
+  color: var(--color-text);
+  vertical-align: middle;
+}
+
+.ics-modal__row--mapped {
+  background: rgba(61, 180, 198, 0.04);
+}
+
+.ics-modal__summary {
+  font-weight: 600;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ics-modal__count {
+  font-weight: 700;
+  color: var(--color-primary);
+  text-align: center;
+}
+
+.ics-modal__time,
+.ics-modal__room {
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.ics-modal__select {
+  width: 100%;
+  min-width: 120px;
+  padding: 4px 6px;
+  font-size: 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ics-modal__select:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.ics-modal__empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* Footer */
+.ics-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  border-top: var(--border-default);
+  background: var(--color-bg);
+}
+
+.ics-modal__footer-info {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.ics-modal__footer-actions {
+  display: flex;
+  gap: 8px;
+}
