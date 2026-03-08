@@ -16,7 +16,8 @@
 }
 
 .app-header button,
-.app-header a {
+.app-header a,
+.app-header__brand {
   -webkit-app-region: no-drag;
 }
 
@@ -39,6 +40,13 @@
   font-weight: var(--font-weight-bold);
   color: #FFFFFF;
   letter-spacing: -0.5px;
+}
+
+.app-header__workspace-label {
+  font-size: 12px;
+  font-weight: var(--font-weight-normal);
+  color: rgba(255, 255, 255, 0.6);
+  margin-left: 2px;
 }
 
 /* ── Barre de recherche ── */
@@ -148,7 +156,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--color-accent);
   color: #FFFFFF;
   font-size: 12px;
   font-weight: var(--font-weight-bold);

@@ -21,7 +21,7 @@
   padding: 0 var(--space-4);
   height: 100%;
   font-size: 13px;
-  font-weight: var(--font-weight-normal);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   border: none;
   background: none;

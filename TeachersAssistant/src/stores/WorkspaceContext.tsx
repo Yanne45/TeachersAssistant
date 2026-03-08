@@ -10,7 +10,6 @@ import {
   createDatabase,
   closeDatabase,
   applySchema,
-  getCurrentPath,
 } from '../services/db';
 import { workspaceService } from '../services/workspaceService';
 
@@ -48,31 +47,48 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [recents, setRecents] = useState<WorkspaceEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  // Init : charger config, tenter réouverture
+  // Init : charger config, tenter réouverture (avec retry si Tauri pas prêt)
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+
+    const tryInit = async (attempt: number) => {
       try {
         const config = await workspaceService.getConfig();
+        if (cancelled) return;
+
         setRecents(config.recents);
+        console.log('[Workspace] Config chargée, lastOpened:', config.lastOpened, 'recents:', config.recents.length);
 
         if (config.lastOpened) {
-          const exists = await workspaceService.fileExists(config.lastOpened);
-          if (exists) {
+          // Tenter directement l'ouverture plutôt que fileExists
+          // (fileExists échoue si Tauri FS pas encore prêt)
+          try {
             await doOpen(config.lastOpened);
             return;
-          } else {
-            // Fichier disparu — nettoyer
-            await workspaceService.removeRecent(config.lastOpened);
-            setRecents(prev => prev.filter(r => r.path !== config.lastOpened));
+          } catch (openErr) {
+            console.warn('[Workspace] Impossible de réouvrir la dernière base:', openErr);
+            // Ne pas supprimer des récents — le fichier existe peut-être mais Tauri pas prêt
+            if (attempt < 3 && !cancelled) {
+              console.log(`[Workspace] Retry dans 500ms (attempt ${attempt})`);
+              setTimeout(() => tryInit(attempt + 1), 500);
+              return;
+            }
           }
         }
 
-        setStatus('welcome');
+        if (!cancelled) setStatus('welcome');
       } catch (err) {
-        console.error('[Workspace] Init error:', err);
-        setStatus('welcome');
+        console.error(`[Workspace] Init error (attempt ${attempt}):`, err);
+        if (attempt < 3 && !cancelled) {
+          setTimeout(() => tryInit(attempt + 1), 500);
+          return;
+        }
+        if (!cancelled) setStatus('welcome');
       }
-    })();
+    };
+
+    tryInit(1);
+    return () => { cancelled = true; };
   }, []);
 
   const doOpen = useCallback(async (path: string, label?: string) => {
@@ -84,12 +100,13 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Apply migrations to ensure existing bases are up-to-date
       // (idempotent — safe to run on already-migrated bases)
-      try {
-        const resp002 = await fetch('/db/002_ai_prompts.sql');
-        if (resp002.ok) {
-          await applySchema(await resp002.text());
-        }
-      } catch { /* non-critical for existing bases */ }
+      const patchMigrations = ['/db/002_ai_prompts.sql', '/db/003_reference_data.sql'];
+      for (const url of patchMigrations) {
+        try {
+          const resp = await fetch(url);
+          if (resp.ok) await applySchema(await resp.text());
+        } catch { /* non-critical */ }
+      }
 
       // Extraire un label depuis la DB si pas fourni
       let finalLabel = label ?? path.split(/[\\/]/).pop()?.replace('.ta', '') ?? 'Sans titre';
@@ -138,6 +155,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const migrations = [
       '/db/001_initial_schema.sql',
       '/db/002_ai_prompts.sql',
+      '/db/003_reference_data.sql',
     ];
 
     for (const url of migrations) {
@@ -163,6 +181,9 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       setError(null);
       setStatus('loading');
+
+      // Supprimer le fichier existant pour garantir une base vierge
+      await workspaceService.deleteFile(path);
 
       const needsSchema = await createDatabase(path);
 

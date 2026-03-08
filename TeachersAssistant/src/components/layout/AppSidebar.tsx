@@ -24,7 +24,7 @@ export const AppSidebar: React.FC<Props> = ({ tab }) => {
 
   const handleClick = (item: SidebarItem) => {
     if (item.isSection || !item.page) return;
-    setPage(item.page);
+    setPage(item.page, item.filter);
   };
 
   return (

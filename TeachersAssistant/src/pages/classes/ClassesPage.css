@@ -1,0 +1,193 @@
+/* ============================================================================
+   ClassesPage — Gestion des classes & élèves
+   ============================================================================ */
+
+.classes-page__header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-4);
+}
+.classes-page__title { font-size: 16px; font-weight: 600; margin: 0; }
+.classes-page__header-actions { display: flex; gap: var(--space-2); align-items: center; }
+
+.classes-page__btn {
+  height: 34px; padding: 0 var(--space-3); border: var(--border-default);
+  border-radius: var(--radius-xs); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.classes-page__btn--primary { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+.classes-page__btn--secondary { background: var(--color-surface); color: var(--color-text); }
+
+/* ── Grille de classes ── */
+
+.classes-page__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.classes-page__card {
+  background: var(--color-surface);
+  border-radius: var(--radius-s);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+.classes-page__card:hover {
+  box-shadow: var(--shadow-card), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.classes-page__card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-default);
+  cursor: pointer; user-select: none;
+}
+
+.classes-page__card-title {
+  font-size: 14px; font-weight: 700; color: var(--color-text);
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.classes-page__card-level {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 10px;
+  background: rgba(61, 180, 198, 0.12); color: var(--color-primary);
+}
+.classes-page__card-count {
+  font-size: 12px; color: var(--color-text-muted);
+  display: flex; align-items: center; gap: 4px;
+}
+.classes-page__card-toggle {
+  font-size: 11px; color: var(--color-text-muted);
+  transition: transform 0.2s;
+}
+.classes-page__card-toggle--open { transform: rotate(90deg); }
+
+/* ── Actions sur la carte ── */
+
+.classes-page__card-actions {
+  display: flex; gap: var(--space-2); padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-default); background: var(--color-bg);
+}
+.classes-page__card-action {
+  padding: 4px 10px; border-radius: var(--radius-xs);
+  font-size: 11px; font-weight: 600; cursor: pointer;
+  border: var(--border-default); background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+.classes-page__card-action:hover { color: var(--color-primary); border-color: var(--color-primary); }
+
+/* ── Liste d'élèves dans la carte ── */
+
+.classes-page__students {
+  max-height: 400px; overflow-y: auto;
+}
+
+.classes-page__student-row {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 8px var(--space-4);
+  border-bottom: var(--border-default);
+  font-size: 13px; transition: background 0.1s;
+}
+.classes-page__student-row:last-child { border-bottom: none; }
+.classes-page__student-row:hover { background: var(--color-bg); }
+
+.classes-page__student-num {
+  width: 22px; font-size: 10px; color: var(--color-text-muted);
+  text-align: right; flex-shrink: 0;
+}
+.classes-page__student-avatar {
+  width: 26px; height: 26px; border-radius: 13px;
+  background: rgba(61, 180, 198, 0.12); color: var(--color-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; flex-shrink: 0;
+}
+.classes-page__student-name { font-weight: 600; color: var(--color-text); }
+.classes-page__student-gender {
+  font-size: 10px; color: var(--color-text-muted); margin-left: auto;
+}
+.classes-page__student-actions {
+  display: flex; gap: 4px; margin-left: var(--space-2);
+}
+.classes-page__student-edit {
+  padding: 2px 6px; border-radius: var(--radius-xs);
+  font-size: 10px; cursor: pointer; border: var(--border-default);
+  background: var(--color-surface); color: var(--color-text-muted);
+}
+.classes-page__student-edit:hover { color: var(--color-primary); }
+
+/* ── Import page ── */
+
+.classes-page__import {
+  background: var(--color-surface); border-radius: var(--radius-s);
+  box-shadow: var(--shadow-card); padding: var(--space-5);
+  max-width: 640px;
+}
+.classes-page__import-title { font-size: 15px; font-weight: 600; margin: 0 0 var(--space-4); }
+
+.classes-page__import-zone {
+  border: 2px dashed var(--color-text-muted);
+  border-radius: var(--radius-s);
+  padding: var(--space-6);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.classes-page__import-zone:hover,
+.classes-page__import-zone--drag {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.04);
+}
+.classes-page__import-zone-icon { font-size: 32px; margin-bottom: var(--space-2); }
+.classes-page__import-zone-text { font-size: 13px; color: var(--color-text-muted); }
+.classes-page__import-zone-hint { font-size: 11px; color: var(--color-text-muted); margin-top: var(--space-1); }
+
+.classes-page__import-file-input {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+}
+
+/* ── Classe cible ── */
+
+.classes-page__import-target {
+  display: flex; align-items: center; gap: var(--space-3);
+  margin-top: var(--space-4); padding: var(--space-3);
+  background: var(--color-bg); border-radius: var(--radius-xs);
+}
+.classes-page__import-target label { font-size: 12px; font-weight: 600; white-space: nowrap; }
+.classes-page__import-target select {
+  flex: 1; height: 32px; border: var(--border-default); border-radius: var(--radius-xs);
+  padding: 0 var(--space-2); font-size: 12px; background: var(--color-surface);
+}
+
+/* ── Preview ── */
+
+.classes-page__preview {
+  margin-top: var(--space-4);
+}
+.classes-page__preview-title {
+  font-size: 13px; font-weight: 600; margin-bottom: var(--space-2);
+}
+.classes-page__preview-list {
+  max-height: 240px; overflow-y: auto; font-size: 12px;
+  background: var(--color-bg); border-radius: var(--radius-xs);
+  padding: var(--space-2);
+}
+.classes-page__preview-item {
+  padding: 3px 0; border-bottom: var(--border-default);
+}
+.classes-page__preview-item:last-child { border-bottom: none; }
+.classes-page__preview-more {
+  color: var(--color-text-muted); padding-top: var(--space-1); font-style: italic;
+}
+
+.classes-page__import-actions {
+  display: flex; justify-content: flex-end; gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+/* ── Empty ── */
+
+.classes-page__empty {
+  text-align: center; padding: var(--space-8);
+  color: var(--color-text-muted); font-size: 13px;
+}
+.classes-page__empty-icon { font-size: 40px; margin-bottom: var(--space-3); }

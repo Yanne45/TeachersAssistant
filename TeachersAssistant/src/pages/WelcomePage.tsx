@@ -55,12 +55,36 @@ export const WelcomePage: React.FC = () => {
               </button>
             </div>
 
-            {/* Récents */}
+            {/* Accès rapide — 3 dernières bases */}
             {recents.length > 0 && (
+              <div className="welcome__quick-access">
+                <h2 className="welcome__quick-title">Accès rapide</h2>
+                <div className="welcome__quick-list">
+                  {recents.slice(0, 3).map(entry => (
+                    <button
+                      key={entry.path}
+                      className="welcome__quick-item"
+                      onClick={() => openFile(entry.path, entry.label)}
+                    >
+                      <span className="welcome__quick-icon">📄</span>
+                      <span className="welcome__quick-label">{entry.label}</span>
+                      <span className="welcome__quick-date">
+                        {new Date(entry.lastOpenedAt).toLocaleDateString('fr-FR', {
+                          day: 'numeric', month: 'short',
+                        })}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Liste complète des récents */}
+            {recents.length > 3 && (
               <div className="welcome__recents">
-                <h2 className="welcome__recents-title">Bases récentes</h2>
+                <h2 className="welcome__recents-title">Autres bases récentes</h2>
                 <div className="welcome__recents-list">
-                  {recents.map(entry => (
+                  {recents.slice(3).map(entry => (
                     <div
                       key={entry.path}
                       className="welcome__recent-item"

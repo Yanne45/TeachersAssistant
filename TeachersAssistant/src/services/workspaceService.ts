@@ -19,6 +19,23 @@ import {
 } from '../types';
 
 const MAX_RECENTS = 10;
+const LS_KEY = 'ta_workspace_config';
+
+// ── localStorage fallback (fiable même si Tauri FS n'est pas prêt) ──
+
+function readLocalStorage(): WorkspaceConfig {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) return JSON.parse(raw) as WorkspaceConfig;
+  } catch { /* ignore */ }
+  return { ...DEFAULT_WORKSPACE_CONFIG };
+}
+
+function writeLocalStorage(config: WorkspaceConfig): void {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(config));
+  } catch { /* ignore */ }
+}
 
 // ── Accès filesystem via Tauri ──
 
@@ -27,6 +44,7 @@ let _fs: {
   writeTextFile: (path: string, contents: string) => Promise<void>;
   mkdir: (path: string, options?: { recursive?: boolean }) => Promise<void>;
   exists: (path: string) => Promise<boolean>;
+  remove: (path: string) => Promise<void>;
 } | null = null;
 
 let _path: {
@@ -43,6 +61,7 @@ async function loadTauriModules() {
       writeTextFile: fs.writeTextFile,
       mkdir: fs.mkdir,
       exists: fs.exists,
+      remove: fs.remove,
     };
     const pathModule = await import('@tauri-apps/api/path');
     _path = {
@@ -75,11 +94,19 @@ async function getConfigPath(): Promise<string> {
 async function readConfig(): Promise<WorkspaceConfig> {
   try {
     await loadTauriModules();
-    if (!_fs) return { ...DEFAULT_WORKSPACE_CONFIG };
+    if (!_fs) {
+      console.warn('[Workspace] Tauri FS indisponible, fallback localStorage');
+      return readLocalStorage();
+    }
 
     const configPath = await getConfigPath();
     const exists = await _fs.exists(configPath);
-    if (!exists) return { ...DEFAULT_WORKSPACE_CONFIG };
+    if (!exists) {
+      // Peut-être que localStorage a la config (migration)
+      const ls = readLocalStorage();
+      if (ls.lastOpened || ls.recents.length > 0) return ls;
+      return { ...DEFAULT_WORKSPACE_CONFIG };
+    }
 
     const raw = await _fs.readTextFile(configPath);
     const parsed = JSON.parse(raw) as WorkspaceConfig;
@@ -90,12 +117,15 @@ async function readConfig(): Promise<WorkspaceConfig> {
 
     return parsed;
   } catch (err) {
-    console.error('[Workspace] Erreur lecture config:', err);
-    return { ...DEFAULT_WORKSPACE_CONFIG };
+    console.error('[Workspace] Erreur lecture config, fallback localStorage:', err);
+    return readLocalStorage();
   }
 }
 
 async function writeConfig(config: WorkspaceConfig): Promise<void> {
+  // Toujours écrire dans localStorage (fiable, synchrone)
+  writeLocalStorage(config);
+
   try {
     await loadTauriModules();
     if (!_fs) return;
@@ -103,7 +133,7 @@ async function writeConfig(config: WorkspaceConfig): Promise<void> {
     const configPath = await getConfigPath();
     await _fs.writeTextFile(configPath, JSON.stringify(config, null, 2));
   } catch (err) {
-    console.error('[Workspace] Erreur écriture config:', err);
+    console.error('[Workspace] Erreur écriture config FS (localStorage OK):', err);
   }
 }
 
@@ -237,6 +267,22 @@ export const workspaceService = {
       return _fs.exists(path);
     } catch {
       return false;
+    }
+  },
+
+  /**
+   * Supprimer un fichier sur disque (ex: avant recréation d'une base).
+   */
+  async deleteFile(path: string): Promise<void> {
+    try {
+      await loadTauriModules();
+      if (!_fs) return;
+      const exists = await _fs.exists(path);
+      if (exists) {
+        await _fs.remove(path);
+      }
+    } catch (err) {
+      console.error('[Workspace] Erreur suppression fichier:', err);
     }
   },
 };

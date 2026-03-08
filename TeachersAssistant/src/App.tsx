@@ -36,6 +36,7 @@ import { FicheElevePage } from './pages/evaluation/FicheElevePage';
 import { ListeDevoirsPage } from './pages/evaluation/ListeDevoirsPage';
 import { ListeElevesPage } from './pages/evaluation/ListeElevesPage';
 import { BulletinsPage } from './pages/evaluation/BulletinsPage';
+import { ClassesPage } from './pages/classes/ClassesPage';
 import { RechercheGlobalePage } from './pages/search/RechercheGlobalePage';
 import { ParametresPage } from './pages/parametres/ParametresPage';
 
@@ -81,6 +82,11 @@ function PageResolver() {
   // Cahier de textes
   if (route.tab === 'cahier') {
     return <CahierDeTextesPage />;
+  }
+
+  // Classes
+  if (route.tab === 'classes') {
+    return <ClassesPage />;
   }
 
   // Évaluation
@@ -135,9 +141,8 @@ function AppMain() {
           notificationCount={unreadCount}
           isOnline={isOnline}
           userInitials="YD"
-          onSearchChange={(q) => {
-            setSearchQuery(q);
-            if (q.length > 0) { setShowSearch(true); setShowSettings(false); }
+          onSearchClick={() => {
+            setShowSearch(true); setShowSettings(false);
           }}
           onNotificationsClick={() => {}}
           onSettingsClick={() => { setShowSettings(prev => !prev); setShowSearch(false); }}
@@ -147,6 +152,7 @@ function AppMain() {
             setShowSearch(false); setShowSettings(false);
           }}
           onLogoClick={closeCurrent}
+          onSwitchDatabase={closeCurrent}
           workspaceLabel={currentLabel ?? undefined}
         />
       }

@@ -149,6 +149,68 @@
   color: var(--color-text-muted);
 }
 
+/* ── Accès rapide ── */
+
+.welcome__quick-access {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.welcome__quick-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.welcome__quick-list {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.welcome__quick-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-xs);
+  border: var(--border-default);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.welcome__quick-item:hover {
+  border-color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.04);
+  box-shadow: var(--shadow-card);
+}
+
+.welcome__quick-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.welcome__quick-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.welcome__quick-date {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
 /* ── Récents ── */
 
 .welcome__recents {

@@ -13,6 +13,7 @@ export const APP_TABS: { id: TabId; label: string; icon?: string }[] = [
   { id: 'preparation',  label: 'Préparation',       icon: '🧩' },
   { id: 'planning',     label: 'Planning',          icon: '📅' },
   { id: 'cahier',       label: 'Cahier de textes',  icon: '📝' },
+  { id: 'classes',      label: 'Classes',            icon: '👥' },
   { id: 'evaluation',   label: 'Évaluation',        icon: '📊' },
 ];
 
@@ -75,6 +76,13 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'cahier-tle2', label: 'Terminale 2',        page: 'classe', filter: '1', dynamic: true },
     { id: 'cahier-tle4', label: 'Terminale 4',        page: 'classe', filter: '2', dynamic: true },
     { id: 'cahier-1e3',  label: 'Première 3',         page: 'classe', filter: '3', dynamic: true },
+  ],
+
+  classes: [
+    { id: 'cls-sep-classes',  label: 'MES CLASSES',              isSection: true },
+    { id: 'cls-overview',     label: 'Vue d\'ensemble',          page: 'overview',     indent: 1, icon: '👥' },
+    { id: 'cls-sep-import',   label: 'IMPORT',                   isSection: true },
+    { id: 'cls-import',       label: 'Importer une classe',      page: 'import',       indent: 1, icon: '📥' },
   ],
 
   evaluation: [

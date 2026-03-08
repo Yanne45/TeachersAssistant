@@ -18,6 +18,8 @@ export interface Route {
   entityId?: number | string | null;
   /** Sous-vue de l'entité (niveau 4) — ex: 'competences', 'correction-serie' */
   subView?: string | null;
+  /** Filtre optionnel (ex: sidebar subject filter) */
+  filter?: string | null;
 }
 
 interface RouterState {
@@ -25,7 +27,7 @@ interface RouterState {
   /** Navigation complète */
   navigate: (route: Partial<Route> & { tab: TabId }) => void;
   /** Changer juste la sous-page dans le tab actif */
-  setPage: (page: string) => void;
+  setPage: (page: string, filter?: string | null) => void;
   /** Sélectionner une entité */
   setEntity: (id: number | string | null, subView?: string | null) => void;
   /** Retour : effacer subView → entityId → page par défaut */
@@ -42,6 +44,7 @@ export const DEFAULT_PAGES: Record<TabId, string> = {
   preparation: 'sequences',
   planning: 'edt',
   cahier: 'all',
+  classes: 'overview',
   evaluation: 'devoirs',
 };
 
@@ -55,6 +58,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     page: 'home',
     entityId: null,
     subView: null,
+    filter: null,
   });
 
   const navigate = useCallback((partial: Partial<Route> & { tab: TabId }) => {
@@ -63,11 +67,12 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       page: partial.page ?? DEFAULT_PAGES[partial.tab] ?? 'home',
       entityId: partial.entityId ?? null,
       subView: partial.subView ?? null,
+      filter: partial.filter ?? null,
     });
   }, []);
 
-  const setPage = useCallback((page: string) => {
-    setRoute(prev => ({ ...prev, page, entityId: null, subView: null }));
+  const setPage = useCallback((page: string, filter?: string | null) => {
+    setRoute(prev => ({ ...prev, page, entityId: null, subView: null, filter: filter ?? null }));
   }, []);
 
   const setEntity = useCallback((id: number | string | null, subView?: string | null) => {

@@ -8,26 +8,43 @@ export interface AppHeaderProps {
   isOnline?: boolean;
   /** Initiales utilisateur */
   userInitials?: string;
+  /** Nom de la base / workspace affichée */
+  workspaceLabel?: string;
   onSearchClick?: () => void;
   onAIClick?: () => void;
   onNotificationsClick?: () => void;
   onSettingsClick?: () => void;
+  /** Clic sur le logo → retour écran d'accueil */
+  onLogoClick?: () => void;
+  /** Clic sur l'icône base → changer de base */
+  onSwitchDatabase?: () => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({
   notificationCount = 0,
   isOnline = true,
   userInitials = 'YD',
+  workspaceLabel,
   onSearchClick,
   onAIClick,
   onNotificationsClick,
   onSettingsClick,
+  onLogoClick,
+  onSwitchDatabase,
 }) => (
   <header className="app-header">
-    {/* Logo */}
-    <div className="app-header__brand">
+    {/* Logo — cliquable pour retour accueil */}
+    <div
+      className="app-header__brand"
+      onClick={onLogoClick}
+      style={{ cursor: onLogoClick ? 'pointer' : undefined }}
+      title={onLogoClick ? 'Retour à l\'accueil' : undefined}
+    >
       <span className="app-header__logo">🎓</span>
       <span className="app-header__title">Teacher Assistant</span>
+      {workspaceLabel && (
+        <span className="app-header__workspace-label">— {workspaceLabel}</span>
+      )}
     </div>
 
     {/* Recherche */}
@@ -38,6 +55,13 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
     {/* Actions droite */}
     <div className="app-header__actions">
+      {/* Changer de base */}
+      {onSwitchDatabase && (
+        <button className="app-header__action" onClick={onSwitchDatabase} type="button" title="Changer de base">
+          <span>📁</span>
+        </button>
+      )}
+
       {/* IA */}
       <button className="app-header__action" onClick={onAIClick} type="button" title="Générateur IA">
         <span>🤖</span>
