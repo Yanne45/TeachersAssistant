@@ -91,32 +91,21 @@ export async function createDatabase(filePath: string): Promise<boolean> {
 }
 
 /**
- * Applique le schéma initial sur la base ouverte.
- * @param schemaSql Le contenu SQL du fichier 001_initial_schema.sql
+ * @deprecated Remplacé par migrationRunner.runMigrations().
  */
 export async function applySchema(schemaSql: string): Promise<void> {
   if (!_db) throw new Error('[DB] Aucune base ouverte');
-
-  // Split SQL into statements respecting string literals.
-  // A naive .split(';') breaks on semicolons inside '...' values.
   const statements = splitSqlStatements(schemaSql);
-
-  let applied = 0;
-  let skipped = 0;
   for (const stmt of statements) {
     try {
       await _db.execute(stmt, []);
-      applied++;
     } catch (err) {
       const msg = String(err);
-      if (msg.includes('already exists')) {
-        skipped++;
-      } else {
+      if (!msg.includes('already exists')) {
         console.error('[DB] Erreur migration:', stmt.substring(0, 80), err);
       }
     }
   }
-  console.log(`[DB] Schema applique : ${applied} statements, ${skipped} skipped (already exists)`);
 }
 
 /**
@@ -126,7 +115,7 @@ export async function applySchema(schemaSql: string): Promise<void> {
  * - Block comments (/* ... *​/)
  * - Semicolons inside strings are NOT treated as delimiters
  */
-function splitSqlStatements(sql: string): string[] {
+export function splitSqlStatements(sql: string): string[] {
   const results: string[] = [];
   let current = '';
   let i = 0;

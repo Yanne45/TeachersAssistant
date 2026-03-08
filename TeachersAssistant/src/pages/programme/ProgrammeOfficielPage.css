@@ -71,6 +71,16 @@
   flex: 1;
 }
 
+/* ── Description du thème ── */
+
+.theme-card__description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-muted);
+  padding: 0 0 8px;
+  font-style: italic;
+}
+
 /* ── Chapitres ── */
 
 .theme-card__chapters {
@@ -88,6 +98,22 @@
   background-color: var(--color-bg);
   border-radius: var(--radius-xs);
   padding: 8px 12px;
+  cursor: pointer;
+  border: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-family);
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.chapter-row:hover {
+  background-color: var(--color-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.chapter-row--active {
+  background-color: var(--color-bg-hover, rgba(0, 0, 0, 0.04));
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
 }
 
 .chapter-row__title {
@@ -99,4 +125,115 @@
   display: flex;
   gap: var(--space-1);
   flex-shrink: 0;
+  align-items: center;
+}
+
+.chapter-row__expand {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-left: 4px;
+  transition: transform var(--transition-fast);
+}
+
+/* ── Panneau de détail du chapitre ── */
+
+.chapter-detail {
+  background-color: var(--color-surface, #fff);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  padding: 12px 16px;
+  margin-bottom: 4px;
+  animation: chapter-detail-enter 0.15s ease-out;
+}
+
+@keyframes chapter-detail-enter {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.chapter-detail__loading {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  padding: 4px 0;
+}
+
+.chapter-detail__section {
+  margin-bottom: 12px;
+}
+
+.chapter-detail__section:last-child {
+  margin-bottom: 0;
+}
+
+.chapter-detail__label {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin: 0 0 6px 0;
+}
+
+.chapter-detail__text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* ── Mots-clés ── */
+
+.chapter-detail__keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chapter-detail__keyword {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border: 1px solid;
+  border-radius: 12px;
+  background: transparent;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Points du programme ── */
+
+.chapter-detail__points {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chapter-detail__points li {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+  padding: 4px 0 4px 16px;
+  position: relative;
+}
+
+.chapter-detail__points li::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: var(--color-text-muted);
+}
+
+.chapter-detail__point-desc {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.chapter-detail__empty {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
 }

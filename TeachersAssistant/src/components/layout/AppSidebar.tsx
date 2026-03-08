@@ -20,7 +20,7 @@ export const AppSidebar: React.FC<Props> = ({ tab }) => {
 
   if (!items || items.length === 0) return null;
 
-  const activeItemId = findActiveSidebarItem(tab, route.page);
+  const activeItemId = findActiveSidebarItem(tab, route.page, route.filter);
 
   const handleClick = (item: SidebarItem) => {
     if (item.isSection || !item.page) return;

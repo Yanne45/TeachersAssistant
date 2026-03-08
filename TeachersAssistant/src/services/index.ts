@@ -2,7 +2,8 @@
 // Teacher Assistant — Services barrel export
 // ============================================================================
 
-export { db, initDatabase, openDatabase, createDatabase, closeDatabase, applySchema, getCurrentPath, isOpen } from './db';
+export { db, initDatabase, openDatabase, createDatabase, closeDatabase, getCurrentPath, isOpen } from './db';
+export { runMigrations } from './migrationRunner';
 export { workspaceService } from './workspaceService';
 
 // Cadre annuel

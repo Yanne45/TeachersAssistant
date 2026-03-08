@@ -9,8 +9,8 @@ import {
   openDatabase,
   createDatabase,
   closeDatabase,
-  applySchema,
 } from '../services/db';
+import { runMigrations } from '../services/migrationRunner';
 import { workspaceService } from '../services/workspaceService';
 
 // ── Types ──
@@ -97,16 +97,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setStatus('loading');
 
       await openDatabase(path);
-
-      // Apply migrations to ensure existing bases are up-to-date
-      // (idempotent — safe to run on already-migrated bases)
-      const patchMigrations = ['/db/002_ai_prompts.sql', '/db/003_reference_data.sql'];
-      for (const url of patchMigrations) {
-        try {
-          const resp = await fetch(url);
-          if (resp.ok) await applySchema(await resp.text());
-        } catch { /* non-critical */ }
-      }
+      await runMigrations();
 
       // Extraire un label depuis la DB si pas fourni
       let finalLabel = label ?? path.split(/[\\/]/).pop()?.replace('.ta', '') ?? 'Sans titre';
@@ -146,34 +137,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [doOpen]);
 
-  /**
-   * Apply all SQL migrations in order.
-   * Each migration is fetched from /db/ (Vite public dir).
-   * Migrations are idempotent (CREATE IF NOT EXISTS, UPDATE WHERE).
-   */
-  const applyMigrations = useCallback(async () => {
-    const migrations = [
-      '/db/001_initial_schema.sql',
-      '/db/002_ai_prompts.sql',
-      '/db/003_reference_data.sql',
-    ];
-
-    for (const url of migrations) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          const sql = await response.text();
-          await applySchema(sql);
-          console.log(`[Workspace] Migration applied: ${url}`);
-        } else {
-          console.warn(`[Workspace] Migration not found: ${url} (${response.status})`);
-        }
-      } catch (err) {
-        console.warn(`[Workspace] Migration failed: ${url}`, err);
-      }
-    }
-  }, []);
-
   const createNew = useCallback(async () => {
     const path = await workspaceService.pickFileToCreate();
     if (!path) return;
@@ -185,11 +148,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Supprimer le fichier existant pour garantir une base vierge
       await workspaceService.deleteFile(path);
 
-      const needsSchema = await createDatabase(path);
-
-      if (needsSchema) {
-        await applyMigrations();
-      }
+      await createDatabase(path);
+      await runMigrations();
 
       const label = path.split(/[\\/]/).pop()?.replace('.ta', '') ?? 'Nouvelle base';
       await workspaceService.registerOpen(path, label);
@@ -205,7 +165,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setError(`Impossible de créer : ${String(err)}`);
       setStatus('error');
     }
-  }, [applyMigrations]);
+  }, []);
 
   const closeCurrent = useCallback(async () => {
     await closeDatabase();
