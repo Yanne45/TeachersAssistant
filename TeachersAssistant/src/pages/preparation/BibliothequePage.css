@@ -57,6 +57,87 @@
   margin-left: auto;
 }
 
+/* ── Toggle vue ── */
+
+.bib-page__view-toggle {
+  display: flex;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+
+.bib-page__view-btn {
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.bib-page__view-btn:hover { background: var(--color-bg); color: var(--color-text); }
+.bib-page__view-btn--active { background: var(--color-primary); color: white; }
+
+/* ── Vue liste (table) ── */
+
+.bib-page__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.bib-page__th {
+  padding: 6px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  border-bottom: var(--border-default);
+  white-space: nowrap;
+}
+.bib-page__th--icon { width: 32px; }
+.bib-page__th--date { width: 80px; text-align: right; }
+
+.bib-page__tr {
+  transition: background var(--transition-fast);
+}
+.bib-page__tr:hover { background: var(--color-bg); }
+
+.bib-page__td {
+  padding: 8px 10px;
+  border-bottom: var(--border-default);
+  vertical-align: middle;
+}
+.bib-page__td--icon {
+  font-size: 16px;
+  text-align: center;
+}
+.bib-page__td--title {
+  font-weight: var(--font-weight-medium);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bib-page__td--date {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bib-page__ai-badge {
+  font-size: 10px;
+  margin-left: 4px;
+  opacity: 0.7;
+}
+
 /* ── Dropzone ── */
 
 .bib-page__dropzone {
@@ -73,4 +154,50 @@
 .bib-page__dropzone:hover {
   border-color: var(--color-primary);
   background-color: var(--color-primary-hover);
+}
+
+/* ── Tags sur les cards ── */
+
+.doc-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: var(--space-1);
+}
+
+.doc-card__tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  background: var(--color-bg);
+  border: var(--border-default);
+  color: var(--color-text-muted);
+}
+
+.bib-page__loading {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  padding: var(--space-5);
+  text-align: center;
+}
+
+/* ── Dialog pick (sélection fichiers sans DnD) ── */
+
+.bib-page__pick-dialog {
+  background: var(--color-surface);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-floating);
+  padding: var(--space-5);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bib-page__pick-dialog h3 {
+  font-size: 15px;
+  font-weight: var(--font-weight-bold);
+  margin: 0;
 }

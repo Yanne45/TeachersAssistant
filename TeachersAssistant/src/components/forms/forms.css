@@ -4,10 +4,13 @@
 
 .form__grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);
+  /* Empêche les colonnes de dépasser la largeur disponible */
+  min-width: 0;
 }
 
 .form__field {
   display: flex; flex-direction: column; gap: var(--space-1);
+  min-width: 0; /* Autorise la réduction dans la grille */
 }
 
 .form__field--full { grid-column: 1 / -1; }
@@ -23,6 +26,8 @@
 .form__input,
 .form__select,
 .form__textarea {
+  width: 100%;
+  box-sizing: border-box;
   padding: var(--space-2) var(--space-3);
   border: var(--border-default); border-radius: var(--radius-xs);
   background: var(--color-surface); font-size: 13px;

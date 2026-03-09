@@ -28,6 +28,7 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '008_clean_programmes.sql', url: '/db/008_clean_programmes.sql' },
   { filename: '009_dedup_levels.sql', url: '/db/009_dedup_levels.sql' },
   { filename: '010_merge_1ere_level.sql', url: '/db/010_merge_1ere_level.sql' },
+  { filename: '011_sequence_documents.sql', url: '/db/011_sequence_documents.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──
@@ -145,14 +146,19 @@ export async function runMigrations(): Promise<void> {
 
   // 2. Réparer le stamp erroné de 009 (bug corrigé : l'ancien code stampait tout, y compris 009)
   //    Si 009 est marquée mais que des doublons existent encore, la retirer pour forcer l'exécution.
-  const dupCheck = await db.select<{ cnt: number }[]>(
-    'SELECT COUNT(*) - COUNT(DISTINCT code) as cnt FROM levels'
+  const levelsExists = await db.select<{ name: string }[]>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name='levels'"
   );
-  if ((dupCheck[0]?.cnt ?? 0) > 0) {
-    await db.execute(
-      "DELETE FROM schema_migrations WHERE filename = '009_dedup_levels.sql'"
+  if (levelsExists.length > 0) {
+    const dupCheck = await db.select<{ cnt: number }[]>(
+      'SELECT COUNT(*) - COUNT(DISTINCT code) as cnt FROM levels'
     );
-    console.log('[Migrations] Doublons détectés — 009 sera rejouée');
+    if ((dupCheck[0]?.cnt ?? 0) > 0) {
+      await db.execute(
+        "DELETE FROM schema_migrations WHERE filename = '009_dedup_levels.sql'"
+      );
+      console.log('[Migrations] Doublons détectés — 009 sera rejouée');
+    }
   }
 
   // 3. Déterminer quelles migrations restent à jouer

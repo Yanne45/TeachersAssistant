@@ -3,6 +3,7 @@
 // ============================================================================
 
 export { SequenceForm } from './SequenceForm';
+export type { SequenceFormResult } from './SequenceForm';
 export { SeanceForm } from './SeanceForm';
 export { DevoirForm } from './DevoirForm';
 export { EleveForm } from './EleveForm';

@@ -120,6 +120,37 @@ export const sequenceService = {
     });
   },
 
+  /** Documents liés à la séquence */
+  async getDocuments(sequenceId: ID): Promise<any[]> {
+    return db.select(
+      `SELECT d.*,
+         dt.label as document_type_label,
+         sub.label as subject_label, sub.color as subject_color,
+         l.label as level_label,
+         sd.sort_order
+       FROM sequence_documents sd
+       JOIN documents d ON sd.document_id = d.id
+       LEFT JOIN document_types dt ON d.document_type_id = dt.id
+       LEFT JOIN subjects sub ON d.subject_id = sub.id
+       LEFT JOIN levels l ON d.level_id = l.id
+       WHERE sd.sequence_id = ?
+       ORDER BY sd.sort_order`,
+      [sequenceId]
+    );
+  },
+
+  async setDocuments(sequenceId: ID, documentIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute('DELETE FROM sequence_documents WHERE sequence_id = ?', [sequenceId]);
+      for (let i = 0; i < documentIds.length; i++) {
+        await db.execute(
+          'INSERT INTO sequence_documents (sequence_id, document_id, sort_order) VALUES (?, ?, ?)',
+          [sequenceId, documentIds[i], i]
+        );
+      }
+    });
+  },
+
   /** Sauvegarder comme template */
   async saveAsTemplate(id: ID): Promise<ID> {
     const seq = await this.getById(id);
