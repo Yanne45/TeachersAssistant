@@ -21,8 +21,13 @@
 .correction-page__students {
   width: 200px;
   flex-shrink: 0;
-  overflow-y: auto;
+  overflow: hidden;
   padding: var(--space-2);
+}
+
+.correction-page__students-list {
+  height: calc(100% - 30px);
+  overflow-y: auto;
 }
 
 .student-row {
@@ -91,15 +96,47 @@
 .correction-page__preview {
   background-color: var(--color-bg);
   border-radius: var(--radius-xs);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   min-height: 180px;
+  overflow: hidden;
 }
 
 .correction-page__preview-label {
   font-size: 12px;
   color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.correction-page__preview-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.correction-page__preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px;
+}
+
+.correction-page__preview-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #fff;
+}
+
+.correction-page__preview-path {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  padding: 6px 8px;
+  border-top: var(--border-default);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .correction-page__editor {

@@ -1,35 +1,10 @@
-import React, { useState } from 'react';
-import { Card, Badge, Button, ProgressBar } from '../../components/ui';
+﻿import React, { useEffect, useState } from 'react';
+import { Card, Button, ProgressBar, EmptyState } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
-import { aiCorrectionService } from '../../services';
-import { useApp } from '../../stores';
+import { aiCorrectionService, assignmentService, bilanService, pdfExportService } from '../../services';
+import { useApp, useData, useRouter } from '../../stores';
+import type { AssignmentStats } from '../../types';
 import './BilanDevoirPage.css';
-
-// ── Mock ──
-
-const HISTOGRAM = [
-  { range: '0-2.5', count: 0 },
-  { range: '2.5-5', count: 1 },
-  { range: '5-7.5', count: 3 },
-  { range: '7.5-10', count: 5 },
-  { range: '10-12.5', count: 8 },
-  { range: '12.5-15', count: 6 },
-  { range: '15-17.5', count: 4 },
-  { range: '17.5-20', count: 1 },
-];
-
-const MAX_COUNT = Math.max(...HISTOGRAM.map(h => h.count));
-
-const SKILLS_AVG = [
-  { name: 'Problématiser', score: 2.8 },
-  { name: 'Construire un plan', score: 2.3 },
-  { name: 'Mobiliser connaissances', score: 3.1 },
-  { name: 'Rédaction', score: 2.5 },
-  { name: 'Analyser un document', score: 2.1 },
-];
-
-const TOP_SUCCESSES = ['Mobilisation des connaissances sur la période', 'Qualité des introductions', 'Utilisation du vocabulaire spécifique'];
-const TOP_WEAKNESSES = ['Analyse de documents trop descriptive', 'Transitions entre parties', 'Manque de problématisation'];
 
 function scoreColor(score: number) {
   if (score >= 3.0) return 'var(--color-success)';
@@ -37,25 +12,109 @@ function scoreColor(score: number) {
   return 'var(--color-danger)';
 }
 
-// ── Composant ──
-
 export const BilanDevoirPage: React.FC = () => {
-  const { addToast } = useApp();
+  const { activeYear, addToast } = useApp();
+  const { route } = useRouter();
+  const { loadAssignments } = useData();
+
+  const [assignmentId, setAssignmentId] = useState<number | null>(null);
+  const [assignment, setAssignment] = useState<any | null>(null);
+  const [stats, setStats] = useState<AssignmentStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [bilanComment, setBilanComment] = useState<string | null>(null);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [generatingBilan, setGeneratingBilan] = useState(false);
 
+  const routeAssignmentIdRaw = Number.parseInt(String(route.entityId ?? ''), 10);
+  const routeAssignmentId = Number.isFinite(routeAssignmentIdRaw) ? routeAssignmentIdRaw : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      try {
+        let targetId = routeAssignmentId;
+
+        if (!targetId) {
+          const assignments = await loadAssignments();
+          targetId = assignments[0]?.id ?? null;
+        }
+
+        if (!targetId) {
+          if (!cancelled) {
+            setAssignmentId(null);
+            setAssignment(null);
+            setStats(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const [assignmentData, statsData] = await Promise.all([
+          assignmentService.getById(targetId),
+          bilanService.computeStats(targetId),
+        ]);
+
+        if (!cancelled) {
+          setAssignmentId(targetId);
+          setAssignment(assignmentData);
+          setStats(statsData);
+        }
+      } catch (error) {
+        console.error('[BilanDevoirPage] Erreur chargement bilan:', error);
+        if (!cancelled) {
+          setAssignmentId(null);
+          setAssignment(null);
+          setStats(null);
+          addToast('error', 'Impossible de charger le bilan');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    if (!activeYear) {
+      setLoading(false);
+      return;
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeYear, routeAssignmentId, loadAssignments, addToast]);
+
+  const histogram = stats?.histogram ?? [];
+  const maxCount = histogram.length === 0 ? 1 : Math.max(...histogram.map((h) => h.count), 1);
+
+  const skillsAvg = stats?.skill_averages ?? [];
+  const topSuccesses = stats?.top_strengths ?? [];
+  const topWeaknesses = stats?.top_weaknesses ?? [];
+
   const handleGenerateBilan = async () => {
+    if (!assignmentId || !stats) {
+      addToast('warn', 'Aucun devoir sélectionné');
+      return;
+    }
+
     setGeneratingBilan(true);
     try {
-      const comment = await aiCorrectionService.generateBilanComment(1, {
-        average: 11.2, median: 11, min: 4, max: 18, totalStudents: 28,
-        skillAverages: SKILLS_AVG.map(s => ({ label: s.name, avg: s.avgScore })),
-        topStrengths: TOP_SUCCESSES, topWeaknesses: TOP_WEAKNESSES,
+      const comment = await aiCorrectionService.generateBilanComment(assignmentId, {
+        average: stats.mean,
+        median: stats.median,
+        min: stats.min,
+        max: stats.max,
+        totalStudents: assignment?.submission_count ?? 0,
+        skillAverages: skillsAvg.map((s) => ({ label: s.skill_label, avg: s.average })),
+        topStrengths: topSuccesses,
+        topWeaknesses: topWeaknesses,
       });
       setBilanComment(comment);
       addToast('success', 'Commentaire de classe généré');
-    } catch (err) {
+    } catch (error) {
+      console.error('[BilanDevoirPage] Erreur generation IA:', error);
       setBilanComment('Erreur lors de la génération du commentaire.');
       addToast('error', 'Erreur de génération IA');
     } finally {
@@ -63,103 +122,139 @@ export const BilanDevoirPage: React.FC = () => {
     }
   };
 
+  if (loading) {
+    return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>;
+  }
+
+  if (!assignmentId || !assignment || !stats) {
+    return (
+      <div className="bilan-page">
+        <EmptyState
+          icon="📊"
+          title="Aucun devoir disponible"
+          description="Créez un devoir puis corrigez des copies pour afficher le bilan."
+        />
+      </div>
+    );
+  }
+
   return (
-  <div className="bilan-page">
-    {/* En-tête */}
-    <div className="bilan-page__header">
-      <h1 className="bilan-page__title">Bilan — Dissertation HGGSP (Tle 2)</h1>
-      <span className="bilan-page__subtitle">28 copies corrigées — 12 février 2026</span>
-    </div>
+    <div className="bilan-page">
+      <div className="bilan-page__header">
+        <h1 className="bilan-page__title">Bilan - {assignment.title}</h1>
+        <span className="bilan-page__subtitle">
+          {(assignment.submission_count ?? 0)} copies - {assignment.assignment_date ?? assignment.due_date ?? 'date non renseignée'}
+        </span>
+      </div>
 
-    {/* Grille 2×2 */}
-    <div className="bilan-page__grid">
-      {/* Distribution notes */}
-      <Card noHover>
-        <h3 className="bilan-page__card-title">📊 Distribution des notes</h3>
-        <div className="histogram">
-          {HISTOGRAM.map((bar, i) => (
-            <div key={i} className="histogram__col">
-              <div
-                className="histogram__bar"
-                style={{ height: `${bar.count > 0 ? (bar.count / MAX_COUNT) * 120 : 2}px` }}
-              >
-                {bar.count > 0 && <span className="histogram__count">{bar.count}</span>}
+      <div className="bilan-page__grid">
+        <Card noHover>
+          <h3 className="bilan-page__card-title">Distribution des notes</h3>
+          <div className="histogram">
+            {histogram.map((bar, i) => (
+              <div key={i} className="histogram__col">
+                <div
+                  className="histogram__bar"
+                  style={{ height: `${bar.count > 0 ? (bar.count / maxCount) * 120 : 2}px` }}
+                >
+                  {bar.count > 0 && <span className="histogram__count">{bar.count}</span>}
+                </div>
+                <span className="histogram__label">{bar.range.split('-')[0]}</span>
               </div>
-              <span className="histogram__label">{bar.range.split('-')[0]}</span>
-            </div>
-          ))}
-        </div>
-        <div className="bilan-page__stats">
-          <span>Moy: <strong>11.2</strong></span>
-          <span>Méd: <strong>11</strong></span>
-          <span>Min: <strong>4</strong></span>
-          <span>Max: <strong>18</strong></span>
-        </div>
-      </Card>
+            ))}
+          </div>
+          <div className="bilan-page__stats">
+            <span>Moy: <strong>{stats.mean.toFixed(1)}</strong></span>
+            <span>Med: <strong>{stats.median.toFixed(1)}</strong></span>
+            <span>Min: <strong>{stats.min.toFixed(1)}</strong></span>
+            <span>Max: <strong>{stats.max.toFixed(1)}</strong></span>
+          </div>
+        </Card>
 
-      {/* Compétences moyennes */}
-      <Card noHover>
-        <h3 className="bilan-page__card-title">🎯 Compétences (moyenne classe)</h3>
-        <div className="bilan-skills">
-          {SKILLS_AVG.map(s => (
-            <div key={s.name} className="bilan-skill">
-              <div className="bilan-skill__header">
-                <span className="bilan-skill__name">{s.name}</span>
-                <span className="bilan-skill__score" style={{ color: scoreColor(s.score) }}>
-                  {s.score.toFixed(1)}/4
-                </span>
-              </div>
-              <ProgressBar value={(s.score / 4) * 100} color={scoreColor(s.score)} height={6} />
-            </div>
-          ))}
-        </div>
-      </Card>
+        <Card noHover>
+          <h3 className="bilan-page__card-title">Compétences (moyenne classe)</h3>
+          <div className="bilan-skills">
+            {skillsAvg.length === 0 ? (
+              <p className="bilan-page__item">Aucune compétence évaluée.</p>
+            ) : (
+              skillsAvg.map((s) => (
+                <div key={s.skill_id} className="bilan-skill">
+                  <div className="bilan-skill__header">
+                    <span className="bilan-skill__name">{s.skill_label}</span>
+                    <span className="bilan-skill__score" style={{ color: scoreColor(s.average) }}>
+                      {s.average.toFixed(1)}/4
+                    </span>
+                  </div>
+                  <ProgressBar value={(s.average / 4) * 100} color={scoreColor(s.average)} height={6} />
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
 
-      {/* Top réussites */}
-      <Card borderTopColor="var(--color-success)" noHover>
-        <h3 className="bilan-page__card-title bilan-page__card-title--success">✅ Top 3 réussites</h3>
-        {TOP_SUCCESSES.map((s, i) => (
-          <p key={i} className="bilan-page__item">• {s}</p>
-        ))}
-      </Card>
+        <Card borderTopColor="var(--color-success)" noHover>
+          <h3 className="bilan-page__card-title bilan-page__card-title--success">Top 3 réussites</h3>
+          {topSuccesses.length === 0 ? (
+            <p className="bilan-page__item">-</p>
+          ) : (
+            topSuccesses.map((s, i) => (
+              <p key={i} className="bilan-page__item">- {s}</p>
+            ))
+          )}
+        </Card>
 
-      {/* Top lacunes */}
-      <Card borderTopColor="var(--color-danger)" noHover>
-        <h3 className="bilan-page__card-title bilan-page__card-title--danger">⚠️ Top 3 lacunes</h3>
-        {TOP_WEAKNESSES.map((w, i) => (
-          <p key={i} className="bilan-page__item">• {w}</p>
-        ))}
-      </Card>
+        <Card borderTopColor="var(--color-danger)" noHover>
+          <h3 className="bilan-page__card-title bilan-page__card-title--danger">Top 3 lacunes</h3>
+          {topWeaknesses.length === 0 ? (
+            <p className="bilan-page__item">-</p>
+          ) : (
+            topWeaknesses.map((w, i) => (
+              <p key={i} className="bilan-page__item">- {w}</p>
+            ))
+          )}
+        </Card>
+      </div>
+
+      <div className="bilan-page__actions">
+        <Button variant="primary" size="M" onClick={handleGenerateBilan} disabled={generatingBilan}>
+          {generatingBilan ? 'Génération...' : 'Générer commentaire classe (IA)'}
+        </Button>
+        <Button
+          variant="secondary"
+          size="M"
+          onClick={async () => {
+            try {
+              const html = await pdfExportService.buildBilanHTML(assignmentId);
+              if (!html.trim()) {
+                addToast('error', 'Aperçu PDF vide');
+                return;
+              }
+              setPdfHtml(html);
+            } catch (error) {
+              console.error('[BilanDevoirPage] Erreur export PDF:', error);
+              addToast('error', 'Erreur génération PDF');
+            }
+          }}
+        >
+          Export PDF bilan
+        </Button>
+      </div>
+
+      <PDFPreviewModal
+        html={pdfHtml ?? ''}
+        title="Bilan devoir"
+        filename="bilan-devoir.html"
+        open={!!pdfHtml}
+        onClose={() => setPdfHtml(null)}
+      />
+
+      {bilanComment && (
+        <Card noHover className="bilan-page__card" style={{ marginTop: 'var(--space-3)' }}>
+          <h3 className="bilan-page__card-title">Commentaire synthétique (IA)</h3>
+          <p style={{ fontSize: 13, lineHeight: 1.6 }}>{bilanComment}</p>
+        </Card>
+      )}
     </div>
-
-    {/* Actions */}
-    <div className="bilan-page__actions">
-      <Button variant="primary" size="M" icon={<span>🤖</span>} onClick={handleGenerateBilan} disabled={generatingBilan}>
-            {generatingBilan ? '⏳ Génération…' : 'Générer commentaire classe (IA)'}
-          </Button>
-      <Button variant="secondary" size="M" onClick={async () => {
-        try {
-          const { pdfExportService } = await import('../../services');
-          const html = await pdfExportService.buildBilanHTML(1);
-          setPdfHtml(html);
-        } catch { window.print(); }
-      }}>Export PDF bilan</Button>
-    </div>
-
-    <PDFPreviewModal
-      html={pdfHtml ?? ''}
-      title="Bilan devoir"
-      filename="bilan-devoir.html"
-      open={!!pdfHtml}
-      onClose={() => setPdfHtml(null)}
-    />
-
-    {bilanComment && (
-      <Card noHover className="bilan-page__card" style={{ marginTop: 'var(--space-3)' }}>
-        <h3 className="bilan-page__card-title">💬 Commentaire synthétique (IA)</h3>
-        <p style={{ fontSize: 13, lineHeight: 1.6 }}>{bilanComment}</p>
-      </Card>
-    )}
-  </div>
   );
 };
+

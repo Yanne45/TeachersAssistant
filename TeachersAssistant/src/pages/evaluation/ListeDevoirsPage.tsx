@@ -2,9 +2,10 @@
 // ListeDevoirsPage — Liste des devoirs (spec §5.9) — branché DataProvider
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { EmptyState } from '../../components/ui';
-import { useData, useRouter } from '../../stores';
+import { useApp, useData, useRouter } from '../../stores';
+import { assignmentService, submissionService } from '../../services';
 import { MOCK_ASSIGNMENTS } from '../../stores/mockData';
 import { DevoirForm } from '../../components/forms';
 import './ListeDevoirsPage.css';
@@ -20,13 +21,21 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 export const ListeDevoirsPage: React.FC = () => {
-  const { loadAssignments, isDbMode } = useData();
-  const { navigate: routerNav, setPage, setEntity } = useRouter();
+  const { activeYear, addToast } = useApp();
+  const { loadAssignments } = useData();
+  const { navigate } = useRouter();
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
+
+  const refreshAssignments = useCallback(async () => {
+    setLoading(true);
+    const data = await loadAssignments();
+    setAssignments(data.length > 0 ? data : MOCK_ASSIGNMENTS);
+    setLoading(false);
+  }, [loadAssignments]);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +89,12 @@ export const ListeDevoirsPage: React.FC = () => {
                 const total = d.total_count ?? 0;
                 const skills: string[] = d.skill_labels ?? [];
                 return (
-                  <tr key={d.id} className="devoirs-page__row" onClick={() => { setEntity(d.id); setPage('correction-serie'); }} style={{ cursor: 'pointer' }}>
+                  <tr
+                    key={d.id}
+                    className="devoirs-page__row"
+                    onClick={() => navigate({ tab: 'evaluation', page: 'correction-serie', entityId: d.id })}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <td className="devoirs-page__cell-date">{d.assignment_date ?? d.date ?? '—'}</td>
                     <td><span className="devoirs-page__title-text" style={{ borderLeftColor: d.subject_color ?? d.subjectColor ?? '#888' }}>{d.title}</span></td>
                     <td className="devoirs-page__cell-type">{d.type_label ?? d.type ?? '—'}</td>
@@ -111,7 +125,57 @@ export const ListeDevoirsPage: React.FC = () => {
         />
       )}
 
-      <DevoirForm open={formOpen} onClose={() => setFormOpen(false)} onSave={(data) => { console.log('Save devoir:', data); setFormOpen(false); }} />
+      <DevoirForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={async (data) => {
+          if (!activeYear) {
+            addToast('error', 'Aucune année scolaire active');
+            return;
+          }
+
+          const classId = Number.parseInt(data.class_id, 10);
+          const subjectId = Number.parseInt(data.subject_id, 10);
+          const assignmentTypeId = Number.parseInt(data.assignment_type_id, 10);
+          if (!Number.isFinite(classId) || !Number.isFinite(subjectId) || !Number.isFinite(assignmentTypeId)) {
+            addToast('error', 'Impossible de créer le devoir: données invalides');
+            return;
+          }
+
+          const sequenceIdRaw = Number.parseInt(data.sequence_id, 10);
+          const maxScoreRaw = Number.parseFloat(data.max_score);
+          const coefficientRaw = Number.parseFloat(data.coefficient);
+          const skillIds = data.skill_ids
+            .map((skillId) => Number.parseInt(skillId, 10))
+            .filter(Number.isFinite);
+
+          try {
+            const assignmentId = await assignmentService.create({
+              academic_year_id: activeYear.id,
+              class_id: classId,
+              subject_id: subjectId,
+              sequence_id: Number.isFinite(sequenceIdRaw) ? sequenceIdRaw : null,
+              assignment_type_id: assignmentTypeId,
+              title: data.title.trim(),
+              description: null,
+              instructions: data.instructions.trim() || null,
+              max_score: Number.isFinite(maxScoreRaw) ? maxScoreRaw : 20,
+              coefficient: Number.isFinite(coefficientRaw) ? coefficientRaw : 1,
+              assignment_date: data.assignment_date || null,
+              due_date: data.due_date || null,
+              status: 'draft',
+              is_graded: true,
+            });
+            await assignmentService.setSkills(assignmentId, skillIds);
+            await submissionService.createBatch(assignmentId, classId);
+            await refreshAssignments();
+            addToast('success', 'Devoir créé');
+          } catch (error) {
+            console.error('[ListeDevoirsPage] Erreur création devoir:', error);
+            addToast('error', 'Échec de création du devoir');
+          }
+        }}
+      />
     </div>
   );
 };

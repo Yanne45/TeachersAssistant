@@ -1,73 +1,351 @@
-// ============================================================================
-// BulletinsPage — Gestion bulletins (vue classe × période)
+﻿// ============================================================================
+// BulletinsPage - Gestion bulletins (vue classe x periode)
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
-import { aiBulletinService } from '../../services';
+import {
+  aiBulletinService,
+  bulletinService,
+  classService,
+  pdfExportService,
+  reportPeriodService,
+  studentService,
+  subjectService,
+} from '../../services';
 import { useApp } from '../../stores';
 import './BulletinsPage.css';
 
-type Period = 'T1' | 'T2' | 'T3';
 type BulletinStatus = 'draft' | 'review' | 'final' | 'empty';
 
-interface StudentBulletin {
+interface PeriodInfo {
+  id: number;
+  code: string;
+  label: string;
+}
+
+interface StudentRow {
   id: number;
   name: string;
   avg: number | null;
-  statuses: Record<Period, BulletinStatus>;
-  excerpts: Record<Period, string>;
+  statuses: Record<string, BulletinStatus>;
 }
-
-const MOCK_DATA: StudentBulletin[] = [
-  { id: 1, name: 'ADRIEN Camille', avg: 14.0,
-    statuses: { T1: 'final', T2: 'draft', T3: 'empty' },
-    excerpts: { T1: 'Bon trimestre, travail régulier.', T2: 'En cours de rédaction…', T3: '' }},
-  { id: 3, name: 'BERNARD Emma', avg: 15.5,
-    statuses: { T1: 'final', T2: 'review', T3: 'empty' },
-    excerpts: { T1: 'Excellente élève, résultats remarquables.', T2: 'Très bon travail, rigueur confirmée.', T3: '' }},
-  { id: 4, name: 'BROSSARD Nathan', avg: 8.0,
-    statuses: { T1: 'final', T2: 'draft', T3: 'empty' },
-    excerpts: { T1: 'Difficultés méthodologiques importantes.', T2: '', T3: '' }},
-  { id: 9, name: 'DUPONT Léa', avg: 14.0,
-    statuses: { T1: 'final', T2: 'draft', T3: 'empty' },
-    excerpts: { T1: 'Travail sérieux, analyses en progrès.', T2: '', T3: '' }},
-  { id: 16, name: 'MARTIN Arthur', avg: 17.5,
-    statuses: { T1: 'final', T2: 'review', T3: 'empty' },
-    excerpts: { T1: 'Brillant, dissertations remarquables.', T2: 'Continue sur cette lancée exemplaire.', T3: '' }},
-  { id: 25, name: 'VIDAL Paul', avg: 5.0,
-    statuses: { T1: 'final', T2: 'empty', T3: 'empty' },
-    excerpts: { T1: 'En grande difficulté, travail insuffisant.', T2: '', T3: '' }},
-];
 
 const STATUS_DISPLAY: Record<BulletinStatus, { label: string; color: string; bg: string }> = {
   draft: { label: 'Brouillon', color: 'var(--color-text-muted)', bg: 'var(--color-bg)' },
   review: { label: 'Relecture', color: 'var(--color-warn)', bg: 'rgba(245, 166, 35, 0.1)' },
   final: { label: 'Final', color: 'var(--color-success)', bg: 'rgba(126, 217, 87, 0.1)' },
-  empty: { label: '—', color: 'var(--color-text-muted)', bg: 'transparent' },
+  empty: { label: '-', color: 'var(--color-text-muted)', bg: 'transparent' },
 };
+const VIRTUAL_ROW_HEIGHT = 42;
+const VIRTUAL_OVERSCAN = 8;
+
+function computeStatus(entries: Array<{ status: 'draft' | 'review' | 'final' }>): BulletinStatus {
+  if (entries.some((e) => e.status === 'final')) return 'final';
+  if (entries.some((e) => e.status === 'review')) return 'review';
+  if (entries.length > 0) return 'draft';
+  return 'empty';
+}
 
 export const BulletinsPage: React.FC = () => {
-  const { addToast } = useApp();
-  const [activeClass, setActiveClass] = useState('tle2');
-  const [activePeriod, setActivePeriod] = useState<Period>('T1');
-  const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
+  const { activeYear, addToast } = useApp();
+
+  const [classes, setClasses] = useState<Array<{ id: number; name: string; short_name: string }>>([]);
+  const [periods, setPeriods] = useState<PeriodInfo[]>([]);
+  const [subjects, setSubjects] = useState<Array<{ id: number; code: string; short_label: string }>>([]);
+
+  const [activeClassId, setActiveClassId] = useState<number | null>(null);
+  const [activePeriodId, setActivePeriodId] = useState<number | null>(null);
+  const [activeSubjectId, setActiveSubjectId] = useState<number | null>(null);
+
+  const [rows, setRows] = useState<StudentRow[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  const [editorText, setEditorText] = useState('');
+  const [editorEntryId, setEditorEntryId] = useState<number | null>(null);
+  const [aiInstructions, setAiInstructions] = useState('');
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
-  const [appreciation, setAppreciation] = useState('');
+
+  const [loading, setLoading] = useState(false);
   const [generatingOne, setGeneratingOne] = useState(false);
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [listScrollTop, setListScrollTop] = useState(0);
+  const [listViewportHeight, setListViewportHeight] = useState(420);
+  const bulletinEntriesCacheRef = useRef<Map<string, any[]>>(new Map());
+  const bulletinEntriesPromiseRef = useRef<Map<string, Promise<any[]>>>(new Map());
+  const gradesCacheRef = useRef<Map<number, any[]>>(new Map());
+  const gradesPromiseRef = useRef<Map<number, Promise<any[]>>>(new Map());
+
+  const periodCacheKey = (studentId: number, periodId: number) => `${studentId}:${periodId}`;
+
+  const getStudentPeriodEntries = useCallback(async (studentId: number, periodId: number, force = false) => {
+    const key = periodCacheKey(studentId, periodId);
+
+    if (force) {
+      bulletinEntriesCacheRef.current.delete(key);
+      bulletinEntriesPromiseRef.current.delete(key);
+    }
+
+    const cached = bulletinEntriesCacheRef.current.get(key);
+    if (cached) return cached;
+
+    const inflight = bulletinEntriesPromiseRef.current.get(key);
+    if (inflight) return inflight;
+
+    const promise = bulletinService.getByStudentPeriod(studentId, periodId)
+      .then((entries) => {
+        bulletinEntriesCacheRef.current.set(key, entries);
+        return entries;
+      })
+      .finally(() => {
+        bulletinEntriesPromiseRef.current.delete(key);
+      });
+
+    bulletinEntriesPromiseRef.current.set(key, promise);
+    return promise;
+  }, []);
+
+  const getRecentGradesCached = useCallback(async (studentId: number, force = false) => {
+    if (force) {
+      gradesCacheRef.current.delete(studentId);
+      gradesPromiseRef.current.delete(studentId);
+    }
+
+    const cached = gradesCacheRef.current.get(studentId);
+    if (cached) return cached;
+
+    const inflight = gradesPromiseRef.current.get(studentId);
+    if (inflight) return inflight;
+
+    const promise = studentService.getRecentGrades(studentId, 20)
+      .then((grades) => {
+        gradesCacheRef.current.set(studentId, grades);
+        return grades;
+      })
+      .finally(() => {
+        gradesPromiseRef.current.delete(studentId);
+      });
+
+    gradesPromiseRef.current.set(studentId, promise);
+    return promise;
+  }, []);
+
+  const invalidateStudentPeriodCache = useCallback((studentId: number, periodId: number) => {
+    const key = periodCacheKey(studentId, periodId);
+    bulletinEntriesCacheRef.current.delete(key);
+    bulletinEntriesPromiseRef.current.delete(key);
+  }, []);
+
+  const reloadRowsForClass = useCallback(async (classId: number, periodRows: PeriodInfo[]) => {
+    const students = await studentService.getByClass(classId);
+    return Promise.all(
+      students.map(async (s) => {
+        const [grades, byPeriod] = await Promise.all([
+          getRecentGradesCached(s.id),
+          Promise.all(periodRows.map((p) => getStudentPeriodEntries(s.id, p.id))),
+        ]);
+        const avg = grades.length > 0 ? grades.reduce((sum, g) => sum + (g.score ?? 0), 0) / grades.length : null;
+        const statuses: Record<string, BulletinStatus> = {};
+        periodRows.forEach((p, idx) => {
+          const entries = byPeriod[idx] ?? [];
+          statuses[String(p.id)] = computeStatus(entries as Array<{ status: 'draft' | 'review' | 'final' }>);
+        });
+        return { id: s.id, name: `${s.last_name} ${s.first_name}`.trim(), avg, statuses } satisfies StudentRow;
+      }),
+    );
+  }, [getRecentGradesCached, getStudentPeriodEntries]);
+
+  useEffect(() => {
+    bulletinEntriesCacheRef.current.clear();
+    bulletinEntriesPromiseRef.current.clear();
+    gradesCacheRef.current.clear();
+    gradesPromiseRef.current.clear();
+  }, [activeYear?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadContext = async () => {
+      if (!activeYear?.id) {
+        setClasses([]);
+        setPeriods([]);
+        setSubjects([]);
+        return;
+      }
+
+      try {
+        const [classRows, periodRows, subjectRows] = await Promise.all([
+          classService.getByYear(activeYear.id),
+          reportPeriodService.getByYear(activeYear.id),
+          subjectService.getAll(),
+        ]);
+        if (cancelled) return;
+
+        const mappedClasses = classRows.map((c) => ({ id: c.id, name: c.name, short_name: c.short_name }));
+        const mappedPeriods = periodRows.map((p) => ({ id: p.id, code: p.code, label: p.label }));
+        const mappedSubjects = subjectRows.map((s) => ({ id: s.id, code: s.code, short_label: s.short_label }));
+
+        setClasses(mappedClasses);
+        setPeriods(mappedPeriods);
+        setSubjects(mappedSubjects);
+
+        setActiveClassId((prev) => prev ?? mappedClasses[0]?.id ?? null);
+        setActivePeriodId((prev) => prev ?? mappedPeriods[0]?.id ?? null);
+
+        const hggsp = mappedSubjects.find((s) => s.code.toUpperCase() === 'HGGSP');
+        setActiveSubjectId((prev) => prev ?? hggsp?.id ?? mappedSubjects[0]?.id ?? null);
+      } catch (error) {
+        console.error('[BulletinsPage] Erreur chargement contexte:', error);
+        if (!cancelled) addToast('error', 'Impossible de charger classes/périodes');
+      }
+    };
+
+    void loadContext();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeYear, addToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRows = async () => {
+      if (!activeClassId || periods.length === 0) {
+        setRows([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const mappedRows = await reloadRowsForClass(activeClassId, periods);
+
+        if (!cancelled) {
+          setRows(mappedRows);
+          setSelectedStudentId((prev) => (prev && mappedRows.some((r) => r.id === prev) ? prev : mappedRows[0]?.id ?? null));
+        }
+      } catch (error) {
+        console.error('[BulletinsPage] Erreur chargement élèves/bulletins:', error);
+        if (!cancelled) {
+          setRows([]);
+          addToast('error', 'Impossible de charger les bulletins');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void loadRows();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeClassId, periods, addToast, reloadRowsForClass]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadEditor = async () => {
+      if (!selectedStudentId || !activePeriodId) {
+        setEditorText('');
+        setEditorEntryId(null);
+        return;
+      }
+
+      try {
+        const entries = await getStudentPeriodEntries(selectedStudentId, activePeriodId);
+        if (cancelled) return;
+        const classTeacher = entries.find((e) => e.entry_type === 'class_teacher') ?? entries[0] ?? null;
+        setEditorText(classTeacher?.content ?? '');
+        setEditorEntryId(classTeacher?.id ?? null);
+      } catch (error) {
+        console.error('[BulletinsPage] Erreur chargement éditeur:', error);
+        if (!cancelled) {
+          setEditorText('');
+          setEditorEntryId(null);
+        }
+      }
+    };
+
+    void loadEditor();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedStudentId, activePeriodId, getStudentPeriodEntries]);
+
+  const activePeriod = useMemo(() => periods.find((p) => p.id === activePeriodId) ?? null, [periods, activePeriodId]);
+  const rowsById = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+  const selectedName = selectedStudentId ? (rowsById.get(selectedStudentId)?.name ?? null) : null;
+
+  const statusCounts = useMemo(() => {
+    const initial: Record<BulletinStatus, number> = { draft: 0, review: 0, final: 0, empty: 0 };
+    if (!activePeriodId) return initial;
+    const key = String(activePeriodId);
+    for (const row of rows) {
+      const status = row.statuses[key] ?? 'empty';
+      initial[status] += 1;
+    }
+    return initial;
+  }, [rows, activePeriodId]);
+
+  const refreshRowsForCurrentClass = useCallback(async () => {
+    if (!activeClassId || periods.length === 0) return;
+    const mapped = await reloadRowsForClass(activeClassId, periods);
+    setRows(mapped);
+  }, [activeClassId, periods, reloadRowsForClass]);
+
+  useEffect(() => {
+    const node = listRef.current;
+    if (!node) return;
+
+    const updateHeight = () => setListViewportHeight(node.clientHeight || 420);
+    updateHeight();
+
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  const upsertCurrentEntry = async (content: string, status: 'draft' | 'review' | 'final', source: 'manual' | 'ai') => {
+    if (!selectedStudentId || !activePeriodId) return;
+    if (editorEntryId) {
+      await bulletinService.update(editorEntryId, content, source);
+      await bulletinService.updateStatus(editorEntryId, status);
+      invalidateStudentPeriodCache(selectedStudentId, activePeriodId);
+      return;
+    }
+    const createdId = await bulletinService.create({
+      student_id: selectedStudentId,
+      report_period_id: activePeriodId,
+      entry_type: 'class_teacher',
+      subject_id: activeSubjectId,
+      content,
+      status,
+      source,
+    });
+    setEditorEntryId(createdId);
+    invalidateStudentPeriodCache(selectedStudentId, activePeriodId);
+  };
 
   const handleGenerateOne = async () => {
-    if (!selectedStudent) return;
+    if (!selectedStudentId || !activePeriodId || !activeSubjectId) {
+      addToast('warn', 'Sélectionnez un élève, une période et une matière');
+      return;
+    }
     setGeneratingOne(true);
     try {
-      const text = await aiBulletinService.generateAppreciation(selectedStudent, 1, 3);
-      setAppreciation(text);
+      const text = await aiBulletinService.generateAppreciation(
+        selectedStudentId,
+        activePeriodId,
+        activeSubjectId,
+        aiInstructions.trim() || undefined,
+      );
+      setEditorText(text);
+      await upsertCurrentEntry(text, 'draft', 'ai');
+      await refreshRowsForCurrentClass();
       addToast('success', 'Appréciation générée');
-    } catch {
-      setAppreciation('[Erreur de génération]');
+    } catch (error) {
+      console.error('[BulletinsPage] Erreur génération IA:', error);
       addToast('error', 'Erreur lors de la génération');
     } finally {
       setGeneratingOne(false);
@@ -75,169 +353,270 @@ export const BulletinsPage: React.FC = () => {
   };
 
   const handleGenerateBatch = async () => {
+    if (!activeClassId || !activePeriodId || !activeSubjectId) {
+      addToast('warn', 'Sélectionnez une classe, une période et une matière');
+      return;
+    }
+
     setGeneratingBatch(true);
-    setBatchProgress({ current: 0, total: MOCK_DATA.length });
+    setBatchProgress({ current: 0, total: rows.length });
     try {
-      await aiBulletinService.generateBatch(1, 1, 3, (current, total) => {
-        setBatchProgress({ current, total });
-      });
+      const generated = await aiBulletinService.generateBatch(
+        activeClassId,
+        activePeriodId,
+        activeSubjectId,
+        aiInstructions.trim() || undefined,
+        (current, total) => {
+          setBatchProgress({ current, total });
+        },
+      );
+
+      for (const [studentId, content] of generated.entries()) {
+        const existing = await getStudentPeriodEntries(studentId, activePeriodId);
+        const classTeacher = existing.find((e) => e.entry_type === 'class_teacher');
+        if (classTeacher) {
+          await bulletinService.update(classTeacher.id, content, 'ai');
+          await bulletinService.updateStatus(classTeacher.id, 'draft');
+        } else {
+          await bulletinService.create({
+            student_id: studentId,
+            report_period_id: activePeriodId,
+            entry_type: 'class_teacher',
+            subject_id: activeSubjectId,
+            content,
+            status: 'draft',
+            source: 'ai',
+          });
+        }
+        invalidateStudentPeriodCache(studentId, activePeriodId);
+      }
+
+      await refreshRowsForCurrentClass();
       addToast('success', 'Appréciations batch générées');
-    } catch { addToast('error', 'Erreur lors de la génération batch'); }
-    finally {
+    } catch (error) {
+      console.error('[BulletinsPage] Erreur batch IA:', error);
+      addToast('error', 'Erreur lors de la génération batch');
+    } finally {
       setGeneratingBatch(false);
       setBatchProgress(null);
     }
   };
 
-  const periods: Period[] = ['T1', 'T2', 'T3'];
+  const handleCopyT1 = async () => {
+    if (!selectedStudentId) return;
+    const t1 = periods.find((p) => p.code.toUpperCase() === 'T1');
+    if (!t1) {
+      addToast('warn', 'Période T1 introuvable');
+      return;
+    }
+    try {
+      const entries = await getStudentPeriodEntries(selectedStudentId, t1.id);
+      const classTeacher = entries.find((e) => e.entry_type === 'class_teacher') ?? entries[0] ?? null;
+      if (!classTeacher?.content) {
+        addToast('info', 'Aucun contenu T1 à copier');
+        return;
+      }
+      setEditorText(classTeacher.content);
+      addToast('success', "Contenu T1 copié dans l'éditeur");
+    } catch (error) {
+      console.error('[BulletinsPage] Erreur copie T1:', error);
+      addToast('error', 'Impossible de copier T1');
+    }
+  };
 
-  const countByStatus = (status: BulletinStatus) =>
-    MOCK_DATA.filter(s => s.statuses[activePeriod] === status).length;
+  const handleSaveStatus = async (status: 'review' | 'final') => {
+    if (!selectedStudentId || !activePeriodId) return;
+    if (!editorText.trim()) {
+      addToast('warn', 'Le texte est vide');
+      return;
+    }
+    try {
+      await upsertCurrentEntry(editorText.trim(), status, 'manual');
+      await refreshRowsForCurrentClass();
+      addToast('success', status === 'final' ? 'Bulletin finalisé' : 'Bulletin passé en relecture');
+    } catch (error) {
+      console.error('[BulletinsPage] Erreur sauvegarde bulletin:', error);
+      addToast('error', 'Erreur de sauvegarde');
+    }
+  };
+
+  const rowRenderStart = Math.max(0, Math.floor(listScrollTop / VIRTUAL_ROW_HEIGHT) - VIRTUAL_OVERSCAN);
+  const rowRenderCount = Math.ceil(listViewportHeight / VIRTUAL_ROW_HEIGHT) + VIRTUAL_OVERSCAN * 2;
+  const rowRenderEnd = Math.min(rows.length, rowRenderStart + rowRenderCount);
+  const topSpacerHeight = rowRenderStart * VIRTUAL_ROW_HEIGHT;
+  const bottomSpacerHeight = (rows.length - rowRenderEnd) * VIRTUAL_ROW_HEIGHT;
+  const visibleRows = useMemo(() => rows.slice(rowRenderStart, rowRenderEnd), [rows, rowRenderStart, rowRenderEnd]);
+
+  const tableRows = useMemo(
+    () => visibleRows.map((s) => (
+      <tr
+        key={s.id}
+        className={`bulletins-page__row ${selectedStudentId === s.id ? 'bulletins-page__row--active' : ''}`}
+        onClick={() => setSelectedStudentId(s.id)}
+      >
+        <td className="bulletins-page__cell-name">{s.name}</td>
+        <td className="bulletins-page__cell-avg">{s.avg !== null ? s.avg.toFixed(1) : '-'}</td>
+        {periods.map((p) => {
+          const st = STATUS_DISPLAY[s.statuses[String(p.id)] ?? 'empty'];
+          return (
+            <td key={p.id}>
+              <span className="bulletins-page__status" style={{ color: st.color, background: st.bg }}>{st.label}</span>
+            </td>
+          );
+        })}
+      </tr>
+    )),
+    [visibleRows, selectedStudentId, periods],
+  );
+
+  if (!activeYear?.id) {
+    return <EmptyState icon="📅" title="Aucune année active" description="Activez une année scolaire dans Paramètres." />;
+  }
 
   return (
     <div className="bulletins-page">
-      {/* Header */}
       <div className="bulletins-page__header">
         <h1 className="bulletins-page__title">Bulletins</h1>
         <div className="bulletins-page__header-actions">
-          <button className="bulletins-page__btn" onClick={handleGenerateBatch} disabled={generatingBatch}>
-            {generatingBatch ? `⏳ Génération ${batchProgress?.current ?? 0}/${batchProgress?.total ?? '?'}…` : '🤖 Générer batch (IA)'}
+          <button className="bulletins-page__btn" onClick={() => void handleGenerateBatch()} disabled={generatingBatch || rows.length === 0}>
+            {generatingBatch ? `Génération ${batchProgress?.current ?? 0}/${batchProgress?.total ?? '?'}...` : 'Générer batch (IA)'}
           </button>
-          <button className="bulletins-page__btn bulletins-page__btn--primary" onClick={async () => {
-            if (!selectedStudent) return;
-            try {
-              const { pdfExportService } = await import('../../services');
-              const html = await pdfExportService.buildBulletinHTML(selectedStudent, 1);
-              setPdfHtml(html);
-            } catch { addToast('error', 'Erreur de génération PDF'); }
-          }} disabled={!selectedStudent}>📤 Exporter PDF</button>
+          <button
+            className="bulletins-page__btn bulletins-page__btn--primary"
+            onClick={async () => {
+              if (!selectedStudentId || !activePeriodId) return;
+              try {
+                const html = await pdfExportService.buildBulletinHTML(selectedStudentId, activePeriodId);
+                if (!html.trim()) {
+                  addToast('error', 'Aperçu PDF vide');
+                  return;
+                }
+                setPdfHtml(html);
+              } catch (error) {
+                console.error('[BulletinsPage] Erreur export PDF:', error);
+                addToast('error', 'Erreur génération PDF');
+              }
+            }}
+            disabled={!selectedStudentId || !activePeriodId}
+          >
+            Exporter PDF
+          </button>
         </div>
       </div>
 
-      {/* Sélection classe + période */}
       <div className="bulletins-page__controls">
         <div className="bulletins-page__class-pills">
-          {['tle2', 'tle4', '1ere3'].map(c => (
+          {classes.map((c) => (
             <button
-              key={c}
-              className={`bulletins-page__pill ${activeClass === c ? 'bulletins-page__pill--active' : ''}`}
-              onClick={() => setActiveClass(c)}
+              key={c.id}
+              className={`bulletins-page__pill ${activeClassId === c.id ? 'bulletins-page__pill--active' : ''}`}
+              onClick={() => setActiveClassId(c.id)}
             >
-              {{ tle2: 'Tle 2', tle4: 'Tle 4', '1ere3': '1ère 3' }[c]}
+              {c.short_name || c.name}
             </button>
           ))}
         </div>
 
         <div className="bulletins-page__period-pills">
-          {periods.map(p => (
+          {periods.map((p) => (
             <button
-              key={p}
-              className={`bulletins-page__pill ${activePeriod === p ? 'bulletins-page__pill--active' : ''}`}
-              onClick={() => setActivePeriod(p)}
+              key={p.id}
+              className={`bulletins-page__pill ${activePeriodId === p.id ? 'bulletins-page__pill--active' : ''}`}
+              onClick={() => setActivePeriodId(p.id)}
             >
-              {p}
+              {p.code || p.label}
             </button>
           ))}
         </div>
 
         <div className="bulletins-page__summary">
-          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-success)' }}>
-            ✅ {countByStatus('final')} finaux
-          </span>
-          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-warn)' }}>
-            📝 {countByStatus('review')} relecture
-          </span>
-          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-text-muted)' }}>
-            ⬜ {countByStatus('draft') + countByStatus('empty')} restants
-          </span>
+          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-success)' }}>OK {statusCounts.final} finaux</span>
+          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-warn)' }}>! {statusCounts.review} relecture</span>
+          <span className="bulletins-page__summary-item" style={{ color: 'var(--color-text-muted)' }}>- {statusCounts.draft + statusCounts.empty} restants</span>
         </div>
       </div>
 
-      {/* Tableau + éditeur */}
       <div className="bulletins-page__body">
-        {/* Liste élèves */}
-        <div className="bulletins-page__list">
-          <table className="bulletins-page__table">
-            <thead>
-              <tr>
+        <div
+          className="bulletins-page__list"
+          ref={listRef}
+          onScroll={(e) => setListScrollTop(e.currentTarget.scrollTop)}
+        >
+          {loading ? (
+            <div style={{ padding: 12, fontSize: 12, color: 'var(--color-text-muted)' }}>Chargement...</div>
+          ) : (
+            <table className="bulletins-page__table">
+              <thead>
+                <tr>
                 <th>Élève</th>
-                <th>Moy.</th>
-                {periods.map(p => <th key={p}>{p}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {MOCK_DATA.map(s => (
-                <tr
-                  key={s.id}
-                  className={`bulletins-page__row ${selectedStudent === s.id ? 'bulletins-page__row--active' : ''}`}
-                  onClick={() => setSelectedStudent(s.id)}
-                >
-                  <td className="bulletins-page__cell-name">{s.name}</td>
-                  <td className="bulletins-page__cell-avg">
-                    {s.avg !== null ? s.avg.toFixed(1) : '—'}
-                  </td>
-                  {periods.map(p => {
-                    const st = STATUS_DISPLAY[s.statuses[p]];
-                    return (
-                      <td key={p}>
-                        <span
-                          className="bulletins-page__status"
-                          style={{ color: st.color, background: st.bg }}
-                        >
-                          {st.label}
-                        </span>
-                      </td>
-                    );
-                  })}
+                  <th>Moy.</th>
+                  {periods.map((p) => <th key={p.id}>{p.code || p.label}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {topSpacerHeight > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={2 + periods.length} style={{ height: topSpacerHeight, padding: 0, border: 'none' }} />
+                  </tr>
+                )}
+                {tableRows}
+                {bottomSpacerHeight > 0 && (
+                  <tr aria-hidden="true">
+                    <td colSpan={2 + periods.length} style={{ height: bottomSpacerHeight, padding: 0, border: 'none' }} />
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Éditeur appréciation */}
         <div className="bulletins-page__editor">
-          {selectedStudent ? (
+          {selectedStudentId ? (
             <>
               <div className="bulletins-page__editor-header">
-                <h3 className="bulletins-page__editor-title">
-                  {MOCK_DATA.find(s => s.id === selectedStudent)?.name} — {activePeriod}
-                </h3>
-                <span className="bulletins-page__editor-subject">HGGSP</span>
+                <h3 className="bulletins-page__editor-title">{selectedName} - {activePeriod?.code ?? activePeriod?.label ?? ''}</h3>
+                <select
+                  className="bulletins-page__editor-subject"
+                  value={activeSubjectId ?? ''}
+                  onChange={(e) => setActiveSubjectId(Number.parseInt(e.target.value, 10) || null)}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.short_label || s.code}</option>
+                  ))}
+                </select>
               </div>
+
               <textarea
                 className="bulletins-page__editor-textarea"
                 rows={6}
-                defaultValue={MOCK_DATA.find(s => s.id === selectedStudent)?.excerpts[activePeriod] ?? ''}
-                placeholder="Rédiger l'appréciation…"
+                value={editorText}
+                onChange={(e) => setEditorText(e.target.value)}
+                placeholder="Rédiger l'appréciation..."
               />
-              {/* Consignes IA complémentaires (dépliable) */}
+
               <details className="bulletins-page__ia-instructions">
-                <summary className="bulletins-page__ia-toggle">
-                  Consignes IA complémentaires
-                </summary>
+                <summary className="bulletins-page__ia-toggle">Consignes IA complémentaires</summary>
                 <textarea
                   className="bulletins-page__ia-textarea"
-                  placeholder="Instructions supplémentaires (ex: Insistez sur les progrès, évitez le terme « doit »)..."
+                  placeholder="Optionnel"
                   rows={2}
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
                 />
               </details>
+
               <div className="bulletins-page__editor-actions">
-                <button className="bulletins-page__editor-btn" onClick={handleGenerateOne} disabled={generatingOne}>
-                  {generatingOne ? '⏳…' : '🤖 Générer IA'}
+                <button className="bulletins-page__editor-btn" onClick={() => void handleGenerateOne()} disabled={generatingOne}>
+                  {generatingOne ? '...' : 'Générer IA'}
                 </button>
-                <button className="bulletins-page__editor-btn">📋 Copier T1</button>
+                <button className="bulletins-page__editor-btn" onClick={() => void handleCopyT1()}>Copier T1</button>
                 <div className="bulletins-page__editor-spacer" />
-                <button className="bulletins-page__editor-btn bulletins-page__editor-btn--secondary">Relecture</button>
-                <button className="bulletins-page__editor-btn bulletins-page__editor-btn--primary">✓ Finaliser</button>
+                <button className="bulletins-page__editor-btn bulletins-page__editor-btn--secondary" onClick={() => void handleSaveStatus('review')}>Relecture</button>
+                <button className="bulletins-page__editor-btn bulletins-page__editor-btn--primary" onClick={() => void handleSaveStatus('final')}>Finaliser</button>
               </div>
             </>
           ) : (
-            <EmptyState
-              icon="📊"
-              title="Aucun élève sélectionné"
-              description="Sélectionnez un élève dans le tableau pour rédiger son appréciation."
-            />
+            <EmptyState icon="📅" title="Aucun élève sélectionné" description="Sélectionnez un élève dans le tableau." />
           )}
         </div>
       </div>
@@ -252,3 +631,4 @@ export const BulletinsPage: React.FC = () => {
     </div>
   );
 };
+

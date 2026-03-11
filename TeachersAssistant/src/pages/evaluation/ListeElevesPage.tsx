@@ -2,9 +2,10 @@
 // ListeElevesPage — Liste élèves (spec §5.10) — branché DataProvider
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { EmptyState } from '../../components/ui';
-import { useData, useRouter } from '../../stores';
+import { useApp, useData, useRouter } from '../../stores';
+import { csvImportService, studentService } from '../../services';
 import { MOCK_STUDENTS } from '../../stores/mockData';
 import { EleveForm, ImportElevesModal } from '../../components/forms';
 import './ListeElevesPage.css';
@@ -16,7 +17,8 @@ const CLASSES = [
 ];
 
 export const ListeElevesPage: React.FC = () => {
-  const { loadStudents, isDbMode } = useData();
+  const { addToast } = useApp();
+  const { loadStudents } = useData();
   const { setPage, setEntity } = useRouter();
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,6 +27,13 @@ export const ListeElevesPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<'name' | 'avg'>('name');
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+
+  const refreshStudents = useCallback(async (classId: number) => {
+    setLoading(true);
+    const data = await loadStudents(classId);
+    setStudents(data.length > 0 ? data : MOCK_STUDENTS);
+    setLoading(false);
+  }, [loadStudents]);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,10 +137,39 @@ export const ListeElevesPage: React.FC = () => {
         </div>
       )}
 
-      <EleveForm open={formOpen} onClose={() => setFormOpen(false)} onSave={(data) => { console.log('Save élève:', data); setFormOpen(false); }} />
+      <EleveForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSave={async (data) => {
+          const classIds = data.class_ids
+            .map(id => Number.parseInt(id, 10))
+            .filter(Number.isFinite);
+
+          try {
+            const studentId = await studentService.create({
+              last_name: data.last_name.trim(),
+              first_name: data.first_name.trim(),
+              birth_year: data.birth_year ? Number.parseInt(data.birth_year, 10) : null,
+              gender: data.gender ? (data.gender as 'M' | 'F' | 'X') : null,
+              email: null,
+              notes: null,
+            });
+
+            const effectiveClassIds = classIds.length > 0 ? classIds : [activeClassId];
+            for (const classId of effectiveClassIds) {
+              await studentService.enroll(studentId, classId);
+            }
+
+            await refreshStudents(activeClassId);
+            addToast('success', 'Élève ajouté');
+          } catch (error) {
+            console.error('[ListeElevesPage] Erreur ajout élève:', error);
+            addToast('error', 'Échec de création de l\'élève');
+          }
+        }}
+      />
       <ImportElevesModal open={importOpen} onClose={() => setImportOpen(false)} onImport={async (data) => {
         try {
-          const { csvImportService } = await import('../../services');
           const students = data.map(d => ({
             last_name: d.last_name,
             first_name: d.first_name,
@@ -139,8 +177,12 @@ export const ListeElevesPage: React.FC = () => {
             gender: d.gender,
           }));
           const result = await csvImportService.importStudents(students, activeClassId);
-          console.log(`Imported ${result.imported}, duplicates ${result.duplicates}`);
-        } catch (e) { console.error('Import CSV error:', e); }
+          await refreshStudents(activeClassId);
+          addToast('success', `${result.imported} élève(s) importé(s), ${result.duplicates} doublon(s) ignoré(s)`);
+        } catch (e) {
+          console.error('Import CSV error:', e);
+          addToast('error', 'Erreur import CSV');
+        }
         setImportOpen(false);
       }} className={activeClassName} />
     </div>
