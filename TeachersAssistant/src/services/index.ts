@@ -85,6 +85,7 @@ export {
   aiBulletinService,
   aiQueueService,
   assemblePrompt,
+  getApiKey,
   setApiKey,
   smartGenerate,
   smartCorrect,

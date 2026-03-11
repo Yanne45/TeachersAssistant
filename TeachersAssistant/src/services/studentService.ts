@@ -5,12 +5,12 @@
 import { db } from './db';
 import type {
   Student, StudentInsert, StudentWithClass,
-  StudentClassEnrollment,
   ReportPeriod,
   StudentPeriodProfile,
   StudentSkillObservation, SkillEvolutionRow,
   BulletinEntry, BulletinEntryInsert, BulletinEntryVersion,
   OrientationReport, OrientationInterview,
+  StudentDocumentWithDetails,
   ID,
 } from '../types';
 
@@ -86,6 +86,54 @@ export const studentService = {
       }
     });
     return ids;
+  },
+
+  async getRecentGrades(studentId: ID, limit = 20): Promise<Array<{
+    submission_id: ID;
+    assignment_id: ID;
+    assignment_title: string;
+    assignment_date: string | null;
+    score: number | null;
+    max_score: number;
+  }>> {
+    return db.select(
+      `SELECT s.id as submission_id,
+         a.id as assignment_id,
+         a.title as assignment_title,
+         a.assignment_date,
+         s.score,
+         a.max_score
+       FROM submissions s
+       JOIN assignments a ON a.id = s.assignment_id
+       WHERE s.student_id = ? AND s.score IS NOT NULL
+       ORDER BY COALESCE(a.assignment_date, a.due_date, a.created_at) DESC
+       LIMIT ?`,
+      [studentId, limit]
+    );
+  },
+
+  async getDocuments(studentId: ID, reportPeriodId?: ID | null): Promise<StudentDocumentWithDetails[]> {
+    const withPeriodFilter = typeof reportPeriodId === 'number';
+
+    return db.select(
+      `SELECT sd.*,
+         d.title as document_title,
+         d.file_path,
+         d.file_name,
+         d.file_type,
+         dt.label as document_type_label,
+         sub.label as subject_label,
+         rp.label as period_label
+       FROM student_documents sd
+       JOIN documents d ON d.id = sd.document_id
+       LEFT JOIN document_types dt ON dt.id = d.document_type_id
+       LEFT JOIN subjects sub ON sub.id = d.subject_id
+       LEFT JOIN report_periods rp ON rp.id = sd.report_period_id
+       WHERE sd.student_id = ?
+         AND (? = 0 OR sd.report_period_id = ? OR sd.report_period_id IS NULL)
+       ORDER BY sd.created_at DESC`,
+      [studentId, withPeriodFilter ? 1 : 0, reportPeriodId ?? null]
+    );
   },
 };
 
@@ -189,6 +237,7 @@ export const skillObservationService = {
       if (values.length >= 2) {
         const first = values[0];
         const last = values[values.length - 1];
+        if (first === undefined || last === undefined) continue;
         row.trend = last > first ? 'up' : last < first ? 'down' : 'stable';
       }
     }

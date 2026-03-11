@@ -4,9 +4,9 @@
 
 import { db } from './db';
 import type {
-  Sequence, SequenceInsert, SequenceWithDetails,
+  SequenceInsert, SequenceWithDetails,
   Session, SessionInsert, SessionWithDetails,
-  LessonLog, LessonLogInsert, LessonLogWithDetails,
+  LessonLogInsert, LessonLogWithDetails,
   ID,
 } from '../types';
 
@@ -331,7 +331,7 @@ export const lessonLogService = {
       session_id: sessionId,
       class_id: classId,
       subject_id: seq!.subject_id,
-      log_date: session.session_date || new Date().toISOString().split('T')[0],
+      log_date: session.session_date || (new Date().toISOString().split('T')[0] ?? new Date().toISOString()),
       title: session.title,
       content: session.lesson_plan,
       activities: session.activities,

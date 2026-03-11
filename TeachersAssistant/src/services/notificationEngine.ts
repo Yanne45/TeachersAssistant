@@ -27,7 +27,7 @@ export async function generateNotifications(yearId: ID): Promise<number> {
 // ── Séquences en retard ──
 
 async function checkLateSequences(yearId: ID): Promise<number> {
-  const late = await db.select<{ id: ID; title: string; end_date: string }>(
+  const late = await db.select<{ id: ID; title: string; end_date: string }[]>(
     `SELECT id, title, end_date FROM sequences
      WHERE academic_year_id = ? AND status = 'in_progress'
        AND end_date < date('now') AND end_date IS NOT NULL`,
@@ -55,7 +55,7 @@ async function checkLateSequences(yearId: ID): Promise<number> {
 
 async function checkMissingCahier(yearId: ID): Promise<number> {
   // Trouver les créneaux d'aujourd'hui et hier sans entrée cahier
-  const missing = await db.select<{ day_label: string; subject_label: string; class_label: string }>(
+  const missing = await db.select<{ day_label: string; subject_label: string; class_label: string }[]>(
     `SELECT
        CASE ts.day_of_week
          WHEN 1 THEN 'Lundi' WHEN 2 THEN 'Mardi' WHEN 3 THEN 'Mercredi'
@@ -98,7 +98,7 @@ async function checkMissingCahier(yearId: ID): Promise<number> {
 // ── Corrections en attente ──
 
 async function checkPendingCorrections(_yearId: ID): Promise<number> {
-  const pending = await db.select<{ id: ID; title: string; pending_count: number }>(
+  const pending = await db.select<{ id: ID; title: string; pending_count: number }[]>(
     `SELECT a.id, a.title,
        (SELECT COUNT(*) FROM submissions sub
         WHERE sub.assignment_id = a.id AND sub.status != 'corrected') as pending_count
@@ -142,7 +142,7 @@ async function checkProgramCoverage(yearId: ID): Promise<number> {
   const elapsed = (now.getTime() - start.getTime()) / (yearEnd.getTime() - start.getTime());
   if (elapsed < 0.6) return 0; // Pas encore 60% de l'année
 
-  const themes = await db.select<{ id: ID; title: string; coverage: number }>(
+  const themes = await db.select<{ id: ID; title: string; coverage: number }[]>(
     `SELECT pt.id, pt.title,
        COALESCE(
          (SELECT COUNT(DISTINCT spt.program_topic_id)

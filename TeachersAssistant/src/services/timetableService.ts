@@ -4,8 +4,8 @@
 
 import { db } from './db';
 import type {
-  TimetableSlot, TimetableSlotInsert, TimetableSlotWithDetails,
-  CalendarEvent, CalendarEventMapping,
+  TimetableSlotInsert, TimetableSlotWithDetails,
+  CalendarEvent,
   SlotRecurrence,
   ID, DayOfWeek,
 } from '../types';

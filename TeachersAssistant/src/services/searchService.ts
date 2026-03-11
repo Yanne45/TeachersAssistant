@@ -16,7 +16,11 @@ export interface SearchResult {
   subjectColor?: string;
   matchExcerpt: string;
   score: number;
-  navigateTo?: { tab: string; page: string; entity?: number };
+  navigateTo?: {
+    tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation';
+    page: string;
+    entity?: number;
+  };
 }
 
 function escapeForLike(s: string): string {
@@ -52,7 +56,7 @@ export const searchService = {
 
     // Build LIKE clauses for each term
     const likeClauses = (columns: string[]) =>
-      terms.map(t => columns.map(c => `${c} LIKE ?`).join(' OR ')).join(' AND ');
+      terms.map(() => columns.map(c => `${c} LIKE ?`).join(' OR ')).join(' AND ');
 
     const likeParams = (columns: string[]) =>
       terms.flatMap(t => columns.map(() => `%${escapeForLike(t)}%`));

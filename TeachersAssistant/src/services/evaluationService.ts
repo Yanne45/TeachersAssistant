@@ -4,7 +4,7 @@
 
 import { db } from './db';
 import type {
-  Assignment, AssignmentInsert, AssignmentWithDetails, AssignmentStats,
+  AssignmentInsert, AssignmentWithDetails, AssignmentStats,
   Submission, SubmissionWithStudent, SubmissionStatus,
   Correction,
   SubmissionSkillEvaluation,
@@ -16,13 +16,19 @@ import type {
 
 export const assignmentService = {
   async getByYear(yearId: ID): Promise<AssignmentWithDetails[]> {
-    return db.select(
+    const rows = await db.select<any[]>(
       `SELECT a.*,
          c.name as class_name,
          sub.label as subject_label, sub.color as subject_color,
          at2.label as assignment_type_label,
          (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) as submission_count,
-         (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.status = 'final') as corrected_count
+         (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.status = 'final') as corrected_count,
+         COALESCE((
+           SELECT GROUP_CONCAT(sk.label, '||')
+           FROM assignment_skill_map asm
+           JOIN skills sk ON sk.id = asm.skill_id
+           WHERE asm.assignment_id = a.id
+         ), '') as skill_labels
        FROM assignments a
        JOIN classes c ON a.class_id = c.id
        JOIN subjects sub ON a.subject_id = sub.id
@@ -31,16 +37,28 @@ export const assignmentService = {
        ORDER BY a.due_date DESC`,
       [yearId]
     );
+    return rows.map((row: any) => ({
+      ...row,
+      skill_labels: typeof row.skill_labels === 'string' && row.skill_labels.length > 0
+        ? row.skill_labels.split('||')
+        : [],
+    })) as AssignmentWithDetails[];
   },
 
   async getById(id: ID): Promise<AssignmentWithDetails | null> {
-    return db.selectOne(
+    const row = await db.selectOne<any>(
       `SELECT a.*,
          c.name as class_name,
          sub.label as subject_label, sub.color as subject_color,
          at2.label as assignment_type_label,
          (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id) as submission_count,
-         (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.status = 'final') as corrected_count
+         (SELECT COUNT(*) FROM submissions s WHERE s.assignment_id = a.id AND s.status = 'final') as corrected_count,
+         COALESCE((
+           SELECT GROUP_CONCAT(sk.label, '||')
+           FROM assignment_skill_map asm
+           JOIN skills sk ON sk.id = asm.skill_id
+           WHERE asm.assignment_id = a.id
+         ), '') as skill_labels
        FROM assignments a
        JOIN classes c ON a.class_id = c.id
        JOIN subjects sub ON a.subject_id = sub.id
@@ -48,6 +66,13 @@ export const assignmentService = {
        WHERE a.id = ?`,
       [id]
     );
+    if (!row) return null;
+    return {
+      ...row,
+      skill_labels: typeof row.skill_labels === 'string' && row.skill_labels.length > 0
+        ? row.skill_labels.split('||')
+        : [],
+    } as AssignmentWithDetails;
   },
 
   async create(data: AssignmentInsert): Promise<ID> {
@@ -62,6 +87,29 @@ export const assignmentService = {
        data.max_score, data.coefficient, data.assignment_date, data.due_date,
        data.status, data.is_graded ? 1 : 0]
     );
+  },
+
+  async getSkills(assignmentId: ID): Promise<Array<{ skill_id: ID; skill_label: string }>> {
+    return db.select(
+      `SELECT asm.skill_id, sk.label as skill_label
+       FROM assignment_skill_map asm
+       JOIN skills sk ON sk.id = asm.skill_id
+       WHERE asm.assignment_id = ?
+       ORDER BY sk.sort_order, sk.label`,
+      [assignmentId]
+    );
+  },
+
+  async setSkills(assignmentId: ID, skillIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute('DELETE FROM assignment_skill_map WHERE assignment_id = ?', [assignmentId]);
+      for (const skillId of skillIds) {
+        await db.execute(
+          'INSERT INTO assignment_skill_map (assignment_id, skill_id, weight) VALUES (?, ?, 1.0)',
+          [assignmentId, skillId]
+        );
+      }
+    });
   },
 
   async update(id: ID, data: Partial<AssignmentInsert>): Promise<void> {
@@ -147,6 +195,28 @@ export const submissionService = {
       [assignmentId, classId, assignmentId]
     );
   },
+
+  async getByStudent(studentId: ID, limit = 50): Promise<Array<SubmissionWithStudent & {
+    assignment_title: string;
+    assignment_date: string | null;
+    max_score: number;
+  }>> {
+    return db.select(
+      `SELECT s.*,
+         st.last_name as student_last_name,
+         st.first_name as student_first_name,
+         a.title as assignment_title,
+         a.assignment_date,
+         a.max_score
+       FROM submissions s
+       JOIN students st ON s.student_id = st.id
+       JOIN assignments a ON a.id = s.assignment_id
+       WHERE s.student_id = ?
+       ORDER BY COALESCE(a.assignment_date, a.due_date, a.created_at) DESC
+       LIMIT ?`,
+      [studentId, limit]
+    );
+  },
 };
 
 // ── Corrections ──
@@ -169,6 +239,13 @@ export const correctionService = {
     return db.insert(
       'INSERT INTO corrections (submission_id, content, source, version) VALUES (?, ?, ?, ?)',
       [submissionId, content, source, version]
+    );
+  },
+
+  async getLatestBySubmission(submissionId: ID): Promise<Correction | null> {
+    return db.selectOne(
+      'SELECT * FROM corrections WHERE submission_id = ? ORDER BY version DESC, id DESC LIMIT 1',
+      [submissionId]
     );
   },
 };
@@ -215,6 +292,10 @@ export const feedbackService = {
     );
   },
 
+  async deleteBySubmission(submissionId: ID): Promise<void> {
+    await db.execute('DELETE FROM submission_feedback WHERE submission_id = ?', [submissionId]);
+  },
+
   async delete(id: ID): Promise<void> {
     await db.execute('DELETE FROM submission_feedback WHERE id = ?', [id]);
   },
@@ -238,12 +319,17 @@ export const bilanService = {
     }
 
     const mean = values.reduce((a, b) => a + b, 0) / n;
-    const median = n % 2 === 0 ? (values[n / 2 - 1] + values[n / 2]) / 2 : values[Math.floor(n / 2)];
+    const middle = Math.floor(n / 2);
+    const left = values[middle - 1] ?? 0;
+    const right = values[middle] ?? 0;
+    const median = n % 2 === 0 ? (left + right) / 2 : right;
 
     // Histogramme par tranches de 2.5
     const ranges = ['0-2.5', '2.5-5', '5-7.5', '7.5-10', '10-12.5', '12.5-15', '15-17.5', '17.5-20'];
     const histogram = ranges.map(range => {
-      const [min, max] = range.split('-').map(Number);
+      const [minRaw = 0, maxRaw = 20] = range.split('-').map(Number);
+      const min = Number.isFinite(minRaw) ? minRaw : 0;
+      const max = Number.isFinite(maxRaw) ? maxRaw : 20;
       const count = values.filter(v => v >= min && v < max).length;
       return { range, count };
     });
@@ -279,8 +365,8 @@ export const bilanService = {
     return {
       mean: Math.round(mean * 10) / 10,
       median: Math.round(median * 10) / 10,
-      min: values[0],
-      max: values[n - 1],
+      min: values[0] ?? 0,
+      max: values[n - 1] ?? 0,
       histogram,
       skill_averages: skillAverages,
       top_strengths: strengths.map(s => s.content),

@@ -10,13 +10,13 @@
 
 interface TauriDatabase {
   select<T = unknown[]>(query: string, bindValues?: unknown[]): Promise<T>;
-  execute(query: string, bindValues?: unknown[]): Promise<{ rowsAffected: number; lastInsertId: number }>;
+  execute(query: string, bindValues?: unknown[]): Promise<{ rowsAffected: number; lastInsertId?: number }>;
   close(): Promise<void>;
 }
 
 let _db: TauriDatabase | null = null;
 let _currentPath: string | null = null;
-let _Database: { default: { load: (uri: string) => Promise<TauriDatabase> } } | null = null;
+let _Database: any = null;
 
 // ── Chargement dynamique du module Tauri ──
 
@@ -60,9 +60,10 @@ export async function openDatabase(filePath: string): Promise<void> {
 
   try {
     const Database = await getTauriSQL();
-    _db = await Database.default.load(`sqlite:${filePath}`);
+    const conn = await Database.default.load(`sqlite:${filePath}`);
+    _db = conn;
     _currentPath = filePath;
-    await initPragmas(_db);
+    await initPragmas(conn);
     console.log(`[DB] Ouvert : ${filePath}`);
   } catch (err) {
     _db = null;
@@ -238,18 +239,18 @@ export const db = {
     return getDb().select<T>(query, params);
   },
 
-  async execute(query: string, params: unknown[] = []): Promise<{ rowsAffected: number; lastInsertId: number }> {
+  async execute(query: string, params: unknown[] = []): Promise<{ rowsAffected: number; lastInsertId?: number }> {
     return getDb().execute(query, params);
   },
 
   async insert(query: string, params: unknown[] = []): Promise<number> {
     const result = await getDb().execute(query, params);
-    return result.lastInsertId;
+    return result.lastInsertId ?? 0;
   },
 
   async selectOne<T>(query: string, params: unknown[] = []): Promise<T | null> {
     const rows = await getDb().select<T[]>(query, params);
-    return rows.length > 0 ? rows[0] : null;
+    return rows.length > 0 ? (rows[0] ?? null) : null;
   },
 
   async transaction(fn: () => Promise<void>): Promise<void> {
@@ -276,3 +277,4 @@ export const db = {
     return _db !== null;
   },
 };
+

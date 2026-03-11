@@ -175,7 +175,7 @@ export async function getApiKey(): Promise<string> {
     const key = await invoke("plugin:keyring|get", { service: "teacher-assistant", key: "openai-api-key" });
     if (key) return key as string;
   } catch { /* fallback */ }
-  const envKey = import.meta.env.VITE_OPENAI_API_KEY;
+  const envKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
   if (envKey) return envKey;
   throw new Error("Cle API non configuree. Ajoutez-la dans Parametres > IA.");
 }
@@ -241,7 +241,7 @@ export const aiGenerationService = {
         [result.content, result.content, result.content, result.model,
          result.tokens_input, result.tokens_output, Date.now() - startTime, genId]
       );
-      return await db.selectOne("SELECT * FROM ai_generations WHERE id = ?", [genId]);
+      return await db.selectOne<any>("SELECT * FROM ai_generations WHERE id = ?", [genId]);
     } catch (err: any) {
       await db.execute("UPDATE ai_generations SET status = 'failed', error_message = ?, updated_at = datetime('now') WHERE id = ?", [err.message, genId]);
       throw err;
@@ -251,8 +251,8 @@ export const aiGenerationService = {
     return db.select("SELECT g.*, t.label as task_label, t.icon as task_icon, t.category as task_category " +
       "FROM ai_generations g LEFT JOIN ai_tasks t ON g.task_id = t.id ORDER BY g.created_at DESC LIMIT ?", [limit]);
   },
-  async getById(id: ID) {
-    return db.selectOne("SELECT g.*, t.label as task_label, t.code as task_code " +
+  async getById(id: ID): Promise<any | null> {
+    return db.selectOne<any>("SELECT g.*, t.label as task_label, t.code as task_code " +
       "FROM ai_generations g LEFT JOIN ai_tasks t ON g.task_id = t.id WHERE g.id = ?", [id]);
   },
   async rate(id: ID, rating: number) {
@@ -268,7 +268,7 @@ export const aiGenerationService = {
     await db.execute("UPDATE ai_generations SET status = 'rejected', updated_at = datetime('now') WHERE id = ?", [id]);
   },
   async saveToLibrary(id: ID, title: string, subjectId?: ID): Promise<ID> {
-    const gen = await this.getById(id);
+    const gen: any = await this.getById(id);
     if (!gen) throw new Error("Generation introuvable");
     const docId = await db.insert(
       "INSERT INTO documents (title, doc_type, source, subject_id, level_id, text_content, " +
@@ -288,7 +288,7 @@ export const aiCorrectionService = {
     const skills = await db.select<any>(
       "SELECT s.label FROM skills s JOIN assignment_skill_map asm ON asm.skill_id = s.id WHERE asm.assignment_id = ?", [assignmentId]);
     const submission = await db.selectOne<any>("SELECT * FROM submissions WHERE id = ?", [submissionId]);
-    const gen = await aiGenerationService.generate({
+    const gen: any = await aiGenerationService.generate({
       taskCode: "analyze_submission",
       variables: {
         type_exercice: assignment?.assignment_type ?? "dissertation",
@@ -324,7 +324,7 @@ export const aiCorrectionService = {
     skillAverages: Array<{ label: string; avg: number }>; topStrengths: string[]; topWeaknesses: string[];
   }): Promise<string> {
     const a = await db.selectOne<any>("SELECT * FROM assignments WHERE id = ?", [assignmentId]);
-    const gen = await aiGenerationService.generate({
+    const gen: any = await aiGenerationService.generate({
       taskCode: "generate_class_report",
       variables: {
         titre_devoir: a?.title ?? "Devoir", nombre_copies: String(stats.totalStudents),
@@ -342,7 +342,7 @@ export const aiCorrectionService = {
 // === BULLETIN SERVICE ===
 
 export const aiBulletinService = {
-  async generateAppreciation(studentId: ID, periodId: ID, subjectId: ID): Promise<string> {
+  async generateAppreciation(studentId: ID, periodId: ID, subjectId: ID, userInstructions?: string): Promise<string> {
     const student = await db.selectOne<any>("SELECT * FROM students WHERE id = ?", [studentId]);
     const profile = await db.selectOne<any>(
       "SELECT * FROM student_period_profiles WHERE student_id = ? AND report_period_id = ?", [studentId, periodId]);
@@ -350,7 +350,7 @@ export const aiBulletinService = {
       "SELECT s.label, sso.level FROM student_skill_observations sso " +
       "JOIN skills s ON sso.skill_id = s.id WHERE sso.student_id = ? ORDER BY sso.observed_at DESC LIMIT 10", [studentId]);
     const subject = await db.selectOne<any>("SELECT * FROM subjects WHERE id = ?", [subjectId]);
-    const gen = await aiGenerationService.generate({
+    const gen: any = await aiGenerationService.generate({
       taskCode: "generate_appreciation",
       variables: {
         prenom_eleve: student?.first_name ?? "", nom_eleve: student?.last_name ?? "",
@@ -361,16 +361,23 @@ export const aiBulletinService = {
         competences_recentes: observations.map((o: any) => o.label + ": " + o.level + "/4").join(", ") || "pas de donnees",
       },
       contextEntityType: "student", contextEntityId: studentId, subjectId,
+      userInstructions,
     });
     return gen.output_content ?? gen.processed_result ?? "";
   },
 
-  async generateBatch(classId: ID, periodId: ID, subjectId: ID, onProgress?: (c: number, t: number) => void): Promise<Map<number, string>> {
+  async generateBatch(
+    classId: ID,
+    periodId: ID,
+    subjectId: ID,
+    userInstructions?: string,
+    onProgress?: (c: number, t: number) => void,
+  ): Promise<Map<number, string>> {
     const students = await db.select<any>(
       "SELECT s.id FROM students s JOIN student_class_enrollments sce ON sce.student_id = s.id WHERE sce.class_id = ? ORDER BY s.last_name", [classId]);
     const results = new Map<number, string>();
     for (let i = 0; i < students.length; i++) {
-      try { results.set(students[i].id, await this.generateAppreciation(students[i].id, periodId, subjectId)); }
+      try { results.set(students[i].id, await this.generateAppreciation(students[i].id, periodId, subjectId, userInstructions)); }
       catch { results.set(students[i].id, "[Erreur de generation]"); }
       onProgress?.(i + 1, students.length);
     }
@@ -385,7 +392,7 @@ export const aiBulletinService = {
     const skills = await db.select<any>(
       "SELECT s.label, sso.level FROM student_skill_observations sso JOIN skills s ON sso.skill_id = s.id " +
       "WHERE sso.student_id = ? ORDER BY sso.observed_at DESC LIMIT 15", [studentId]);
-    const gen = await aiGenerationService.generate({
+    const gen: any = await aiGenerationService.generate({
       taskCode: "generate_orientation",
       variables: {
         prenom_eleve: student?.first_name ?? "", nom_eleve: student?.last_name ?? "",

@@ -27,7 +27,7 @@ export const icsImportService = {
     const blocks = icsText.split('BEGIN:VEVENT');
 
     for (let i = 1; i < blocks.length; i++) {
-      const block = blocks[i].split('END:VEVENT')[0];
+      const block = (blocks[i] ?? '').split('END:VEVENT')[0] ?? '';
       const get = (key: string): string | undefined => {
         const match = block.match(new RegExp(`${key}[^:]*:(.+)`, 'm'));
         return match?.[1]?.trim();
@@ -96,7 +96,13 @@ function parseICSDate(str: string): Date | null {
   const clean = str.replace(/[TZ]/g, m => m === 'T' ? 'T' : '');
   const m = clean.match(/^(\d{4})(\d{2})(\d{2})T?(\d{2})?(\d{2})?(\d{2})?/);
   if (!m) return null;
-  return new Date(+m[1], +m[2] - 1, +m[3], +(m[4] ?? 0), +(m[5] ?? 0), +(m[6] ?? 0));
+  const year = Number(m[1] ?? 0);
+  const month = Number(m[2] ?? 1) - 1;
+  const day = Number(m[3] ?? 1);
+  const hour = Number(m[4] ?? 0);
+  const minute = Number(m[5] ?? 0);
+  const second = Number(m[6] ?? 0);
+  return new Date(year, month, day, hour, minute, second);
 }
 
 function findMapping(
@@ -128,11 +134,13 @@ export const csvImportService = {
     if (lines.length === 0) return [];
 
     // Detect separator
-    const sep = detectSeparator(lines[0]);
+    const firstLine = lines[0] ?? '';
+    const sep = detectSeparator(firstLine);
 
     // Detect header
-    const firstLine = lines[0].toLowerCase();
-    const hasHeader = firstLine.includes('nom') || firstLine.includes('name') || firstLine.includes('prénom');
+    const hasHeader = firstLine.toLowerCase().includes('nom')
+      || firstLine.toLowerCase().includes('name')
+      || firstLine.toLowerCase().includes('prénom');
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
     return dataLines.map(line => {
@@ -225,8 +233,10 @@ export const programJsonService = {
   /** Importe un programme depuis CSV simple (thème ; chapitre ; point ; code) */
   async importCSV(text: string, yearId: ID, subjectId: ID, levelId: ID): Promise<number> {
     const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-    const sep = detectSeparator(lines[0]);
-    const hasHeader = lines[0].toLowerCase().includes('thème') || lines[0].toLowerCase().includes('theme');
+    const firstLine = lines[0] ?? '';
+    const sep = detectSeparator(firstLine);
+    const lowerFirstLine = firstLine.toLowerCase();
+    const hasHeader = lowerFirstLine.includes('thème') || lowerFirstLine.includes('theme');
     const dataLines = hasHeader ? lines.slice(1) : lines;
 
     let count = 0;
@@ -707,7 +717,9 @@ export const backupService2 = {
 
     await db.transaction(async () => {
       for (const path of dataFiles) {
-        const content = await zip.files[path].async('string');
+        const zipFile = zip.files[path];
+        if (!zipFile) continue;
+        const content = await zipFile.async('string');
         const data = JSON.parse(content);
         const tableName = path.replace('data/', '').replace('.json', '');
 
@@ -717,7 +729,9 @@ export const backupService2 = {
         await db.execute(`DELETE FROM ${tableName}`);
 
         // Insert rows
-        const cols = Object.keys(data[0]);
+        const firstRow = data[0];
+        if (!firstRow || typeof firstRow !== 'object') continue;
+        const cols = Object.keys(firstRow);
         const placeholders = cols.map(() => '?').join(',');
         const sql = `INSERT INTO ${tableName} (${cols.join(',')}) VALUES (${placeholders})`;
 

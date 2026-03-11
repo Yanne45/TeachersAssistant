@@ -3,7 +3,7 @@
 // Tables : program_topics, skills, content_types, sequence_templates
 // ============================================================================
 
-import type { ID, ISODateTime, TrackedEntity, BaseEntity } from './common';
+import type { ID, TrackedEntity } from './common';
 
 // ── Programme (arbre hiérarchique) ──
 

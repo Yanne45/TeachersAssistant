@@ -7,10 +7,8 @@ import type {
   AcademicYear, AcademicYearInsert,
   CalendarPeriod, CalendarPeriodInsert,
   Subject, SubjectInsert,
-  Level, Class, ClassInsert, ClassWithLevel,
+  Level, ClassInsert, ClassWithLevel,
   SubjectHourAllocation,
-  TeachingScope,
-  SchoolDaySetting, DayBreak,
   Notification,
   ID,
 } from '../types';
@@ -137,11 +135,43 @@ export const levelService = {
   async getAll(): Promise<Level[]> {
     return db.select('SELECT * FROM levels ORDER BY sort_order');
   },
+
+  async create(data: Omit<Level, 'id' | 'created_at'>): Promise<ID> {
+    return db.insert(
+      'INSERT INTO levels (code, label, short_label, sort_order) VALUES (?, ?, ?, ?)',
+      [data.code, data.label, data.short_label, data.sort_order]
+    );
+  },
+
+  async update(id: ID, data: Partial<Omit<Level, 'id' | 'created_at'>>): Promise<void> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      fields.push(`${key} = ?`);
+      values.push(val);
+    }
+    if (fields.length === 0) return;
+    values.push(id);
+    await db.execute(`UPDATE levels SET ${fields.join(', ')} WHERE id = ?`, values);
+  },
+
+  async delete(id: ID): Promise<void> {
+    await db.execute('DELETE FROM levels WHERE id = ?', [id]);
+  },
 };
 
 // ── Classes ──
 
 export const classService = {
+  async getAll(): Promise<ClassWithLevel[]> {
+    return db.select(
+      `SELECT c.*, l.label as level_label, l.short_label as level_short
+       FROM classes c
+       JOIN levels l ON c.level_id = l.id
+       ORDER BY c.academic_year_id DESC, l.sort_order, c.sort_order`
+    );
+  },
+
   async getByYear(yearId: ID): Promise<ClassWithLevel[]> {
     return db.select(
       `SELECT c.*, l.label as level_label, l.short_label as level_short

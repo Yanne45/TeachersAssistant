@@ -5,7 +5,7 @@
 //          lesson_log
 // ============================================================================
 
-import type { ID, ISODate, ISODateTime, TrackedEntity, BaseEntity, ContentSource } from './common';
+import type { ID, ISODate, TrackedEntity, BaseEntity } from './common';
 
 // ── Séquences ──
 

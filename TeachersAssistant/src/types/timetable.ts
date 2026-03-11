@@ -3,7 +3,7 @@
 // Tables : timetable_slots, calendar_events, calendar_event_mapping
 // ============================================================================
 
-import type { ID, ISODate, ISODateTime, TimeString, DayOfWeek, TrackedEntity, BaseEntity } from './common';
+import type { ID, ISODateTime, TimeString, DayOfWeek, TrackedEntity, BaseEntity } from './common';
 
 // ── Créneaux EDT ──
 

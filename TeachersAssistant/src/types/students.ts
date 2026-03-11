@@ -6,7 +6,7 @@
 //          orientation_reports, orientation_interviews, student_documents
 // ============================================================================
 
-import type { ID, ISODate, ISODateTime, TrackedEntity, BaseEntity, ContentSource } from './common';
+import type { ID, ISODate, TrackedEntity, BaseEntity } from './common';
 
 // ── Élèves ──
 
@@ -152,4 +152,14 @@ export interface StudentDocument extends BaseEntity {
   document_id: ID;
   report_period_id: ID | null;
   label: string | null;
+}
+
+export interface StudentDocumentWithDetails extends StudentDocument {
+  document_title: string;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  document_type_label: string | null;
+  subject_label: string | null;
+  period_label: string | null;
 }

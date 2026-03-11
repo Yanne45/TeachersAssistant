@@ -6,7 +6,7 @@ import { db } from './db';
 import type {
   Document, DocumentInsert, DocumentWithDetails,
   DocumentType, DocumentTag,
-  IngestionJob, IngestionSuggestion,
+  IngestionJob,
   ID,
 } from '../types';
 
@@ -44,6 +44,24 @@ export const documentService = {
        WHERE d.subject_id = ?
        ORDER BY d.updated_at DESC`,
       [subjectId]
+    );
+  },
+
+  async getByTag(tagId: ID): Promise<DocumentWithDetails[]> {
+    return db.select(
+      `SELECT d.*,
+         dt.label as document_type_label,
+         sub.label as subject_label, sub.color as subject_color,
+         l.label as level_label,
+         CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
+       FROM documents d
+       JOIN document_tag_map m ON m.document_id = d.id
+       LEFT JOIN document_types dt ON d.document_type_id = dt.id
+       LEFT JOIN subjects sub ON d.subject_id = sub.id
+       LEFT JOIN levels l ON d.level_id = l.id
+       WHERE m.tag_id = ?
+       ORDER BY d.updated_at DESC`,
+      [tagId]
     );
   },
 

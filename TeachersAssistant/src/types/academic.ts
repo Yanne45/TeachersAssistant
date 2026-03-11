@@ -102,6 +102,8 @@ export interface Class extends TrackedEntity {
   level_id: ID;
   name: string;              // "Terminale 2"
   short_name: string;        // "Tle 2"
+  /** Alias UI temporaire utilise par certains ecrans legacy */
+  label?: string;
   student_count: number | null;
   sort_order: number;
 }
