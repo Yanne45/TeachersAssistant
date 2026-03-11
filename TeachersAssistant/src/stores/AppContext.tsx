@@ -4,7 +4,7 @@
 // ============================================================================
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import type { AcademicYear, ID, ThemeValue, UIDensity } from '../types';
+import type { AcademicYear, ThemeValue, UIDensity } from '../types';
 import type { ToastData } from '../hooks';
 import { useOnlineStatus } from '../hooks';
 import { academicYearService, preferenceService, notificationService } from '../services';

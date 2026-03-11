@@ -4,7 +4,7 @@
 // En mode dev/navigateur = fallback sur mock data.
 // ============================================================================
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
 import { isOpen as isDbOpen } from '../services/db';
 import { useApp } from './AppContext';
 import {

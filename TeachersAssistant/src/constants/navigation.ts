@@ -56,6 +56,7 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'prep-sep-bib',      label: 'BIBLIOTHÈQUE',             isSection: true },
     { id: 'prep-recents',      label: 'Récents',                   page: 'bibliotheque', indent: 1, icon: '📁' },
     { id: 'prep-par-matiere',  label: 'Par matière',               page: 'bibliotheque', indent: 1, filter: 'matiere' },
+    { id: 'prep-importer',     label: 'Importer docs',             page: 'importer',     indent: 1, icon: '📥' },
     { id: 'prep-sep-ia',       label: 'GÉNÉRATEUR IA',            isSection: true },
     { id: 'prep-generer',      label: 'Générer contenu',           page: 'ia-generer',  indent: 1, icon: '🤖' },
     { id: 'prep-historique',   label: 'Historique',                 page: 'ia-historique', indent: 1 },

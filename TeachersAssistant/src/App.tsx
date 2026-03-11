@@ -63,6 +63,7 @@ function PageResolver() {
       case 'sequences':
       case 'templates':     return <SequenceDetailPage />;
       case 'bibliotheque':  return <BibliothequePage />;
+      case 'importer':      return <BibliothequePage />;
       case 'ia-generer':    return <GenerateurIAPage />;
       case 'ia-historique': return <GenerateurIAPage />;
       default:              return <SequenceDetailPage />;
@@ -130,7 +131,6 @@ function AppMain() {
   // Paramètres & recherche (pages spéciales hors tabs)
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearch, setShowSearch] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState('');
 
   const hasSidebar = activeTab !== 'dashboard';
 
@@ -169,7 +169,7 @@ function AppMain() {
         <ParametresPage />
       ) : showSearch ? (
         <RechercheGlobalePage
-          initialQuery={searchQuery}
+          initialQuery=""
           onClose={() => setShowSearch(false)}
         />
       ) : (

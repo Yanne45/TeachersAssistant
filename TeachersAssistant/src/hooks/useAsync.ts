@@ -65,6 +65,6 @@ export function useAsync<T>(
 export function useAsyncOne<T>(
   fetcher: () => Promise<T | null>,
   deps: unknown[] = []
-): AsyncState<T> {
+): AsyncState<T | null> {
   return useAsync(fetcher, deps);
 }

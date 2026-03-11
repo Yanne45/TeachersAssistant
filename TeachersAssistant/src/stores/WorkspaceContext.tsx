@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { WorkspaceEntry } from '../types';
 import {
+  db,
   openDatabase,
   createDatabase,
   closeDatabase,
@@ -89,6 +90,8 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     tryInit(1);
     return () => { cancelled = true; };
+  // doOpen est défini plus bas et reste stable (useCallback []).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const doOpen = useCallback(async (path: string, label?: string) => {
@@ -102,7 +105,6 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       // Extraire un label depuis la DB si pas fourni
       let finalLabel = label ?? path.split(/[\\/]/).pop()?.replace('.ta', '') ?? 'Sans titre';
       try {
-        const { db } = await import('../services/db');
         const year = await db.selectOne<{ label: string }>(
           'SELECT label FROM academic_years WHERE is_active = 1'
         );

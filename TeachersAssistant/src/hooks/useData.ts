@@ -61,16 +61,17 @@ export function useClasses(yearId: ID | null) {
 
 export function useNotifications() {
   const state = useAsync(() => notificationService.getUnread(), []);
+  const { refresh } = state;
 
   const markRead = useCallback(async (id: ID) => {
     await notificationService.markRead(id);
-    state.refresh();
-  }, [state.refresh]);
+    refresh();
+  }, [refresh]);
 
   const markAllRead = useCallback(async () => {
     await notificationService.markAllRead();
-    state.refresh();
-  }, [state.refresh]);
+    refresh();
+  }, [refresh]);
 
   return { ...state, markRead, markAllRead };
 }
