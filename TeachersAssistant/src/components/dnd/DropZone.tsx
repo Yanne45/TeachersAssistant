@@ -60,7 +60,7 @@ export const DropZone: React.FC<Props> = ({
       : files;
 
     if (filtered.length > 0) {
-      onDrop(multiple ? filtered : [filtered[0]]);
+      onDrop(multiple ? filtered : [filtered[0]!]);
     }
   }, [accept, multiple, onDrop]);
 

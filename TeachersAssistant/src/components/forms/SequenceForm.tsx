@@ -3,7 +3,7 @@
 // Nouveau flux : matière + niveau → chapitre ou 'autre' → titre auto → classes → docs
 // ============================================================================
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Drawer } from '../ui/Drawer';
 import { subjectService, levelService, classService, programTopicService, timetableService, calendarPeriodService } from '../../services';
 import { documentService } from '../../services/documentService';
@@ -88,7 +88,7 @@ async function calcEndDate(
   for (let i = 0; i < 400; i++) {
     const dow = jsToIsoDow(current.getDay());
     if (dow <= 5) { // Lun–Ven
-      const dateStr = current.toISOString().split('T')[0];
+      const [dateStr = ''] = current.toISOString().split('T');
       if (!isVacationDay(dateStr)) {
         const daySlots = relevantSlots.filter(s => s.day_of_week === dow);
         for (const slot of daySlots) accumulated += slot.duration_minutes;
@@ -218,7 +218,7 @@ export const SequenceForm: React.FC<Props> = ({ open, onClose, onSave, initialDa
     if (levelId !== '') {
       setClassIds(prev => prev.filter(id => allClasses.some(c => c.id === id)));
     }
-  }, [levelId, allClasses]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [levelId, allClasses]);
 
   // ── Auto-fill du titre depuis le chapitre sélectionné ──
   useEffect(() => {
@@ -286,6 +286,7 @@ export const SequenceForm: React.FC<Props> = ({ open, onClose, onSave, initialDa
     setDocIds(prev => {
       const arr = [...prev];
       const [moved] = arr.splice(dragIndex.current!, 1);
+      if (moved === undefined) return prev;
       arr.splice(i, 0, moved);
       dragIndex.current = i;
       return arr;
@@ -625,7 +626,6 @@ export const SequenceForm: React.FC<Props> = ({ open, onClose, onSave, initialDa
           onClose={() => setGalleryOpen(false)}
           onAddDoc={addDoc}
           selectedIds={docIds}
-          subjectId={subjectId !== '' ? subjectId as number : undefined}
         />
       )}
     </>
@@ -638,11 +638,10 @@ interface GalleryPanelProps {
   onClose: () => void;
   onAddDoc: (doc: DocItem) => void;
   selectedIds: number[];
-  subjectId?: number;
 }
 
 const DocumentGalleryPanel: React.FC<GalleryPanelProps> = ({
-  onClose, onAddDoc, selectedIds, subjectId,
+  onClose, onAddDoc, selectedIds,
 }) => {
   const [docs, setDocs] = useState<DocItem[]>([]);
   const [search, setSearch] = useState('');

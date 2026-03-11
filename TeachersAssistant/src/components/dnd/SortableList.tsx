@@ -3,7 +3,7 @@
 // Usage : séances dans une séquence, étapes de déroulé, etc.
 // ============================================================================
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   DndContext,
   closestCenter,

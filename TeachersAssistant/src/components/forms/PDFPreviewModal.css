@@ -74,6 +74,20 @@
   background: white;
 }
 
+.pdf-preview__error {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--color-danger);
+  font-size: 13px;
+  border: 1px dashed var(--color-danger);
+  border-radius: var(--radius-xs);
+  background: rgba(231, 76, 60, 0.05);
+  padding: 16px;
+}
+
 .pdf-preview__footer {
   padding: 10px 20px;
   border-top: var(--border-default);

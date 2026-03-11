@@ -24,16 +24,21 @@ export const ImportElevesModal: React.FC<Props> = ({ open, onClose, onImport, cl
     if (lines.length === 0) { setPreview([]); return; }
 
     // Détecter le séparateur
-    const sep = lines[0].includes(';') ? ';' : ',';
+    const firstLine = lines[0] ?? '';
+    const sep = firstLine.includes(';') ? ';' : ',';
     const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')));
 
     // Vérifier la première ligne = header ?
-    const first = rows[0].map(c => c.toLowerCase());
+    const first = (rows[0] ?? []).map(c => c.toLowerCase());
     const hasHeader = first.includes('nom') || first.includes('last_name') || first.includes('prénom');
     const dataRows = hasHeader ? rows.slice(1) : rows;
 
     if (dataRows.length === 0) { setError('Aucune donnée trouvée'); return; }
-    if (dataRows[0].length < 2) { setError('Format attendu : Nom ; Prénom [; Année ; Genre]'); return; }
+    const firstDataRow = dataRows[0];
+    if (!firstDataRow || firstDataRow.length < 2) {
+      setError('Format attendu : Nom ; Prénom [; Année ; Genre]');
+      return;
+    }
 
     const parsed = dataRows.map(r => ({
       last_name: r[0] || '',

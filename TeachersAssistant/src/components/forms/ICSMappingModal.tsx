@@ -3,9 +3,9 @@
 // Shown after parsing an ICS file, before importing into timetable
 // ============================================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Badge } from '../../components/ui';
-import { subjectService, levelService, classService, icsImportService } from '../../services';
+import { subjectService, classService, icsImportService } from '../../services';
 import { useApp } from '../../stores';
 import type { Subject, Class } from '../../types';
 import type { ID } from '../../types/common';
@@ -77,7 +77,7 @@ export const ICSMappingModal: React.FC<Props> = ({ events, onClose, onImported }
         }
       }
       for (const cls of classes) {
-        if (lower.includes(cls.label?.toLowerCase() ?? '___')) {
+        if (lower.includes((cls.label ?? cls.short_name ?? cls.name).toLowerCase())) {
           autoClass = cls.id;
           break;
         }
@@ -192,7 +192,7 @@ export const ICSMappingModal: React.FC<Props> = ({ events, onClose, onImported }
                     >
                       <option value="">—</option>
                       {classes.map(c => (
-                        <option key={c.id} value={c.id}>{c.label}</option>
+                        <option key={c.id} value={c.id}>{c.label ?? c.short_name ?? c.name}</option>
                       ))}
                     </select>
                   </td>
