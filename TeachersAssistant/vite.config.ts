@@ -35,5 +35,18 @@ export default defineConfig({
     target: process.env.TAURI_ENV_PLATFORM === 'windows' ? 'chrome105' : 'safari14',
     minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react';
+          if (id.includes('@dnd-kit')) return 'vendor-dnd';
+          if (id.includes('recharts')) return 'vendor-charts';
+          if (id.includes('jszip')) return 'vendor-jszip';
+          if (id.includes('pdfjs-dist')) return 'vendor-pdf';
+          return 'vendor-misc';
+        },
+      },
+    },
   },
 });
