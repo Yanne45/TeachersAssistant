@@ -33,41 +33,51 @@ export const PromptVariablePicker: React.FC<Props> = ({ variables, onInsert, val
 
       <div className="var-picker__list">
         {required.map(v => (
-          <button
-            key={v.id}
-            className="var-picker__chip var-picker__chip--required"
-            onClick={() => onInsert(v.variable_code)}
-            type="button"
-            title={v.variable_description || v.variable_label}
-          >
-            <span className="var-picker__chip-code">{'{{' + v.variable_code + '}}'}</span>
-            <span className="var-picker__chip-label">{v.variable_label}</span>
-            {values?.[v.variable_code] && (
-              <span className="var-picker__chip-preview">
-                = {values[v.variable_code].substring(0, 30)}
-                {(values[v.variable_code].length > 30) ? '...' : ''}
-              </span>
-            )}
-          </button>
+          (() => {
+            const preview = values?.[v.variable_code];
+            return (
+              <button
+                key={v.id}
+                className="var-picker__chip var-picker__chip--required"
+                onClick={() => onInsert(v.variable_code)}
+                type="button"
+                title={v.variable_description || v.variable_label}
+              >
+                <span className="var-picker__chip-code">{'{{' + v.variable_code + '}}'}</span>
+                <span className="var-picker__chip-label">{v.variable_label}</span>
+                {preview && (
+                  <span className="var-picker__chip-preview">
+                    = {preview.substring(0, 30)}
+                    {(preview.length > 30) ? '...' : ''}
+                  </span>
+                )}
+              </button>
+            );
+          })()
         ))}
 
         {expanded && optional.map(v => (
-          <button
-            key={v.id}
-            className="var-picker__chip var-picker__chip--optional"
-            onClick={() => onInsert(v.variable_code)}
-            type="button"
-            title={v.variable_description || v.variable_label}
-          >
-            <span className="var-picker__chip-code">{'{{' + v.variable_code + '}}'}</span>
-            <span className="var-picker__chip-label">{v.variable_label}</span>
-            {values?.[v.variable_code] && (
-              <span className="var-picker__chip-preview">
-                = {values[v.variable_code].substring(0, 30)}
-                {(values[v.variable_code].length > 30) ? '...' : ''}
-              </span>
-            )}
-          </button>
+          (() => {
+            const preview = values?.[v.variable_code];
+            return (
+              <button
+                key={v.id}
+                className="var-picker__chip var-picker__chip--optional"
+                onClick={() => onInsert(v.variable_code)}
+                type="button"
+                title={v.variable_description || v.variable_label}
+              >
+                <span className="var-picker__chip-code">{'{{' + v.variable_code + '}}'}</span>
+                <span className="var-picker__chip-label">{v.variable_label}</span>
+                {preview && (
+                  <span className="var-picker__chip-preview">
+                    = {preview.substring(0, 30)}
+                    {(preview.length > 30) ? '...' : ''}
+                  </span>
+                )}
+              </button>
+            );
+          })()
         ))}
       </div>
 

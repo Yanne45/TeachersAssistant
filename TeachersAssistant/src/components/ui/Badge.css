@@ -1,7 +1,5 @@
 /* ============================================================================
-   Badge — Styles
-   Spec §3.5 : Matière, Statut, Info, Filtre actif/inactif
-   Style commun : padding 2px 8px, radius 12px, font 11px, weight 600
+   Badge - Styles
    ============================================================================ */
 
 .badge {
@@ -18,61 +16,51 @@
   font-family: var(--font-family);
 }
 
-/* ── Variantes ── */
-
-/* Subject — couleur dynamique via style prop */
 .badge--subject {
-  /* couleur et fond définis inline via la prop color */
+  /* Color and bg are set inline via props. */
 }
 
-/* Status */
 .badge--status {
-  /* couleur et fond définis inline via la prop color */
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
 }
 
-/* Info — gris neutre */
 .badge--info {
   color: var(--color-text-muted);
   background-color: var(--color-bg);
 }
 
-/* Success */
 .badge--success {
   color: var(--color-success);
-  background-color: rgba(126, 217, 87, 0.10);
+  background-color: rgba(126, 217, 87, 0.1);
 }
 
 [data-theme="dark"] .badge--success {
-  background-color: rgba(134, 224, 95, 0.10);
+  background-color: rgba(134, 224, 95, 0.1);
 }
 
-/* Warn */
 .badge--warn {
   color: var(--color-warn);
-  background-color: rgba(245, 166, 35, 0.10);
+  background-color: rgba(245, 166, 35, 0.1);
 }
 
 [data-theme="dark"] .badge--warn {
-  background-color: rgba(250, 189, 59, 0.10);
+  background-color: rgba(250, 189, 59, 0.1);
 }
 
-/* Danger */
 .badge--danger {
   color: var(--color-danger);
-  background-color: rgba(231, 76, 60, 0.10);
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
 [data-theme="dark"] .badge--danger {
-  background-color: rgba(239, 99, 86, 0.10);
+  background-color: rgba(239, 99, 86, 0.1);
 }
 
-/* Filter — inactif par défaut */
 .badge--filter {
   color: var(--color-text-muted);
   background-color: var(--color-bg);
 }
 
-/* Filter actif */
 .badge--filter.badge--active {
   color: var(--color-primary);
   background-color: rgba(61, 180, 198, 0.15);
@@ -81,8 +69,6 @@
 [data-theme="dark"] .badge--filter.badge--active {
   background-color: rgba(77, 200, 218, 0.15);
 }
-
-/* ── Interactif (cliquable) ── */
 
 .badge--clickable {
   cursor: pointer;
@@ -97,11 +83,10 @@
   box-shadow: 0 0 0 2px var(--color-primary);
 }
 
-/* ── Icône ── */
-
 .badge__icon {
   display: inline-flex;
   align-items: center;
   font-size: 1em;
   line-height: 1;
+  opacity: 0.85;
 }

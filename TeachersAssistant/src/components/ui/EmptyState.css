@@ -1,6 +1,5 @@
 /* ============================================================================
-   EmptyState — Styles
-   Spec §3.5 : illustration + message + CTA
+   EmptyState - Styles
    ============================================================================ */
 
 .empty-state {
@@ -9,24 +8,38 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  padding: var(--space-12) var(--space-6);
+  padding: var(--space-10) var(--space-6);
   text-align: center;
+  border: var(--border-default);
+  border-radius: var(--radius-s);
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(61, 180, 198, 0.06), transparent 65%),
+    var(--color-surface);
 }
 
 .empty-state__icon {
-  font-size: 48px;
-  opacity: 0.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  font-size: 28px;
   line-height: 1;
+  background: rgba(61, 180, 198, 0.08);
 }
 
 .empty-state__title {
+  margin: 0;
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
 }
 
 .empty-state__desc {
+  margin: 0;
   font-size: var(--font-size-sm);
+  line-height: 1.5;
   color: var(--color-text-muted);
-  max-width: 360px;
+  max-width: 420px;
 }
