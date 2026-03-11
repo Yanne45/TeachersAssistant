@@ -1,6 +1,6 @@
-// ============================================================================
-// GenerateurIAPage v2 — Interface de generation IA (spec 5.8)
-// Branchee sur ai_tasks / ai_task_variables / ai_task_params
+﻿// ============================================================================
+// GenerateurIAPage v2 - Interface de génération IA (spec 5.8)
+// Branchée sur ai_tasks / ai_task_variables / ai_task_params
 // Variables: auto-remplies si contexte dispo, dropdown sinon
 // Consignes libres (couche 3): visibles en permanence
 // ============================================================================
@@ -9,29 +9,35 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Badge } from '../../components/ui';
 import {
   aiTaskService, aiGenerationService, smartGenerate,
-  subjectService, levelService, sequenceService, classService,
+  subjectService, levelService, sequenceService,
   aiQueueService,
 } from '../../services';
-import { useApp } from '../../stores';
+import { useApp, useRouter } from '../../stores';
 import type { AITask, AITaskVariable, AITaskParam } from '../../services';
 import type { Subject, Level } from '../../types';
 import './GenerateurIAPage.css';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  contenus: 'Contenus pedagogiques',
-  evaluations: 'Evaluations',
+  contenus: 'Contenus pédagogiques',
+  evaluations: 'Évaluations',
   planification: 'Planification',
   correction: 'Correction & suivi',
-  systeme: 'Systeme',
+  systeme: 'Système',
 };
 
 type SidebarView = 'generate' | 'history' | 'queue';
 
 export const GenerateurIAPage: React.FC = () => {
   const { addToast } = useApp();
+  const { route, setPage } = useRouter();
 
   // Navigation
   const [view, setView] = useState<SidebarView>('generate');
+
+  useEffect(() => {
+    if (route.page === 'ia-historique') setView('history');
+    else setView('generate');
+  }, [route.page]);
 
   // Reference data from DB
   const [dbSubjects, setDbSubjects] = useState<Subject[]>([]);
@@ -53,7 +59,7 @@ export const GenerateurIAPage: React.FC = () => {
   // User instructions (couche 3)
   const [userInstructions, setUserInstructions] = useState('');
 
-  // Generation state
+  // État de génération
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [resultContent, setResultContent] = useState<string | null>(null);
@@ -87,6 +93,22 @@ export const GenerateurIAPage: React.FC = () => {
     }
   }, [view, resultContent]);
 
+  // ---- Auto-fill logic using DB reference data ----
+  const autoFillVariable = useCallback((v: AITaskVariable): string | null => {
+    // If only one subject, auto-fill
+    if (v.data_source === 'subjects.name' && dbSubjects.length === 1) {
+      const onlySubject = dbSubjects[0];
+      if (onlySubject) return onlySubject.label;
+    }
+    // If only one level, auto-fill
+    if (v.data_source === 'levels.name' && dbLevels.length === 1) {
+      const onlyLevel = dbLevels[0];
+      if (onlyLevel) return onlyLevel.label;
+    }
+    // Could auto-fill from RouterContext active sequence/session in future
+    return null;
+  }, [dbSubjects, dbLevels]);
+
   // ---- Load task details on selection ----
   const selectTask = useCallback(async (task: AITask) => {
     setSelectedTask(task);
@@ -114,21 +136,7 @@ export const GenerateurIAPage: React.FC = () => {
     setParamValues(defaults);
 
     setUserInstructions('');
-  }, []);
-
-  // ---- Auto-fill logic using DB reference data ----
-  function autoFillVariable(v: AITaskVariable): string | null {
-    // If only one subject, auto-fill
-    if (v.data_source === 'subjects.name' && dbSubjects.length === 1) {
-      return dbSubjects[0].label;
-    }
-    // If only one level, auto-fill
-    if (v.data_source === 'levels.name' && dbLevels.length === 1) {
-      return dbLevels[0].label;
-    }
-    // Could auto-fill from RouterContext active sequence/session in future
-    return null;
-  }
+  }, [autoFillVariable]);
 
   // ---- Group tasks by category ----
   const groupedTasks = useMemo(() => {
@@ -185,14 +193,14 @@ export const GenerateurIAPage: React.FC = () => {
     }
 
     if (v.data_source === 'program_topics.title') {
-      // For now, free text — could be a searchable dropdown later
+      // For now, free text - could be a searchable dropdown later
       return (
         <textarea
           className="ia-gen__var-textarea"
           value={value}
           onChange={e => setVariableValues(prev => ({ ...prev, [v.variable_code]: e.target.value }))}
           rows={2}
-          placeholder={v.variable_description || 'Titre du chapitre / theme'}
+          placeholder={v.variable_description || 'Titre du chapitre / thème'}
         />
       );
     }
@@ -232,7 +240,7 @@ export const GenerateurIAPage: React.FC = () => {
       } else {
         setResult(res);
         setResultContent(res.output_content || res.processed_result || '');
-        addToast('success', 'Contenu genere avec succes');
+        addToast('success', 'Contenu généré avec succès');
       }
     } catch (err: any) {
       setResultContent('Erreur : ' + err.message);
@@ -247,7 +255,7 @@ export const GenerateurIAPage: React.FC = () => {
     if (!result?.id) return;
     try {
       await aiGenerationService.saveToLibrary(result.id, selectedTask?.label + ' - ' + new Date().toLocaleDateString());
-      addToast('success', 'Sauvegarde dans la bibliotheque');
+      addToast('success', 'Sauvegarde dans la bibliothèque');
     } catch (e: any) {
       addToast('error', 'Erreur : ' + e.message);
     }
@@ -263,7 +271,7 @@ export const GenerateurIAPage: React.FC = () => {
   const handleRate = async (rating: number) => {
     if (!result?.id) return;
     await aiGenerationService.rate(result.id, rating);
-    addToast('success', 'Note enregistree');
+    addToast('success', 'Note enregistrée');
   };
 
   // ---- Check if can generate ----
@@ -277,13 +285,13 @@ export const GenerateurIAPage: React.FC = () => {
       <div className="ia-gen__view-bar">
         <button
           className={'ia-gen__view-btn' + (view === 'generate' ? ' ia-gen__view-btn--active' : '')}
-          onClick={() => setView('generate')}
+          onClick={() => { setView('generate'); setPage('ia-generer'); }}
         >
-          Generer
+          Générer
         </button>
         <button
           className={'ia-gen__view-btn' + (view === 'history' ? ' ia-gen__view-btn--active' : '')}
-          onClick={() => setView('history')}
+          onClick={() => { setView('history'); setPage('ia-historique'); }}
         >
           Historique
         </button>
@@ -300,7 +308,7 @@ export const GenerateurIAPage: React.FC = () => {
         <div className="ia-gen__content">
           {/* Task selection grid */}
           <section className="ia-gen__section">
-            <h2 className="ia-gen__section-title">Type de generation</h2>
+            <h2 className="ia-gen__section-title">Type de génération</h2>
             {groupedTasks.map(group => (
               <div key={group.category} className="ia-gen__task-group">
                 <span className="ia-gen__task-group-label">{group.label}</span>
@@ -324,9 +332,9 @@ export const GenerateurIAPage: React.FC = () => {
           {selectedTask && (
             <>
               <section className="ia-gen__section">
-                <h2 className="ia-gen__section-title">Contexte pedagogique</h2>
+                <h2 className="ia-gen__section-title">Contexte pédagogique</h2>
                 <p className="ia-gen__section-desc">
-                  Les variables requises sont pre-remplies si un contexte est actif. Completez ou modifiez-les ci-dessous.
+                  Les variables requises sont pré-remplies si un contexte est actif. Complétez ou modifiez-les ci-dessous.
                 </p>
 
                 <div className="ia-gen__vars-grid">
@@ -351,7 +359,7 @@ export const GenerateurIAPage: React.FC = () => {
               {/* Params */}
               {taskParams.length > 0 && (
                 <section className="ia-gen__section">
-                  <h2 className="ia-gen__section-title">Parametres</h2>
+                  <h2 className="ia-gen__section-title">Paramètres</h2>
                   <div className="ia-gen__params-grid">
                     {taskParams.map(p => (
                       <div key={p.id} className="ia-gen__param-field">
@@ -391,11 +399,11 @@ export const GenerateurIAPage: React.FC = () => {
                 </section>
               )}
 
-              {/* User instructions (couche 3) — always visible */}
+              {/* User instructions (couche 3) - always visible */}
               <section className="ia-gen__section">
-                <h2 className="ia-gen__section-title">Consignes complementaires</h2>
+                <h2 className="ia-gen__section-title">Consignes complémentaires</h2>
                 <p className="ia-gen__section-desc">
-                  Instructions libres ajoutees a cette generation uniquement. Non sauvegardees.
+                  Instructions libres ajoutées à cette génération uniquement. Non sauvegardées.
                 </p>
                 <textarea
                   className="ia-gen__instructions"
@@ -413,10 +421,10 @@ export const GenerateurIAPage: React.FC = () => {
                   onClick={handleGenerate}
                   disabled={generating || requiredVarsMissing}
                 >
-                  {generating ? 'Generation en cours...' : 'Generer'}
+                  {generating ? 'Génération en cours...' : 'Générer'}
                 </button>
                 {requiredVarsMissing && (
-                  <span className="ia-gen__missing-warning">Completez les variables requises (*)</span>
+                  <span className="ia-gen__missing-warning">Complétez les variables requises (*)</span>
                 )}
               </div>
             </>
@@ -425,12 +433,12 @@ export const GenerateurIAPage: React.FC = () => {
           {/* Result */}
           {(resultContent || generating) && (
             <section className="ia-gen__section">
-              <h2 className="ia-gen__section-title">Resultat</h2>
+              <h2 className="ia-gen__section-title">Résultat</h2>
 
               {generating && (
                 <div className="ia-gen__loading">
                   <div className="ia-gen__spinner" />
-                  <span>Generation en cours — 10-30 secondes...</span>
+                  <span>Génération en cours - 10-30 secondes...</span>
                 </div>
               )}
 
@@ -440,16 +448,16 @@ export const GenerateurIAPage: React.FC = () => {
 
                   <div className="ia-gen__result-actions">
                     <button className="ia-gen__result-btn ia-gen__result-btn--primary" onClick={handleSaveToLibrary}>
-                      Sauvegarder en bibliotheque
+                      Sauvegarder en bibliothèque
                     </button>
                     <button className="ia-gen__result-btn" onClick={handleCopy}>
                       Copier
                     </button>
                     <button className="ia-gen__result-btn" onClick={handleGenerate}>
-                      Regenerer
+                      Régénérer
                     </button>
                     <div className="ia-gen__rating">
-                      <span className="ia-gen__rating-label">Qualite :</span>
+                      <span className="ia-gen__rating-label">Qualité :</span>
                       {[1, 2, 3, 4, 5].map(n => (
                         <button
                           key={n}
@@ -472,9 +480,9 @@ export const GenerateurIAPage: React.FC = () => {
       {view === 'history' && (
         <div className="ia-gen__content">
           <section className="ia-gen__section">
-            <h2 className="ia-gen__section-title">Historique des generations</h2>
+            <h2 className="ia-gen__section-title">Historique des générations</h2>
             {history.length === 0 && (
-              <p className="ia-gen__empty-history">Aucune generation pour le moment.</p>
+              <p className="ia-gen__empty-history">Aucune génération pour le moment.</p>
             )}
             <div className="ia-gen__history-list">
               {history.map((item: any) => (
@@ -482,7 +490,7 @@ export const GenerateurIAPage: React.FC = () => {
                   <div className="ia-gen__history-left">
                     <span className="ia-gen__history-icon">{item.task_icon || '🤖'}</span>
                     <div>
-                      <span className="ia-gen__history-title">{item.task_label || 'Generation'}</span>
+                      <span className="ia-gen__history-title">{item.task_label || 'Génération'}</span>
                       <div className="ia-gen__history-meta">
                         <Badge variant={item.task_category === 'contenus' ? 'info' : 'default'}>
                           {item.task_category || ''}
@@ -533,7 +541,7 @@ export const GenerateurIAPage: React.FC = () => {
                   }
                 }}
               >
-                {processingQueue ? '⏳ Traitement…' : '▶ Traiter la file'}
+                {processingQueue ? 'Traitement...' : 'Traiter la file'}
               </button>
               <button
                 className="ia-gen__queue-action-btn"
@@ -546,7 +554,7 @@ export const GenerateurIAPage: React.FC = () => {
                   addToast('success', 'File vidée');
                 }}
               >
-                🗑 Vider
+                Vider
               </button>
             </div>
 
@@ -578,7 +586,7 @@ export const GenerateurIAPage: React.FC = () => {
                         <div>
                           <span className="ia-gen__queue-item-type">{item.request_type}</span>
                           <span className="ia-gen__queue-item-meta">
-                            {payload?.task_code || '—'} · Priorité {item.priority} · Essai {item.retry_count}/{item.max_retries}
+                            {payload?.task_code || '-'} · Priorité {item.priority} · Essai {item.retry_count}/{item.max_retries}
                           </span>
                           {item.error_message && (
                             <span className="ia-gen__queue-item-error">⚠ {item.error_message}</span>
@@ -599,3 +607,4 @@ export const GenerateurIAPage: React.FC = () => {
     </div>
   );
 };
+

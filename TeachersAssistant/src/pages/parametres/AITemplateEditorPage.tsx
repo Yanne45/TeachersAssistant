@@ -1,22 +1,22 @@
 // ============================================================================
 // AITemplateEditorPage — Parametres > IA > Templates
-// Mode simple (guide) + mode avance (editeur complet avec {{variables}})
+// Mode simple (guide) + mode avancé (éditeur complet avec {{variables}})
 // ============================================================================
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, Badge } from '../../components/ui';
 import { PromptVariablePicker } from '../../components/ui/PromptVariablePicker';
-import { aiTaskService, aiSettingsService } from '../../services';
+import { aiTaskService, aiSettingsService, getApiKey, setApiKey } from '../../services';
 import { useApp } from '../../stores';
 import type { AITask, AITaskVariable, AITaskParam, AIUserTemplate } from '../../services';
 import './AITemplateEditorPage.css';
 
 const CATEGORY_LABELS: Record<string, string> = {
   contenus: 'Contenus',
-  evaluations: 'Evaluations',
+  evaluations: 'Évaluations',
   planification: 'Planification',
   correction: 'Correction',
-  systeme: 'Systeme',
+  systeme: 'Système',
 };
 
 const CATEGORY_ORDER = ['contenus', 'evaluations', 'planification', 'correction', 'systeme'];
@@ -59,34 +59,29 @@ export const AITemplateEditorPage: React.FC = () => {
       }
     }).catch(() => {});
     // Check if key exists
-    import('../../services/aiService').then(({ getApiKey }) => {
-      if (typeof getApiKey === 'function') {
-        getApiKey?.().then((k: string | null) => {
-          if (k) {
-            setApiKeyValue('••••••••' + k.slice(-4));
-            setApiKeyStatus('Cle configuree (' + k.slice(-4) + ')');
-          } else {
-            setApiKeyStatus('Aucune cle configuree');
-          }
-        }).catch(() => {});
+    getApiKey().then((k: string | null) => {
+      if (k) {
+        setApiKeyValue('••••••••' + k.slice(-4));
+        setApiKeyStatus('Clé configurée (' + k.slice(-4) + ')');
+      } else {
+        setApiKeyStatus('Aucune clé configurée');
       }
     }).catch(() => {});
   }, []);
 
   const handleSaveApiKey = async () => {
     if (!apiKeyValue || apiKeyValue.startsWith('••')) {
-      addToast('info', 'Saisissez une nouvelle cle API');
+      addToast('info', 'Saisissez une nouvelle clé API');
       return;
     }
     try {
-      const { setApiKey } = await import('../../services/aiService');
       await setApiKey(apiKeyValue);
-      setApiKeyStatus('Cle enregistree (' + apiKeyValue.slice(-4) + ')');
+      setApiKeyStatus('Clé enregistrée (' + apiKeyValue.slice(-4) + ')');
       setApiKeyValue('••••••••' + apiKeyValue.slice(-4));
       setShowApiKey(false);
-      addToast('success', 'Cle API enregistree');
+      addToast('success', 'Clé API enregistrée');
     } catch {
-      addToast('error', 'Erreur de sauvegarde de la cle');
+      addToast('error', 'Erreur de sauvegarde de la clé');
     }
   };
 
@@ -157,7 +152,7 @@ export const AITemplateEditorPage: React.FC = () => {
     setParamOverrides({});
     setUserTemplate(null);
     setDirty(false);
-    addToast('info', 'Template reinitialise au defaut');
+    addToast('info', 'Template réinitialisé au défaut');
   };
 
   // --- Save AI settings ---
@@ -185,7 +180,7 @@ export const AITemplateEditorPage: React.FC = () => {
     <div className="ai-tpl-page">
       {/* Sidebar: task list */}
       <div className="ai-tpl-page__sidebar">
-        <h2 className="ai-tpl-page__sidebar-title">Taches IA</h2>
+        <h2 className="ai-tpl-page__sidebar-title">Tâches IA</h2>
 
         {grouped.map(group => (
           <div key={group.category} className="ai-tpl-page__group">
@@ -205,10 +200,10 @@ export const AITemplateEditorPage: React.FC = () => {
 
         {/* AI Global settings at bottom */}
         <div className="ai-tpl-page__settings-section">
-          <div className="ai-tpl-page__group-label">Parametres globaux</div>
+          <div className="ai-tpl-page__group-label">Paramètres globaux</div>
 
           <div className="ai-tpl-page__setting">
-            <label className="ai-tpl-page__setting-label">Cle API</label>
+            <label className="ai-tpl-page__setting-label">Clé API</label>
             <div className="ai-tpl-page__apikey-row">
               <input
                 type={showApiKey ? 'text' : 'password'}
@@ -237,7 +232,7 @@ export const AITemplateEditorPage: React.FC = () => {
           </div>
 
           <div className="ai-tpl-page__setting">
-            <label className="ai-tpl-page__setting-label">Modele</label>
+            <label className="ai-tpl-page__setting-label">Modèle</label>
             <select
               className="ai-tpl-page__setting-select"
               value={aiModel}
@@ -281,7 +276,7 @@ export const AITemplateEditorPage: React.FC = () => {
         {!selectedTask ? (
           <div className="ai-tpl-page__empty">
             <span className="ai-tpl-page__empty-icon">🤖</span>
-            <p>Selectionnez une tache IA dans la liste pour personnaliser son template de prompt.</p>
+            <p>Sélectionnez une tâche IA dans la liste pour personnaliser son template de prompt.</p>
           </div>
         ) : (
           <>
@@ -295,7 +290,7 @@ export const AITemplateEditorPage: React.FC = () => {
                 <div className="ai-tpl-page__header-badges">
                   <Badge variant="info">{selectedTask.output_format}</Badge>
                   <Badge variant={userTemplate?.is_active ? 'success' : 'info'}>
-                    {userTemplate?.is_active ? 'Template personnalise' : 'Template par defaut'}
+                    {userTemplate?.is_active ? 'Template personnalisé' : 'Template par défaut'}
                   </Badge>
                 </div>
               </div>
@@ -306,7 +301,7 @@ export const AITemplateEditorPage: React.FC = () => {
                     checked={advancedMode}
                     onChange={e => setAdvancedMode(e.target.checked)}
                   />
-                  <span>Mode avance</span>
+                  <span>Mode avancé</span>
                 </label>
               </div>
             </div>
@@ -315,10 +310,10 @@ export const AITemplateEditorPage: React.FC = () => {
             {!advancedMode && (
               <div className="ai-tpl-page__simple">
                 <Card className="ai-tpl-page__card">
-                  <h3 className="ai-tpl-page__card-title">Parametres par defaut</h3>
+                  <h3 className="ai-tpl-page__card-title">Paramètres par défaut</h3>
                   <p className="ai-tpl-page__card-desc">
-                    Ces valeurs seront utilisees a chaque fois que vous lancez cette tache.
-                    Vous pourrez les modifier ponctuellement dans le Generateur IA.
+                    Ces valeurs seront utilisées à chaque fois que vous lancez cette tâche.
+                    Vous pourrez les modifier ponctuellement dans le Générateur IA.
                   </p>
 
                   <div className="ai-tpl-page__params-grid">
@@ -371,7 +366,7 @@ export const AITemplateEditorPage: React.FC = () => {
                 <Card className="ai-tpl-page__card">
                   <h3 className="ai-tpl-page__card-title">Variables contextuelles</h3>
                   <p className="ai-tpl-page__card-desc">
-                    Ces variables seront automatiquement remplies par le contexte de la sequence ou seance active.
+                    Ces variables seront automatiquement remplies par le contexte de la séquence ou séance active.
                   </p>
                   <div className="ai-tpl-page__vars-list">
                     {variables.map(v => (
@@ -395,7 +390,7 @@ export const AITemplateEditorPage: React.FC = () => {
             {advancedMode && (
               <div className="ai-tpl-page__advanced">
                 <Card className="ai-tpl-page__card">
-                  <h3 className="ai-tpl-page__card-title">Editeur de template</h3>
+                  <h3 className="ai-tpl-page__card-title">Éditeur de template</h3>
                   <p className="ai-tpl-page__card-desc">
                     Modifiez le prompt directement. Cliquez sur une variable pour l'inserer a la position du curseur.
                   </p>
@@ -418,7 +413,7 @@ export const AITemplateEditorPage: React.FC = () => {
 
                 {/* Params in advanced mode too */}
                 <Card className="ai-tpl-page__card">
-                  <h3 className="ai-tpl-page__card-title">Parametres par defaut</h3>
+                  <h3 className="ai-tpl-page__card-title">Paramètres par défaut</h3>
                   <div className="ai-tpl-page__params-grid">
                     {params.map(p => (
                       <div key={p.id} className="ai-tpl-page__param">
@@ -484,9 +479,9 @@ export const AITemplateEditorPage: React.FC = () => {
                 className="ai-tpl-page__btn ai-tpl-page__btn--secondary"
                 onClick={handleReset}
               >
-                Reinitialiser au defaut
+                Réinitialiser au défaut
               </button>
-              {dirty && <span className="ai-tpl-page__dirty-indicator">Modifications non sauvegardees</span>}
+              {dirty && <span className="ai-tpl-page__dirty-indicator">Modifications non sauvegardées</span>}
             </div>
           </>
         )}

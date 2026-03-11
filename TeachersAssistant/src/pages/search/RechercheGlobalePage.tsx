@@ -20,6 +20,7 @@ const TYPE_FILTERS = [
   { key: 'lesson_log', label: 'Cahier' },
   { key: 'program_topic', label: 'Programme' },
 ];
+type TypeFilter = typeof TYPE_FILTERS[number]['key'];
 
 export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: () => void }> = ({
   initialQuery = '',
@@ -27,7 +28,7 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
 }) => {
   const { navigate, setEntity } = useRouter();
   const [query, setQuery] = useState(initialQuery);
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -70,7 +71,7 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
     : results.filter(r => r.type === typeFilter);
 
   // Counts per type
-  const countByType = (key: string) =>
+  const countByType = (key: TypeFilter) =>
     key === 'all' ? results.length : results.filter(r => r.type === key).length;
 
   // Navigate to result

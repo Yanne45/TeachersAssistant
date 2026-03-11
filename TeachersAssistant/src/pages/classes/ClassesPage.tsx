@@ -4,10 +4,11 @@
 // ============================================================================
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useData, useRouter } from '../../stores';
+import { useApp, useRouter } from '../../stores';
 import { EleveForm } from '../../components/forms';
 import { EmptyState } from '../../components/ui';
 import { db } from '../../services/db';
+import { studentService } from '../../services';
 import './ClassesPage.css';
 
 // ── Types locaux ──
@@ -35,6 +36,14 @@ interface ParsedStudent {
   gender?: string;
 }
 
+interface EleveSaveData {
+  last_name: string;
+  first_name: string;
+  birth_year: string;
+  gender: string;
+  class_ids: string[];
+}
+
 // ============================================================================
 // Main page
 // ============================================================================
@@ -54,25 +63,31 @@ export const ClassesPage: React.FC = () => {
 // ============================================================================
 
 function OverviewView() {
+  const { addToast } = useApp();
   const { navigate } = useRouter();
   const [classes, setClasses] = useState<ClassInfo[]>([]);
   const [studentsByClass, setStudentsByClass] = useState<Record<number, StudentInfo[]>>({});
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
   const [editStudent, setEditStudent] = useState<Partial<{ last_name: string; first_name: string; birth_year: string; gender: string; class_ids: string[] }> | undefined>();
+
+  const loadClasses = async () => {
+    const rows = await db.select<ClassInfo[]>(`
+      SELECT c.id, c.name, c.short_name, l.label AS level_label, c.student_count
+      FROM classes c
+      JOIN levels l ON l.id = c.level_id
+      ORDER BY c.sort_order
+    `);
+    setClasses(rows);
+  };
 
   // Charger classes
   useEffect(() => {
     (async () => {
       try {
-        const rows = await db.select<ClassInfo[]>(`
-          SELECT c.id, c.name, c.short_name, l.label AS level_label, c.student_count
-          FROM classes c
-          JOIN levels l ON l.id = c.level_id
-          ORDER BY c.sort_order
-        `);
-        setClasses(rows);
+        await loadClasses();
       } catch (err) {
         console.error('[Classes] Erreur chargement:', err);
       } finally {
@@ -82,8 +97,8 @@ function OverviewView() {
   }, []);
 
   // Charger élèves quand on déplie une classe
-  const loadStudents = async (classId: number) => {
-    if (studentsByClass[classId]) return;
+  const loadStudents = async (classId: number, force = false) => {
+    if (!force && studentsByClass[classId]) return;
     try {
       const rows = await db.select<StudentInfo[]>(`
         SELECT s.id, s.last_name, s.first_name, s.birth_year, s.gender
@@ -95,6 +110,51 @@ function OverviewView() {
       setStudentsByClass(prev => ({ ...prev, [classId]: rows }));
     } catch (err) {
       console.error('[Classes] Erreur chargement élèves:', err);
+    }
+  };
+
+  const handleSaveStudent = async (data: EleveSaveData) => {
+    const classIds = data.class_ids
+      .map(id => Number.parseInt(id, 10))
+      .filter(Number.isFinite);
+
+    try {
+      const birthYear = data.birth_year ? Number.parseInt(data.birth_year, 10) : null;
+      if (editingStudentId) {
+        await studentService.update(editingStudentId, {
+          last_name: data.last_name.trim(),
+          first_name: data.first_name.trim(),
+          birth_year: Number.isFinite(birthYear) ? birthYear : null,
+          gender: data.gender ? (data.gender as 'M' | 'F' | 'X') : null,
+          email: null,
+          notes: null,
+        });
+        for (const classId of classIds) {
+          await studentService.enroll(editingStudentId, classId);
+        }
+        addToast('success', 'Élève mis à jour');
+      } else {
+        const studentId = await studentService.create({
+          last_name: data.last_name.trim(),
+          first_name: data.first_name.trim(),
+          birth_year: Number.isFinite(birthYear) ? birthYear : null,
+          gender: data.gender ? (data.gender as 'M' | 'F' | 'X') : null,
+          email: null,
+          notes: null,
+        });
+        for (const classId of classIds) {
+          await studentService.enroll(studentId, classId);
+        }
+        addToast('success', 'Élève ajouté');
+      }
+
+      await loadClasses();
+      await Promise.all([...expandedIds].map(id => loadStudents(id, true)));
+      setEditingStudentId(null);
+      setEditStudent(undefined);
+    } catch (error) {
+      console.error('[Classes] Erreur save élève:', error);
+      addToast('error', 'Échec de sauvegarde de l\'élève');
     }
   };
 
@@ -123,7 +183,7 @@ function OverviewView() {
           <button className="classes-page__btn classes-page__btn--secondary" onClick={() => navigate({ tab: 'classes', page: 'import' })}>
             📥 Importer une classe
           </button>
-          <button className="classes-page__btn classes-page__btn--primary" onClick={() => { setEditStudent(undefined); setFormOpen(true); }}>
+          <button className="classes-page__btn classes-page__btn--primary" onClick={() => { setEditingStudentId(null); setEditStudent(undefined); setFormOpen(true); }}>
             + Ajouter un élève
           </button>
         </div>
@@ -161,7 +221,7 @@ function OverviewView() {
                       <button className="classes-page__card-action" onClick={() => navigate({ tab: 'classes', page: 'import' })}>
                         📥 Importer PDF
                       </button>
-                      <button className="classes-page__card-action" onClick={() => { setEditStudent({ class_ids: [String(cls.id)] }); setFormOpen(true); }}>
+                      <button className="classes-page__card-action" onClick={() => { setEditingStudentId(null); setEditStudent({ class_ids: [String(cls.id)] }); setFormOpen(true); }}>
                         + Ajouter élève
                       </button>
                     </div>
@@ -179,6 +239,7 @@ function OverviewView() {
                             <span className="classes-page__student-gender">{s.gender === 'F' ? 'F' : s.gender === 'M' ? 'M' : ''}</span>
                             <div className="classes-page__student-actions">
                               <button className="classes-page__student-edit" onClick={() => {
+                                setEditingStudentId(s.id);
                                 setEditStudent({
                                   last_name: s.last_name,
                                   first_name: s.first_name,
@@ -205,8 +266,12 @@ function OverviewView() {
 
       <EleveForm
         open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSave={(data) => { console.log('Save élève:', data); setFormOpen(false); }}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingStudentId(null);
+          setEditStudent(undefined);
+        }}
+        onSave={handleSaveStudent}
         initialData={editStudent}
       />
     </div>
@@ -265,16 +330,21 @@ function ImportView() {
     const lines = text.trim().split('\n').filter(l => l.trim());
     if (lines.length === 0) { setError('Fichier vide'); return; }
 
-    const sep = lines[0].includes(';') ? ';' : ',';
+    const firstLine = lines[0] ?? '';
+    const sep = firstLine.includes(';') ? ';' : ',';
     const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')));
 
-    const first = rows[0].map(c => c.toLowerCase());
+    const first = (rows[0] ?? []).map(c => c.toLowerCase());
     const hasHeader = first.includes('nom') || first.includes('last_name') || first.includes('prénom')
       || first.includes('élève') || first.includes('eleve');
     const dataRows = hasHeader ? rows.slice(1) : rows;
 
     if (dataRows.length === 0) { setError('Aucune donnée trouvée'); return; }
-    if (dataRows[0].length < 2) { setError('Format attendu : Nom ; Prénom [; Année ; Genre]'); return; }
+    const firstDataRow = dataRows[0];
+    if (!firstDataRow || firstDataRow.length < 2) {
+      setError('Format attendu : Nom ; Prénom [; Année ; Genre]');
+      return;
+    }
 
     const students = dataRows
       .map(r => ({
@@ -495,25 +565,26 @@ function extractTextFromPdfBuffer(buffer: ArrayBuffer): string {
   let match;
 
   while ((match = btRegex.exec(raw)) !== null) {
-    const block = match[1];
+    const block = match[1] ?? '';
 
     // Extraire les chaînes Tj
     const tjRegex = /\(([^)]*)\)\s*Tj/g;
     let tj;
     while ((tj = tjRegex.exec(block)) !== null) {
-      textBlocks.push(tj[1]);
+      const value = tj[1];
+      if (value !== undefined) textBlocks.push(value);
     }
 
     // Extraire les arrays TJ
     const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g;
     let tja;
     while ((tja = tjArrayRegex.exec(block)) !== null) {
-      const inner = tja[1];
+      const inner = tja[1] ?? '';
       const strRegex = /\(([^)]*)\)/g;
       let s;
       let line = '';
       while ((s = strRegex.exec(inner)) !== null) {
-        line += s[1];
+        line += s[1] ?? '';
       }
       if (line.trim()) textBlocks.push(line);
     }
@@ -550,18 +621,24 @@ function extractStudentsFromText(text: string): ParsedStudent[] {
     const namePattern = /^(?:\d+[.\s)]*)?([A-ZÀ-Ü]{2,}(?:[\s-][A-ZÀ-Ü]+)*)\s+([A-ZÀ-ÿa-z][\wà-ÿ-]+(?:\s+[A-ZÀ-ÿa-z][\wà-ÿ-]+)*)$/;
     const m1 = line.match(namePattern);
     if (m1) {
-      lastName = m1[1].trim();
-      firstName = m1[2].trim();
+      const ln = m1[1];
+      const fn = m1[2];
+      if (ln && fn) {
+        lastName = ln.trim();
+        firstName = fn.trim();
+      }
     }
 
     // Pattern 2 : séparateur "NOM;Prénom" ou "NOM,Prénom"
     if (!lastName) {
       const parts = line.split(/[;,\t]/).map(p => p.trim());
-      if (parts.length >= 2 && parts[0].length >= 2 && parts[1].length >= 2) {
+      const p0 = parts[0];
+      const p1 = parts[1];
+      if (parts.length >= 2 && p0 && p1 && p0.length >= 2 && p1.length >= 2) {
         // Vérifier que le premier part ressemble à un nom (majuscules)
-        if (/^[A-ZÀ-Ü]{2,}/.test(parts[0])) {
-          lastName = parts[0];
-          firstName = parts[1];
+        if (/^[A-ZÀ-Ü]{2,}/.test(p0)) {
+          lastName = p0;
+          firstName = p1;
         }
       }
     }

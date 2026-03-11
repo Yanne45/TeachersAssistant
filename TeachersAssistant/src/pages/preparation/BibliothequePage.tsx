@@ -7,7 +7,7 @@ import { Card, Badge, Button, Input, EmptyState } from '../../components/ui';
 import { DropZone } from '../../components/dnd';
 import { ImportModal } from '../../components/library/ImportModal';
 import { TagManager } from '../../components/library/TagManager';
-import { documentService } from '../../services/documentService';
+import { db, documentService, subjectService } from '../../services';
 import { useWorkspace } from '../../stores';
 import { useRouter } from '../../stores';
 import type { DocumentWithDetails } from '../../types';
@@ -20,11 +20,12 @@ const FILE_ICONS: Record<string, string> = {
   png: '🖼', jpg: '🖼', jpeg: '🖼', gif: '🖼', default: '📎',
 };
 
-function fileIcon(ext: string): string {
-  return FILE_ICONS[ext?.toLowerCase()] ?? FILE_ICONS.default;
+function fileIcon(ext?: string): string {
+  return FILE_ICONS[ext?.toLowerCase() ?? ''] ?? FILE_ICONS.default ?? '📎';
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso?: string): string {
+  if (!iso) return '';
   try {
     const d = new Date(iso);
     return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
@@ -62,20 +63,32 @@ export const BibliothequePage: React.FC = () => {
       } else if (search.trim()) {
         setDocs(await documentService.search(search.trim()));
       } else if (activeKey === 'hggsp') {
-        const { subjectService } = await import('../../services');
         const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'HGGSP'));
         setDocs(sub ? await documentService.getBySubject(sub.id) : []);
       } else if (activeKey === 'histoire') {
-        const { subjectService } = await import('../../services');
         const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'HIST'));
         setDocs(sub ? await documentService.getBySubject(sub.id) : []);
       } else if (activeKey === 'geo') {
-        const { subjectService } = await import('../../services');
         const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'GEO'));
         setDocs(sub ? await documentService.getBySubject(sub.id) : []);
+      } else if (activeKey === 'matiere') {
+        const results = await db.select<DocumentWithDetails[]>(
+          `SELECT d.*,
+             dt.label as document_type_label,
+             sub.label as subject_label, sub.color as subject_color,
+             l.label as level_label,
+             CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
+           FROM documents d
+           LEFT JOIN document_types dt ON d.document_type_id = dt.id
+           LEFT JOIN subjects sub ON d.subject_id = sub.id
+           LEFT JOIN levels l ON d.level_id = l.id
+           WHERE d.subject_id IS NOT NULL
+           ORDER BY d.updated_at DESC`,
+          []
+        );
+        setDocs(results);
       } else if (activeKey === 'terminale') {
-        const { db } = await import('../../services/db');
-        const results = await db.select<DocumentWithDetails>(
+        const results = await db.select<DocumentWithDetails[]>(
           `SELECT d.*,
              dt.label as document_type_label,
              sub.label as subject_label, sub.color as subject_color,
@@ -91,8 +104,7 @@ export const BibliothequePage: React.FC = () => {
         );
         setDocs(results);
       } else if (activeKey === 'premiere') {
-        const { db } = await import('../../services/db');
-        const results = await db.select<DocumentWithDetails>(
+        const results = await db.select<DocumentWithDetails[]>(
           `SELECT d.*,
              dt.label as document_type_label,
              sub.label as subject_label, sub.color as subject_color,
@@ -115,7 +127,6 @@ export const BibliothequePage: React.FC = () => {
       setDocs([]);
     }
     setLoading(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeKey, search, activeTagId]);
 
   useEffect(() => { loadDocs(); }, [loadDocs]);
@@ -152,6 +163,7 @@ export const BibliothequePage: React.FC = () => {
     activeKey === 'hggsp'    ? 'HGGSP'                   :
     activeKey === 'histoire' ? 'Histoire'                 :
     activeKey === 'geo'      ? 'Géographie'               :
+    activeKey === 'matiere'  ? 'Par matière'              :
     activeKey === 'terminale'? 'Terminale'                :
     activeKey === 'premiere' ? 'Première'                 : 'Bibliothèque';
 

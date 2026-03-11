@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Badge, Button, EmptyState } from '../../components/ui';
 import { useApp, useRouter } from '../../stores';
+import { programJsonService } from '../../services';
 import { db } from '../../services/db';
 import './ProgrammeOfficielPage.css';
 
@@ -209,7 +210,6 @@ export const ProgrammeOfficielPage: React.FC = () => {
     })();
 
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route.filter, selectedSubject, selectedLevel]);
 
   const toggleTheme = (id: number) => {
@@ -304,7 +304,6 @@ export const ProgrammeOfficielPage: React.FC = () => {
               const file = (e.target as HTMLInputElement).files?.[0];
               if (!file) return;
               const text = await file.text();
-              const { programJsonService } = await import('../../services');
               try {
                 let count: number;
                 if (file.name.endsWith('.json')) {
