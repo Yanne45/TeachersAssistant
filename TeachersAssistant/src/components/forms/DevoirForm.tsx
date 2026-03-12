@@ -4,6 +4,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { useApp } from '../../stores';
+import {
+  assignmentTypeService,
+  classService,
+  subjectService,
+  sequenceService,
+  skillService,
+} from '../../services';
+import type { AssignmentType } from '../../services';
+import type { ClassWithLevel } from '../../types/academic';
+import type { Subject } from '../../types/academic';
+import type { SequenceWithDetails } from '../../types/sequences';
+import type { Skill } from '../../types/programme';
 import './forms.css';
 
 interface DevoirFormData {
@@ -29,33 +42,6 @@ const EMPTY: DevoirFormData = {
   subject_file: null, subject_extracted_text: '',
 };
 
-const MOCK_TYPES = [
-  { id: '1', label: 'Dissertation' }, { id: '2', label: 'Commentaire de document(s)' },
-  { id: '3', label: 'Composition' }, { id: '4', label: 'Croquis / Schéma' },
-  { id: '5', label: 'Étude de document' }, { id: '6', label: 'Oral / Exposé' },
-  { id: '7', label: 'QCM' }, { id: '8', label: 'Travail maison' },
-];
-
-const MOCK_SKILLS = [
-  { id: '1', label: 'Problématiser' }, { id: '2', label: 'Construire un plan' },
-  { id: '3', label: 'Mobiliser connaissances' }, { id: '4', label: 'Rédaction' },
-  { id: '5', label: 'Analyser un document' }, { id: '6', label: 'Réaliser un croquis' },
-];
-
-const MOCK_CLASSES = [
-  { id: '1', label: 'Tle 2' }, { id: '2', label: 'Tle 4' }, { id: '3', label: '1ère 3' },
-];
-
-const MOCK_SUBJECTS = [
-  { id: '1', label: 'Histoire' }, { id: '2', label: 'Géographie' }, { id: '3', label: 'HGGSP' },
-];
-
-const MOCK_SEQUENCES = [
-  { id: '1', label: 'De nouveaux espaces de conquête' },
-  { id: '2', label: 'Faire la guerre, faire la paix' },
-  { id: '4', label: 'La Guerre froide (1947-1991)' },
-];
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -64,17 +50,45 @@ interface Props {
 }
 
 export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData }) => {
+  const { activeYear } = useApp();
   const [form, setForm] = useState<DevoirFormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof DevoirFormData, string>>>({});
   const [extracting, setExtracting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Reference data
+  const [assignmentTypes, setAssignmentTypes] = useState<AssignmentType[]>([]);
+  const [classes, setClasses] = useState<ClassWithLevel[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [sequences, setSequences] = useState<SequenceWithDetails[]>([]);
+  const [skills, setSkills] = useState<Skill[]>([]);
+
+  // Load reference data when the drawer opens
   useEffect(() => {
-    if (open) {
-      setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
-      setErrors({});
-    }
-  }, [open, initialData]);
+    if (!open) return;
+    setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
+    setErrors({});
+
+    void (async () => {
+      const [types, cls, subs] = await Promise.all([
+        assignmentTypeService.getAll(),
+        classService.getAll(),
+        subjectService.getAll(),
+      ]);
+      setAssignmentTypes(types);
+      setClasses(cls);
+      setSubjects(subs);
+
+      if (activeYear?.id) {
+        const [seqs, sks] = await Promise.all([
+          sequenceService.getByYear(activeYear.id),
+          skillService.getAll(activeYear.id),
+        ]);
+        setSequences(seqs);
+        setSkills(sks);
+      }
+    })();
+  }, [open, initialData, activeYear]);
 
   const handleSubjectFile = async (file: File) => {
     setExtracting(true);
@@ -112,6 +126,17 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
   const set = (field: keyof DevoirFormData, value: string | string[]) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
+  const handleTypeChange = (typeId: string) => {
+    set('assignment_type_id', typeId);
+    // Auto-fill max_score with the type's default if score is still at default
+    if (typeId) {
+      const selectedType = assignmentTypes.find(t => String(t.id) === typeId);
+      if (selectedType && (form.max_score === '20' || form.max_score === '' || form.max_score === EMPTY.max_score)) {
+        set('max_score', String(selectedType.default_max_score));
+      }
+    }
+  };
+
   const toggleSkill = (id: string) => {
     setForm(prev => ({
       ...prev,
@@ -136,6 +161,11 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
   };
 
   const isEdit = !!initialData;
+
+  // Filter skills by selected subject if applicable
+  const filteredSkills = form.subject_id
+    ? skills.filter(s => s.subject_id === null || String(s.subject_id) === form.subject_id)
+    : skills;
 
   return (
     <Drawer
@@ -163,7 +193,7 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
           <label className="form__label">Classe *</label>
           <select className={`form__select ${errors.class_id ? 'form__select--error' : ''}`} value={form.class_id} onChange={e => set('class_id', e.target.value)}>
             <option value="">— Choisir —</option>
-            {MOCK_CLASSES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
           </select>
           {errors.class_id && <span className="form__error">{errors.class_id}</span>}
         </div>
@@ -171,16 +201,16 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
           <label className="form__label">Matière *</label>
           <select className={`form__select ${errors.subject_id ? 'form__select--error' : ''}`} value={form.subject_id} onChange={e => set('subject_id', e.target.value)}>
             <option value="">— Choisir —</option>
-            {MOCK_SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {subjects.map(s => <option key={s.id} value={String(s.id)}>{s.label}</option>)}
           </select>
           {errors.subject_id && <span className="form__error">{errors.subject_id}</span>}
         </div>
 
         <div className="form__field">
           <label className="form__label">Type d'exercice *</label>
-          <select className={`form__select ${errors.assignment_type_id ? 'form__select--error' : ''}`} value={form.assignment_type_id} onChange={e => set('assignment_type_id', e.target.value)}>
+          <select className={`form__select ${errors.assignment_type_id ? 'form__select--error' : ''}`} value={form.assignment_type_id} onChange={e => handleTypeChange(e.target.value)}>
             <option value="">— Choisir —</option>
-            {MOCK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+            {assignmentTypes.map(t => <option key={t.id} value={String(t.id)}>{t.label}</option>)}
           </select>
           {errors.assignment_type_id && <span className="form__error">{errors.assignment_type_id}</span>}
         </div>
@@ -188,7 +218,7 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
           <label className="form__label">Séquence liée</label>
           <select className="form__select" value={form.sequence_id} onChange={e => set('sequence_id', e.target.value)}>
             <option value="">— Aucune —</option>
-            {MOCK_SEQUENCES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {sequences.map(s => <option key={s.id} value={String(s.id)}>{s.title}</option>)}
           </select>
         </div>
 
@@ -261,12 +291,12 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
         <div className="form__field form__field--full">
           <label className="form__label">Compétences évaluées</label>
           <div className="form__badge-select">
-            {MOCK_SKILLS.map(s => (
+            {filteredSkills.map(s => (
               <button
                 key={s.id}
                 type="button"
-                className={`form__badge-option ${form.skill_ids.includes(s.id) ? 'form__badge-option--selected' : ''}`}
-                onClick={() => toggleSkill(s.id)}
+                className={`form__badge-option ${form.skill_ids.includes(String(s.id)) ? 'form__badge-option--selected' : ''}`}
+                onClick={() => toggleSkill(String(s.id))}
               >
                 {s.label}
               </button>

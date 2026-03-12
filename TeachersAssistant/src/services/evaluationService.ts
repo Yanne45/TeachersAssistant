@@ -358,6 +358,41 @@ export const feedbackService = {
   },
 };
 
+// === TYPES D'ÉVALUATION ===
+
+export interface AssignmentType {
+  id: ID;
+  code: string;
+  label: string;
+  default_max_score: number;
+  sort_order: number;
+  is_active: number;
+}
+
+export const assignmentTypeService = {
+  async getAll(): Promise<AssignmentType[]> {
+    return db.select<AssignmentType[]>(
+      "SELECT * FROM assignment_types WHERE is_active = 1 ORDER BY sort_order, label"
+    );
+  },
+  async create(data: { code: string; label: string; default_max_score: number }): Promise<ID> {
+    const maxOrder = await db.selectOne<{ m: number }>("SELECT COALESCE(MAX(sort_order),0) as m FROM assignment_types");
+    return db.insert(
+      "INSERT INTO assignment_types (code, label, default_max_score, sort_order) VALUES (?, ?, ?, ?)",
+      [data.code.trim().toLowerCase().replace(/\s+/g, '_'), data.label.trim(), data.default_max_score, (maxOrder?.m ?? 0) + 1]
+    );
+  },
+  async update(id: ID, data: { label: string; default_max_score: number }): Promise<void> {
+    await db.execute(
+      "UPDATE assignment_types SET label = ?, default_max_score = ? WHERE id = ?",
+      [data.label.trim(), data.default_max_score, id]
+    );
+  },
+  async delete(id: ID): Promise<void> {
+    await db.execute("UPDATE assignment_types SET is_active = 0 WHERE id = ?", [id]);
+  },
+};
+
 // ── Bilan devoir (statistiques) ──
 
 export const bilanService = {

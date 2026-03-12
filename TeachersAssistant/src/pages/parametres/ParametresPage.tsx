@@ -3,12 +3,12 @@ import { Card, Button } from '../../components/ui';
 import { backupService2, downloadBlob, preferenceService } from '../../services';
 import { useApp, useRouter } from '../../stores';
 import { AITemplateEditorPage } from './AITemplateEditorPage';
-import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings } from './SettingsSubPages';
+import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings, TypesEvaluationSettings } from './SettingsSubPages';
 import { EmploiDuTempsSettings } from './EmploiDuTempsSettings';
 import { ProgrammeSettings } from './ProgrammeSettings';
 import './ParametresPage.css';
 
-type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme';
+type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme' | 'types-evaluation';
 
 type ThemeValue = 'light' | 'dark';
 type UIDensity = 'compact' | 'standard' | 'comfortable';
@@ -67,6 +67,11 @@ const SETTINGS_CARDS = [
     icon: '📊', key: 'periodes-notation', title: 'Périodes de notation', description: 'Trimestres, semestres ou personnalisé',
     details: ['Périodes librement définies', 'Bulletins par période', 'Exportables en PDF'],
     navigateTo: 'periodes-notation' as SubPage,
+  },
+  {
+    icon: '📋', key: 'types-evaluation', title: "Types d'évaluation", description: "Gérer les types de devoirs et d'activités",
+    details: ['Dissertation, QCM, Oral…', 'Barème par défaut', 'Personnalisables'],
+    navigateTo: 'types-evaluation' as SubPage,
   },
 ];
 
@@ -138,6 +143,7 @@ export const ParametresPage: React.FC = () => {
     'export-pdf': <ExportPDFSettings />,
     capacites: <CapacitesSettings />,
     'periodes-notation': <PeriodesNotationSettings />,
+    'types-evaluation': <TypesEvaluationSettings />,
     interface: (
       <InterfaceSettings
         theme={theme}

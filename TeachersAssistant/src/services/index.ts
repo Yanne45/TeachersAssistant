@@ -55,7 +55,9 @@ export {
   skillEvaluationService,
   feedbackService,
   bilanService,
+  assignmentTypeService,
 } from './evaluationService';
+export type { AssignmentType } from './evaluationService';
 
 // Suivi élèves
 export {
