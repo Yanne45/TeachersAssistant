@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { assemblePrompt, getApiKey } from './aiService';
+import { workspaceService } from './workspaceService';
 import type { ID } from '../types';
 
 // ── Types ──
@@ -11,8 +12,12 @@ import type { ID } from '../types';
 export interface ClassificationResult {
   /** Code matière : 'HGGSP' | 'HIST' | 'GEO' | null */
   subjectCode: string | null;
+  /** Libellé matière pour arborescence dossiers */
+  subjectLabel: string | null;
   /** Code niveau : 'TLE' | 'PRE' | null */
   levelCode: string | null;
+  /** Libellé niveau pour arborescence dossiers */
+  levelLabel: string | null;
   /** Code type de document : 'cours' | 'diaporama' | etc */
   docTypeCode: string | null;
   /** Tags suggérés (libellés) */
@@ -39,21 +44,9 @@ export interface ProcessedFile {
 
 // ── Helpers filesystem ──
 
-function getDbDirectory(dbPath: string): string {
-  const lastSlash = Math.max(dbPath.lastIndexOf('/'), dbPath.lastIndexOf('\\'));
-  return lastSlash >= 0 ? dbPath.slice(0, lastSlash) : '.';
-}
-
 function getFileExtension(filename: string): string {
   const dot = filename.lastIndexOf('.');
   return dot >= 0 ? filename.slice(dot + 1).toLowerCase() : '';
-}
-
-async function ensureDirectory(dirPath: string): Promise<void> {
-  const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
-  if (!(await exists(dirPath))) {
-    await mkdir(dirPath, { recursive: true });
-  }
 }
 
 async function writeFileToDisk(file: File, destPath: string): Promise<void> {
@@ -73,7 +66,9 @@ function uniqueDestPath(docsDir: string, filename: string): string {
 // ── Classification IA ──
 
 const FALLBACK_CLASSIFICATION: ClassificationResult = {
-  subjectCode: null, levelCode: null, docTypeCode: null,
+  subjectCode: null, subjectLabel: null,
+  levelCode: null, levelLabel: null,
+  docTypeCode: null,
   tags: [], suggestedTitle: '', summary: '',
 };
 
@@ -88,9 +83,18 @@ function normalizeAIResponse(raw: Record<string, unknown>, filename: string): Cl
     subject.includes('hist')  ? 'HIST'  :
     subject.includes('geo')   ? 'GEO'   : null;
 
+  const subjectLabel =
+    subjectCode === 'HGGSP' ? 'HGGSP' :
+    subjectCode === 'HIST'  ? 'Histoire-Géographie' :
+    subjectCode === 'GEO'   ? 'Géographie' : null;
+
   const levelCode =
     level.includes('terminale') || level === 'tle' ? 'TLE' :
     level.includes('premi')     || level === 'pre' ? 'PRE' : null;
+
+  const levelLabel =
+    levelCode === 'TLE' ? 'Terminale' :
+    levelCode === 'PRE' ? 'Première'  : null;
 
   const docTypeCode =
     docType.includes('cours')      ? 'cours'      :
@@ -106,7 +110,9 @@ function normalizeAIResponse(raw: Record<string, unknown>, filename: string): Cl
 
   return {
     subjectCode,
+    subjectLabel,
     levelCode,
+    levelLabel,
     docTypeCode,
     tags: Array.isArray(raw.tags) ? (raw.tags as string[]).slice(0, 5) : [],
     suggestedTitle: String(raw.title ?? raw.titre ?? baseName),
@@ -166,12 +172,9 @@ export async function classifyDocument(
 
 export async function processFiles(
   files: File[],
-  dbPath: string,
+  _dbPath: string,
   onProgress: (idx: number, total: number, step: 'copy' | 'classify', name: string) => void,
 ): Promise<ProcessedFile[]> {
-  const docsDir = getDbDirectory(dbPath) + '/documents';
-  await ensureDirectory(docsDir);
-
   const results: ProcessedFile[] = [];
 
   for (let i = 0; i < files.length; i++) {
@@ -179,21 +182,26 @@ export async function processFiles(
     if (!file) continue;
     const ext = getFileExtension(file.name);
 
-    // 1. Copie sur disque
+    // 1. Classification IA d'abord → détermine le dossier de destination
+    onProgress(i, files.length, 'classify', file.name);
+    const classification = await classifyDocument(file.name, ext);
+
+    // 2. Copie sur disque dans le bon sous-dossier documents/<niveau>/<matière>
     onProgress(i, files.length, 'copy', file.name);
     let destPath = '';
     let copyError: string | null = null;
 
     try {
+      const docsDir = await workspaceService.getAppSubDir(
+        'documents',
+        classification.levelLabel,
+        classification.subjectLabel,
+      );
       destPath = uniqueDestPath(docsDir, file.name);
       await writeFileToDisk(file, destPath);
     } catch (err) {
       copyError = String(err);
     }
-
-    // 2. Classification IA (même si copie a échoué — pour la prévisualisation)
-    onProgress(i, files.length, 'classify', file.name);
-    const classification = await classifyDocument(file.name, ext);
 
     results.push({
       originalFile: file,

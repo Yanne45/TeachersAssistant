@@ -258,13 +258,31 @@ export const workspaceService = {
   },
 
   /**
-   * Retourne le dossier de stockage des copies (appDataDir/copies/).
-   * Crée le dossier s'il n'existe pas.
+   * Retourne un sous-dossier de données applicatives, organisé selon le type
+   * et des composants optionnels (classe, matière, niveau…).
+   *
+   * Structure : <exeDir>/<type>[/<part1>/<part2>…]
+   *
+   * Types disponibles :
+   *   'copies'        → copies d'élèves, organisées par classe/devoir
+   *   'documents'     → bibliothèque pédagogique, par niveau/matière
+   *   'exports'       → PDFs générés, par type (bulletins, progressions…)
+   *   'generations_ia'→ sorties IA sauvegardées, par niveau/matière
+   *   'backups'       → sauvegardes automatiques de la base
+   *
+   * Chaque composant est sanitizé (caractères spéciaux → _, max 40 chars).
+   * Le dossier est créé s'il n'existe pas.
    */
-  async getCopiesDir(): Promise<string> {
-    const { appDataDir, join } = await import('@tauri-apps/api/path');
+  async getAppSubDir(
+    type: 'copies' | 'documents' | 'exports' | 'generations_ia' | 'backups',
+    ...parts: (string | null | undefined)[]
+  ): Promise<string> {
+    const { executableDir, join } = await import('@tauri-apps/api/path');
     const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
-    const dir = await join(await appDataDir(), 'copies');
+    const sanitize = (s: string) =>
+      s.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_').slice(0, 40);
+    const validParts = parts.filter((p): p is string => !!p?.trim()).map(sanitize);
+    const dir = await join(await executableDir(), type, ...validParts);
     if (!(await exists(dir))) await mkdir(dir, { recursive: true });
     return dir;
   },

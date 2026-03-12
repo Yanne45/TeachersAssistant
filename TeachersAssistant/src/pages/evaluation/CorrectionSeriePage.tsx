@@ -541,7 +541,9 @@ export const CorrectionSeriePage: React.FC = () => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
-        const copiesDir = await workspaceService.getCopiesDir();
+        const copiesDir = await workspaceService.getAppSubDir(
+          'copies', assignment?.class_name, assignment?.title
+        );
         const { writeFile } = await import('@tauri-apps/plugin-fs');
 
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -948,6 +950,8 @@ export const CorrectionSeriePage: React.FC = () => {
           open={bulkImportOpen}
           onClose={() => setBulkImportOpen(false)}
           students={students}
+          className={assignment?.class_name}
+          assignmentTitle={assignment?.title}
           onImported={() => { setBulkImportOpen(false); clearAllCaches(); setLoadKey((k) => k + 1); }}
         />
       )}

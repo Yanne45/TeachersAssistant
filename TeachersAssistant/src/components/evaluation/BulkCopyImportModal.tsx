@@ -19,6 +19,10 @@ interface Props {
   onClose: () => void;
   students: StudentSubmissionRef[];
   onImported: () => void;
+  /** Nom de la classe (ex: "Terminale 2") — sert à organiser le dossier copies/ */
+  className?: string;
+  /** Titre du devoir (ex: "Dissertation HGGSP") — sert à organiser le dossier copies/ */
+  assignmentTitle?: string;
 }
 
 interface FileEntry {
@@ -31,7 +35,7 @@ interface FileEntry {
 
 type Phase = 'select' | 'review' | 'saving' | 'done';
 
-export const BulkCopyImportModal: React.FC<Props> = ({ open, onClose, students, onImported }) => {
+export const BulkCopyImportModal: React.FC<Props> = ({ open, onClose, students, onImported, className, assignmentTitle }) => {
   const [phase, setPhase] = useState<Phase>('select');
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [progress, setProgress] = useState(0);
@@ -66,7 +70,7 @@ export const BulkCopyImportModal: React.FC<Props> = ({ open, onClose, students, 
     setProgress(0);
     setSavedCount(0);
 
-    const copiesDir = await workspaceService.getCopiesDir();
+    const copiesDir = await workspaceService.getAppSubDir('copies', className, assignmentTitle);
     const { writeFile } = await import('@tauri-apps/plugin-fs');
 
     const toProcess = files.filter((f) => !f.skip && f.matchedStudentId != null);
