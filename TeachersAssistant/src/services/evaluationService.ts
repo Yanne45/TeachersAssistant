@@ -474,6 +474,87 @@ export const generalCompetencyService = {
   },
 };
 
+// === DESCRIPTEURS DE NIVEAUX DE MAÎTRISE ===
+
+export const DEFAULT_LEVEL_LABELS: Record<number, string> = {
+  1: 'Non atteint',
+  2: 'Partiellement atteint',
+  3: 'Atteint',
+  4: 'Dépassé',
+};
+
+export interface SkillLevelDescriptor {
+  id: ID;
+  skill_id: ID;
+  level: number;
+  label: string;
+  description: string;
+}
+
+export const skillDescriptorService = {
+  /** Retourne les 4 descripteurs d'une capacité (crée les manquants avec valeurs par défaut) */
+  async getBySkill(skillId: ID): Promise<SkillLevelDescriptor[]> {
+    const existing = await db.select<SkillLevelDescriptor[]>(
+      'SELECT * FROM skill_level_descriptors WHERE skill_id = ? ORDER BY level',
+      [skillId]
+    );
+    // Compléter les niveaux manquants (sans écrire en DB)
+    const map = new Map(existing.map(d => [d.level, d]));
+    return [1, 2, 3, 4].map(level => map.get(level) ?? ({
+      id: 0 as ID, skill_id: skillId, level,
+      label: DEFAULT_LEVEL_LABELS[level] ?? `Niveau ${level}`,
+      description: '',
+    } satisfies SkillLevelDescriptor));
+  },
+
+  /** Retourne les descripteurs pour plusieurs capacités (Map skillId → descripteurs) */
+  async getBySkillIds(skillIds: ID[]): Promise<Map<ID, SkillLevelDescriptor[]>> {
+    if (skillIds.length === 0) return new Map();
+    const placeholders = skillIds.map(() => '?').join(',');
+    const rows = await db.select<SkillLevelDescriptor[]>(
+      `SELECT * FROM skill_level_descriptors WHERE skill_id IN (${placeholders}) ORDER BY skill_id, level`,
+      skillIds
+    );
+    const result = new Map<ID, SkillLevelDescriptor[]>();
+    for (const skillId of skillIds) {
+      const forSkill = rows.filter(r => r.skill_id === skillId);
+      const map = new Map(forSkill.map(d => [d.level, d]));
+      result.set(skillId, [1, 2, 3, 4].map(level => map.get(level) ?? ({
+        id: 0 as ID, skill_id: skillId, level,
+        label: DEFAULT_LEVEL_LABELS[level] ?? `Niveau ${level}`,
+        description: '',
+      } satisfies SkillLevelDescriptor)));
+    }
+    return result;
+  },
+
+  /** Sauvegarde un descripteur (upsert) */
+  async upsert(skillId: ID, level: number, label: string, description: string): Promise<void> {
+    await db.execute(
+      `INSERT INTO skill_level_descriptors (skill_id, level, label, description, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT(skill_id, level)
+       DO UPDATE SET label = excluded.label, description = excluded.description, updated_at = datetime('now')`,
+      [skillId, level, label, description]
+    );
+  },
+
+  /** Sauvegarde les 4 niveaux d'une capacité en une transaction */
+  async upsertAll(skillId: ID, descriptors: Array<{ level: number; label: string; description: string }>): Promise<void> {
+    await db.transaction(async () => {
+      for (const d of descriptors) {
+        await db.execute(
+          `INSERT INTO skill_level_descriptors (skill_id, level, label, description, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(skill_id, level)
+           DO UPDATE SET label = excluded.label, description = excluded.description, updated_at = datetime('now')`,
+          [skillId, d.level, d.label, d.description]
+        );
+      }
+    });
+  },
+};
+
 // ── Bilan devoir (statistiques) ──
 
 export const bilanService = {

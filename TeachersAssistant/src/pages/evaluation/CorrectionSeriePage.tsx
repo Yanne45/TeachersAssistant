@@ -19,6 +19,8 @@ import type { CorrectionAIResult } from '../../services';
 import { extractTextFromFile } from '../../utils/textExtractor';
 import { BulkCopyImportModal } from '../../components/evaluation/BulkCopyImportModal';
 import { PronoteImportModal } from '../../components/evaluation/PronoteImportModal';
+import { GrilleDescriptiveModal } from './GrilleDescriptiveModal';
+import { CorrectionTemplateModal } from '../../components/evaluation/CorrectionTemplateModal';
 import './CorrectionSeriePage.css';
 
 interface SkillDef {
@@ -99,6 +101,8 @@ export const CorrectionSeriePage: React.FC = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [pronoteImportOpen, setPronoteImportOpen] = useState(false);
+  const [grilleModalOpen, setGrilleModalOpen] = useState(false);
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [previewError, setPreviewError] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [activeSkillIdx, setActiveSkillIdx] = useState(0);
@@ -846,6 +850,12 @@ export const CorrectionSeriePage: React.FC = () => {
           <Button variant="secondary" size="S" onClick={handleImportCopy}>Importer copie</Button>
           <Button variant="secondary" size="S" onClick={() => setBulkImportOpen(true)}>Importer lot</Button>
           <Button variant="secondary" size="S" onClick={() => setPronoteImportOpen(true)}>Import Pronote</Button>
+          <Button variant="secondary" size="S" onClick={() => setGrilleModalOpen(true)} disabled={!assignmentId}>
+            Grille descriptive
+          </Button>
+          <Button variant="secondary" size="S" onClick={() => setTemplateModalOpen(true)} disabled={!selected}>
+            Template correction
+          </Button>
           <Button variant="secondary" size="S" onClick={handleImportCorrection}>Importer correction</Button>
           <Button variant="secondary" size="S" onClick={handleSave}>Sauvegarder</Button>
           <Button variant="primary" size="S" onClick={handleFinalize}>Finaliser</Button>
@@ -961,6 +971,22 @@ export const CorrectionSeriePage: React.FC = () => {
           onClose={() => setPronoteImportOpen(false)}
           students={students}
           onImported={() => { setPronoteImportOpen(false); clearAllCaches(); setLoadKey((k) => k + 1); }}
+        />
+      )}
+      {assignmentId && (
+        <GrilleDescriptiveModal
+          open={grilleModalOpen}
+          onClose={() => setGrilleModalOpen(false)}
+          assignmentId={assignmentId}
+          assignmentTitle={assignment?.title}
+        />
+      )}
+      {selected && assignmentId && (
+        <CorrectionTemplateModal
+          open={templateModalOpen}
+          onClose={() => setTemplateModalOpen(false)}
+          submissionId={selected.id}
+          assignmentId={assignmentId}
         />
       )}
     </div>

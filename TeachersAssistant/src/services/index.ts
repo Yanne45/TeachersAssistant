@@ -57,8 +57,10 @@ export {
   bilanService,
   assignmentTypeService,
   generalCompetencyService,
+  skillDescriptorService,
+  DEFAULT_LEVEL_LABELS,
 } from './evaluationService';
-export type { AssignmentType, GeneralCompetency } from './evaluationService';
+export type { AssignmentType, GeneralCompetency, SkillLevelDescriptor } from './evaluationService';
 
 // Suivi élèves
 export {
