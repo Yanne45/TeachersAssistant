@@ -4,7 +4,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Button, Modal, ProgressBar } from '../ui';
-import { getCurrentPath, submissionService } from '../../services';
+import { submissionService, workspaceService } from '../../services';
 import { matchFileToStudent, type MatchableStudent } from '../../utils/studentMatcher';
 import { extractTextFromFile } from '../../utils/textExtractor';
 import './BulkCopyImportModal.css';
@@ -66,17 +66,8 @@ export const BulkCopyImportModal: React.FC<Props> = ({ open, onClose, students, 
     setProgress(0);
     setSavedCount(0);
 
-    const dbPath = getCurrentPath();
-    if (!dbPath) return;
-
-    const lastSlash = Math.max(dbPath.lastIndexOf('/'), dbPath.lastIndexOf('\\'));
-    const dbDir = lastSlash >= 0 ? dbPath.slice(0, lastSlash) : '.';
-    const copiesDir = dbDir + '/copies';
-
-    const { mkdir, exists, writeFile } = await import('@tauri-apps/plugin-fs');
-    if (!(await exists(copiesDir))) {
-      await mkdir(copiesDir, { recursive: true });
-    }
+    const copiesDir = await workspaceService.getCopiesDir();
+    const { writeFile } = await import('@tauri-apps/plugin-fs');
 
     const toProcess = files.filter((f) => !f.skip && f.matchedStudentId != null);
     let count = 0;

@@ -258,6 +258,18 @@ export const workspaceService = {
   },
 
   /**
+   * Retourne le dossier de stockage des copies (appDataDir/copies/).
+   * Crée le dossier s'il n'existe pas.
+   */
+  async getCopiesDir(): Promise<string> {
+    const { appDataDir, join } = await import('@tauri-apps/api/path');
+    const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
+    const dir = await join(await appDataDir(), 'copies');
+    if (!(await exists(dir))) await mkdir(dir, { recursive: true });
+    return dir;
+  },
+
+  /**
    * Vérifie si un fichier existe toujours sur disque.
    */
   async fileExists(path: string): Promise<boolean> {

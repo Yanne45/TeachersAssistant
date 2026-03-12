@@ -883,7 +883,9 @@ Validation:
 ### Priorité 2 - Qualité fonctionnelle
 
 - **Améliorer le système de correction des copies** :
-  - **Import par lot** : permettre à l’enseignant de déposer un dossier ou un ensemble de fichiers (.txt, .docx, PDF) correspondant chacun à la copie d’un élève, avec mapping automatique (nom de fichier → nom élève) ou sélection manuelle; traitement séquentiel avec barre de progression et rapport final (copies importées / ignorées / en erreur).
+  - ~~**Import par lot**~~ ✅ **Implémenté** — `BulkCopyImportModal` : sélection multiple (PDF, image, DOCX), matching automatique nom de fichier → élève (`studentMatcher`), mapping manuel, barre de progression, rapport final. Import individuel dans `CorrectionSeriePage`.
+  - ~~**Stockage copies dans dossier dédié**~~ ✅ **Migré** — `workspaceService.getCopiesDir()` utilise `appDataDir/copies/` (stable, indépendant de la DB).
+  - ~~**Pseudonymisation texte avant envoi IA**~~ ✅ **Implémenté** — `pseudonymizeText()` remplace nom + prénom de l’élève par `[Élève]` dans `copie_contenu` avant tout envoi cloud. Limitation connue : les images de copies pouvant contenir un nom manuscrit ne peuvent pas être pseudonymisées (passer à Ollama local pour ces cas).
   - Permettre l’analyse IA en batch sur toutes les copies d’un devoir (pipeline : import texte → `assemblePrompt` correction → `smartCorrect` → persistance `corrections` + `submission_skill_evaluations` + `submission_feedback` pour chaque copie).
   - Raccourcis clavier manquants dans le mode correction 3 colonnes (navigation copie suivante/précédente, finalisation rapide).
 - **Remplissage prédictif du cahier de textes** (effort faible) :

@@ -6,11 +6,11 @@ import {
   correctionService,
   db,
   feedbackService,
-  getCurrentPath,
   skillEvaluationService,
   smartCorrect,
   smartGenerate,
   submissionService,
+  workspaceService,
 } from '../../services';
 import { useCorrectionShortcuts, usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
 import { useApp, useData, useRouter } from '../../stores';
@@ -541,17 +541,8 @@ export const CorrectionSeriePage: React.FC = () => {
       const file = (event.target as HTMLInputElement).files?.[0];
       if (!file) return;
       try {
-        const dbPath = getCurrentPath();
-        if (!dbPath) { addToast('error', 'Base non ouverte'); return; }
-
-        const lastSlash = Math.max(dbPath.lastIndexOf('/'), dbPath.lastIndexOf('\\'));
-        const dbDir = lastSlash >= 0 ? dbPath.slice(0, lastSlash) : '.';
-        const copiesDir = dbDir + '/copies';
-
-        const { mkdir, exists, writeFile } = await import('@tauri-apps/plugin-fs');
-        if (!(await exists(copiesDir))) {
-          await mkdir(copiesDir, { recursive: true });
-        }
+        const copiesDir = await workspaceService.getCopiesDir();
+        const { writeFile } = await import('@tauri-apps/plugin-fs');
 
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
         const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\-. ]/g, '_').slice(0, 60);

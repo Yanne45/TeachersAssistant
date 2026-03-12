@@ -518,6 +518,31 @@ export const aiGenerationService = {
   },
 };
 
+// === PSEUDONYMISATION ===
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Remplace les occurrences du nom/prénom de l'élève dans le texte par [Élève]
+ * avant envoi à un fournisseur IA cloud.
+ */
+function pseudonymizeText(text: string, firstName?: string | null, lastName?: string | null): string {
+  if (!text) return text;
+  let result = text;
+  const ph = '[Élève]';
+  if (firstName && lastName) {
+    result = result.replace(new RegExp(`${escapeRegExp(firstName)}\\s+${escapeRegExp(lastName)}`, 'gi'), ph);
+    result = result.replace(new RegExp(`${escapeRegExp(lastName)}\\s+${escapeRegExp(firstName)}`, 'gi'), ph);
+  }
+  if (lastName && lastName.length > 3)
+    result = result.replace(new RegExp(`\\b${escapeRegExp(lastName)}\\b`, 'gi'), ph);
+  if (firstName && firstName.length > 3)
+    result = result.replace(new RegExp(`\\b${escapeRegExp(firstName)}\\b`, 'gi'), ph);
+  return result;
+}
+
 // === CORRECTION SERVICE ===
 
 export const aiCorrectionService = {
@@ -526,6 +551,10 @@ export const aiCorrectionService = {
     const skills = await db.select<any>(
       "SELECT s.label FROM skills s JOIN assignment_skill_map asm ON asm.skill_id = s.id WHERE asm.assignment_id = ?", [assignmentId]);
     const submission = await db.selectOne<any>("SELECT * FROM submissions WHERE id = ?", [submissionId]);
+    const student = submission?.student_id
+      ? await db.selectOne<{ first_name: string; last_name: string }>(
+          "SELECT first_name, last_name FROM students WHERE id = ?", [submission.student_id])
+      : null;
 
     const hasTextContent = !!submission?.text_content?.trim();
     const hasImageFile = submission?.file_path && isImageFile(submission.file_path);
@@ -568,7 +597,10 @@ export const aiCorrectionService = {
         type_exercice: assignment?.assignment_type ?? "dissertation",
         matiere: assignment?.title ?? "",
         competences: skills.map((s: any) => s.label).join(", "),
-        copie_contenu: submission?.text_content?.substring(0, 4000) ?? "[Copie non numerisee]",
+        copie_contenu: pseudonymizeText(
+          submission?.text_content?.substring(0, 4000) ?? "[Copie non numerisee]",
+          student?.first_name, student?.last_name
+        ),
         bareme: assignment?.max_score ? "/" + assignment.max_score : "/20",
       },
       rawDocumentContexts: correctionModelText ? [`Corrigé type :\n${correctionModelText}`] : undefined,
