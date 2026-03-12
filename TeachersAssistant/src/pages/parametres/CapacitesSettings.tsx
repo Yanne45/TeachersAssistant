@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Button, EmptyState, ConfirmDialog } from '../../components/ui';
 import { useApp } from '../../stores';
-import { skillService, subjectService, levelService } from '../../services';
+import { skillService, subjectService, levelService, generalCompetencyService } from '../../services';
+import type { GeneralCompetency } from '../../services';
 import type { Level, Skill, Subject } from '../../types';
 import {
   type SortDirection,
@@ -10,11 +11,24 @@ import {
 } from './settingsHelpers';
 import './ParametresPage.css';
 
+interface Draft {
+  id: number | null;
+  skill_type: 'exercise_specific' | 'general';
+  category: string;
+  label: string;
+  description: string;
+  subject_id: number | null;
+  level_id: number | null;
+  max_level: number;
+  linkedCompetencyIds: number[];
+}
+
 export const CapacitesSettings: React.FC = () => {
   const { activeYear, addToast } = useApp();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
+  const [competencies, setCompetencies] = useState<GeneralCompetency[]>([]);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'label' | 'skill_type' | 'category' | 'subject' | 'level'>('label');
   const [direction, setDirection] = useState<SortDirection>('asc');
@@ -22,16 +36,7 @@ export const CapacitesSettings: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteSkillTarget, setDeleteSkillTarget] = useState<Skill | null>(null);
-  const [draft, setDraft] = useState<{
-    id: number | null;
-    skill_type: 'exercise_specific' | 'general';
-    category: string;
-    label: string;
-    description: string;
-    subject_id: number | null;
-    level_id: number | null;
-    max_level: number;
-  }>({
+  const [draft, setDraft] = useState<Draft>({
     id: null,
     skill_type: 'general',
     category: '',
@@ -40,25 +45,33 @@ export const CapacitesSettings: React.FC = () => {
     subject_id: null,
     level_id: null,
     max_level: 4,
+    linkedCompetencyIds: [],
   });
 
   const reload = useCallback(async () => {
     if (!activeYear?.id) {
       setSkills([]);
+      setCompetencies([]);
       return;
     }
-    const [skillRows, subjectRows, levelRows] = await Promise.all([
+    const [skillRows, subjectRows, levelRows, compRows] = await Promise.all([
       skillService.getAll(activeYear.id),
       subjectService.getAll(),
       levelService.getAll(),
+      generalCompetencyService.getAll(activeYear.id),
     ]);
     setSkills(skillRows);
     setSubjects(subjectRows);
     setLevels(levelRows);
+    setCompetencies(compRows);
   }, [activeYear]);
 
   const subjectById = useMemo(() => new Map(subjects.map((subject) => [subject.id, subject])), [subjects]);
   const levelById = useMemo(() => new Map(levels.map((level) => [level.id, level])), [levels]);
+  const competencyById = useMemo(() => new Map(competencies.map((c) => [c.id, c])), [competencies]);
+
+  // Map skill id -> linked competency ids (loaded lazily per skill in the grid)
+  const [skillCompetencyMap, setSkillCompetencyMap] = useState<Map<number, number[]>>(new Map());
 
   const filteredSkills = useMemo(() => (
     skills
@@ -84,6 +97,20 @@ export const CapacitesSettings: React.FC = () => {
       })
   ), [skills, query, sort, direction, subjectById, levelById]);
 
+  // Load competency ids for all visible skills
+  useEffect(() => {
+    if (filteredSkills.length === 0) return;
+    void (async () => {
+      const entries = await Promise.all(
+        filteredSkills.map(async (sk) => {
+          const ids = await skillService.getCompetencyIds(sk.id);
+          return [sk.id, ids] as [number, number[]];
+        })
+      );
+      setSkillCompetencyMap(new Map(entries));
+    })();
+  }, [filteredSkills]);
+
   useEffect(() => {
     void reload().catch((error) => {
       console.error('[CapacitesSettings] Erreur chargement:', error);
@@ -101,6 +128,7 @@ export const CapacitesSettings: React.FC = () => {
       subject_id: null,
       level_id: null,
       max_level: 4,
+      linkedCompetencyIds: [],
     });
   };
 
@@ -109,7 +137,8 @@ export const CapacitesSettings: React.FC = () => {
     setShowForm(true);
   };
 
-  const startEdit = (row: Skill) => {
+  const startEdit = async (row: Skill) => {
+    const compIds = await skillService.getCompetencyIds(row.id);
     setDraft({
       id: row.id,
       skill_type: row.skill_type,
@@ -119,8 +148,18 @@ export const CapacitesSettings: React.FC = () => {
       subject_id: row.subject_id ?? null,
       level_id: row.level_id ?? null,
       max_level: row.max_level,
+      linkedCompetencyIds: compIds,
     });
     setShowForm(true);
+  };
+
+  const toggleCompetency = (compId: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      linkedCompetencyIds: prev.linkedCompetencyIds.includes(compId)
+        ? prev.linkedCompetencyIds.filter((id) => id !== compId)
+        : [...prev.linkedCompetencyIds, compId],
+    }));
   };
 
   const handleSave = async () => {
@@ -135,6 +174,7 @@ export const CapacitesSettings: React.FC = () => {
 
     setSaving(true);
     try {
+      let savedId: number;
       if (draft.id) {
         await skillService.update(draft.id, {
           skill_type: draft.skill_type,
@@ -145,9 +185,10 @@ export const CapacitesSettings: React.FC = () => {
           level_id: draft.level_id,
           max_level: draft.max_level,
         });
+        savedId = draft.id;
         addToast('success', 'Capacité modifiée');
       } else {
-        await skillService.create({
+        savedId = await skillService.create({
           academic_year_id: activeYear.id,
           skill_type: draft.skill_type,
           category: draft.category.trim() || null,
@@ -160,6 +201,7 @@ export const CapacitesSettings: React.FC = () => {
         });
         addToast('success', 'Capacité créée');
       }
+      await skillService.setCompetencies(savedId, draft.linkedCompetencyIds);
       await reload();
       setShowForm(false);
       resetDraft();
@@ -246,6 +288,34 @@ export const CapacitesSettings: React.FC = () => {
                 </select>
               </div>
             </div>
+            {competencies.length > 0 && (
+              <div className="settings-sub__field">
+                <label className="settings-sub__label">Compétences générales</label>
+                <div className="form__badge-select">
+                  {competencies.map((comp) => (
+                    <button
+                      key={comp.id}
+                      type="button"
+                      className={`form__badge-option${draft.linkedCompetencyIds.includes(comp.id) ? ' form__badge-option--selected' : ''}`}
+                      onClick={() => toggleCompetency(comp.id)}
+                      style={draft.linkedCompetencyIds.includes(comp.id) ? { borderColor: comp.color, backgroundColor: comp.color + '22' } : {}}
+                    >
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          backgroundColor: comp.color,
+                          marginRight: 4,
+                        }}
+                      />
+                      {comp.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="settings-sub__crud-actions">
               <Button variant="primary" size="S" onClick={() => void handleSave()} disabled={saving}>
                 {saving ? 'Enregistrement…' : (draft.id ? 'Mettre à jour' : 'Créer')}
@@ -285,25 +355,50 @@ export const CapacitesSettings: React.FC = () => {
         ) : (
           <>
             <div className="capacites-grid">
-              {filteredSkills.map((skill) => (
-                <div key={skill.id} className="capacite-item">
-                  <div className="capacite-item__header">
-                    <span className="capacite-item__label">{skill.label}</span>
-                    <span className={`capacite-item__type capacite-item__type--${skill.skill_type === 'exercise_specific' ? 'specific' : 'general'}`}>
-                      {skill.skill_type === 'exercise_specific' ? 'Spéc.' : 'Gén.'}
-                    </span>
+              {filteredSkills.map((skill) => {
+                const linkedCompIds = skillCompetencyMap.get(skill.id) ?? [];
+                return (
+                  <div key={skill.id} className="capacite-item">
+                    <div className="capacite-item__header">
+                      <span className="capacite-item__label">{skill.label}</span>
+                      <span className={`capacite-item__type capacite-item__type--${skill.skill_type === 'exercise_specific' ? 'specific' : 'general'}`}>
+                        {skill.skill_type === 'exercise_specific' ? 'Spéc.' : 'Gén.'}
+                      </span>
+                    </div>
+                    <div className="capacite-item__meta">
+                      {skill.category && <span>{skill.category}</span>}
+                      {skill.subject_id && <span>{subjectById.get(skill.subject_id)?.short_label}</span>}
+                      {skill.level_id && <span>{levelById.get(skill.level_id)?.short_label}</span>}
+                    </div>
+                    {linkedCompIds.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                        {linkedCompIds.map((cid) => {
+                          const comp = competencyById.get(cid);
+                          return comp ? (
+                            <span
+                              key={cid}
+                              style={{
+                                fontSize: '0.72rem',
+                                padding: '1px 6px',
+                                borderRadius: 10,
+                                background: comp.color + '22',
+                                border: `1px solid ${comp.color}55`,
+                                color: 'var(--text-primary, #111)',
+                              }}
+                            >
+                              {comp.label}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    <div className="capacite-item__actions">
+                      <button className="settings-sub__link" onClick={() => void startEdit(skill)}>Modifier</button>
+                      <button className="settings-sub__link settings-sub__link--danger" onClick={() => void handleDelete(skill)}>Supprimer</button>
+                    </div>
                   </div>
-                  <div className="capacite-item__meta">
-                    {skill.category && <span>{skill.category}</span>}
-                    {skill.subject_id && <span>{subjectById.get(skill.subject_id)?.short_label}</span>}
-                    {skill.level_id && <span>{levelById.get(skill.level_id)?.short_label}</span>}
-                  </div>
-                  <div className="capacite-item__actions">
-                    <button className="settings-sub__link" onClick={() => startEdit(skill)}>Modifier</button>
-                    <button className="settings-sub__link settings-sub__link--danger" onClick={() => void handleDelete(skill)}>Supprimer</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="settings-sub__table-meta">
               <span>{filteredSkills.length} capacité(s)</span>

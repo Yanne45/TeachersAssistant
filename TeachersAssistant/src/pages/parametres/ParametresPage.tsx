@@ -3,12 +3,12 @@ import { Card, Button } from '../../components/ui';
 import { backupService2, downloadBlob, preferenceService } from '../../services';
 import { useApp, useRouter } from '../../stores';
 import { AITemplateEditorPage } from './AITemplateEditorPage';
-import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings, TypesEvaluationSettings } from './SettingsSubPages';
+import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings, TypesEvaluationSettings, CompetencesGeneralesSettings } from './SettingsSubPages';
 import { EmploiDuTempsSettings } from './EmploiDuTempsSettings';
 import { ProgrammeSettings } from './ProgrammeSettings';
 import './ParametresPage.css';
 
-type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme' | 'types-evaluation';
+type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme' | 'types-evaluation' | 'competences';
 
 type ThemeValue = 'light' | 'dark';
 type UIDensity = 'compact' | 'standard' | 'comfortable';
@@ -72,6 +72,11 @@ const SETTINGS_CARDS = [
     icon: '📋', key: 'types-evaluation', title: "Types d'évaluation", description: "Gérer les types de devoirs et d'activités",
     details: ['Dissertation, QCM, Oral…', 'Barème par défaut', 'Personnalisables'],
     navigateTo: 'types-evaluation' as SubPage,
+  },
+  {
+    icon: '🎯', key: 'competences', title: 'Compétences générales', description: 'Regrouper les capacités en compétences transversales',
+    details: ['Compétences transversales', 'Liens avec les capacités', 'Liens avec les types d\'évaluation'],
+    navigateTo: 'competences' as SubPage,
   },
 ];
 
@@ -144,6 +149,7 @@ export const ParametresPage: React.FC = () => {
     capacites: <CapacitesSettings />,
     'periodes-notation': <PeriodesNotationSettings />,
     'types-evaluation': <TypesEvaluationSettings />,
+    competences: <CompetencesGeneralesSettings />,
     interface: (
       <InterfaceSettings
         theme={theme}

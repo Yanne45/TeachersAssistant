@@ -183,6 +183,20 @@ export const skillService = {
   async delete(id: ID): Promise<void> {
     await db.execute('DELETE FROM skills WHERE id = ?', [id]);
   },
+
+  async getCompetencyIds(skillId: ID): Promise<ID[]> {
+    const rows = await db.select<{ competency_id: ID }[]>("SELECT competency_id FROM skill_competency_map WHERE skill_id = ?", [skillId]);
+    return rows.map(r => r.competency_id);
+  },
+
+  async setCompetencies(skillId: ID, competencyIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute("DELETE FROM skill_competency_map WHERE skill_id = ?", [skillId]);
+      for (const cid of competencyIds) {
+        await db.execute("INSERT OR IGNORE INTO skill_competency_map (skill_id, competency_id) VALUES (?, ?)", [skillId, cid]);
+      }
+    });
+  },
 };
 
 // ── Types de contenu IA ──

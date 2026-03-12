@@ -391,6 +391,87 @@ export const assignmentTypeService = {
   async delete(id: ID): Promise<void> {
     await db.execute("UPDATE assignment_types SET is_active = 0 WHERE id = ?", [id]);
   },
+
+  async getSkillIds(typeId: ID): Promise<ID[]> {
+    const rows = await db.select<{ skill_id: ID }[]>("SELECT skill_id FROM assignment_type_skill_map WHERE assignment_type_id = ?", [typeId]);
+    return rows.map(r => r.skill_id);
+  },
+
+  async setSkills(typeId: ID, skillIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute("DELETE FROM assignment_type_skill_map WHERE assignment_type_id = ?", [typeId]);
+      for (const sid of skillIds) {
+        await db.execute("INSERT OR IGNORE INTO assignment_type_skill_map (assignment_type_id, skill_id) VALUES (?, ?)", [typeId, sid]);
+      }
+    });
+  },
+
+  async getCompetencyIds(typeId: ID): Promise<ID[]> {
+    const rows = await db.select<{ competency_id: ID }[]>("SELECT competency_id FROM assignment_type_competency_map WHERE assignment_type_id = ?", [typeId]);
+    return rows.map(r => r.competency_id);
+  },
+
+  async setCompetencies(typeId: ID, competencyIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute("DELETE FROM assignment_type_competency_map WHERE assignment_type_id = ?", [typeId]);
+      for (const cid of competencyIds) {
+        await db.execute("INSERT OR IGNORE INTO assignment_type_competency_map (assignment_type_id, competency_id) VALUES (?, ?)", [typeId, cid]);
+      }
+    });
+  },
+};
+
+// === COMPÉTENCES GÉNÉRALES ===
+
+export interface GeneralCompetency {
+  id: ID;
+  academic_year_id: ID;
+  label: string;
+  description: string | null;
+  color: string;
+  sort_order: number;
+}
+
+export const generalCompetencyService = {
+  async getAll(yearId: ID): Promise<GeneralCompetency[]> {
+    return db.select<GeneralCompetency[]>(
+      "SELECT * FROM general_competencies WHERE academic_year_id = ? ORDER BY sort_order, label",
+      [yearId]
+    );
+  },
+
+  async create(data: { academic_year_id: ID; label: string; description?: string; color?: string }): Promise<ID> {
+    const maxOrder = await db.selectOne<{ m: number }>("SELECT COALESCE(MAX(sort_order),0) as m FROM general_competencies WHERE academic_year_id = ?", [data.academic_year_id]);
+    return db.insert(
+      "INSERT INTO general_competencies (academic_year_id, label, description, color, sort_order) VALUES (?, ?, ?, ?, ?)",
+      [data.academic_year_id, data.label.trim(), data.description?.trim() ?? null, data.color ?? '#6366f1', (maxOrder?.m ?? 0) + 1]
+    );
+  },
+
+  async update(id: ID, data: { label: string; description?: string; color?: string }): Promise<void> {
+    await db.execute(
+      "UPDATE general_competencies SET label = ?, description = ?, color = ?, updated_at = datetime('now') WHERE id = ?",
+      [data.label.trim(), data.description?.trim() ?? null, data.color ?? '#6366f1', id]
+    );
+  },
+
+  async delete(id: ID): Promise<void> {
+    await db.execute("DELETE FROM general_competencies WHERE id = ?", [id]);
+  },
+
+  async getSkillIds(competencyId: ID): Promise<ID[]> {
+    const rows = await db.select<{ skill_id: ID }[]>("SELECT skill_id FROM skill_competency_map WHERE competency_id = ?", [competencyId]);
+    return rows.map(r => r.skill_id);
+  },
+
+  async setSkills(competencyId: ID, skillIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute("DELETE FROM skill_competency_map WHERE competency_id = ?", [competencyId]);
+      for (const sid of skillIds) {
+        await db.execute("INSERT OR IGNORE INTO skill_competency_map (skill_id, competency_id) VALUES (?, ?)", [sid, competencyId]);
+      }
+    });
+  },
 };
 
 // ── Bilan devoir (statistiques) ──

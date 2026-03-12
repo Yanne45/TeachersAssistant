@@ -34,6 +34,7 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '014_timetable_recurrence.sql', url: '/db/014_timetable_recurrence.sql' },
   { filename: '015_program_keywords.sql', url: '/db/015_program_keywords.sql' },
   { filename: '016_correction_workflow.sql', url: '/db/016_correction_workflow.sql' },
+  { filename: '017_competencies.sql', url: '/db/017_competencies.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──
