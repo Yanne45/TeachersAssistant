@@ -35,7 +35,9 @@ Périmètre: `TeachersAssistant/TeachersAssistant`
 | Paramètres | ParametresPage | Implémenté + branché | Hub + sous-pages branchés, backup ZIP fonctionnel. |
 | Paramètres | AITemplateEditorPage | Implémenté + branché | Accessible depuis Paramètres, API key + templates branchés, CRUD tâches custom, multi-fournisseur. |
 | Préparation | AIUsagePage | Implémenté + branché | Tableau de bord consommation IA; accessible via sidebar `ia-couts`. |
-| Paramètres | SettingsSubPages | Implémenté partiel | Certaines sous-actions restent TODO. |
+| Paramètres | SettingsSubPages | Implémenté + branché | CRUD complet matières/niveaux/classes/capacités/types évaluation/compétences. |
+| Paramètres | TypesEvaluationSettings | Implémenté + branché | CRUD types d'évaluation + liens M:N capacités/compétences générales. |
+| Paramètres | CompetencesGeneralesSettings | Implémenté + branché | CRUD compétences générales (couleur, liens capacités). |
 
 ## 2) Fonctions/écrans implémentés mais non branchés (ou branchés partiellement)
 
@@ -863,6 +865,65 @@ Validation:
 
 - `npm run build`: OK (aucun warning nouveau).
 
+## 39) Avancement complémentaire - gestion des évaluations (types, compétences, templates)
+
+### 1. Arborescence organisée sous `executableDir`
+
+- `workspaceService.getAppSubDir(type, ...parts)` remplace `getCopiesDir()`:
+  - types disponibles : `copies` / `documents` / `exports` / `generations_ia` / `backups`;
+  - `copies/<classe>/<devoir>/` — organisé par `className` + `assignmentTitle`;
+  - `documents/<niveau>/<matière>/` — destination IA après classification;
+  - `exports/`, `generations_ia/`, `backups/` — prévus mais non encore peuplés dynamiquement;
+  - chaque composant sanitizé (caractères spéciaux → `_`, espaces → `_`, max 40 chars);
+  - répertoire créé si absent (`mkdir recursive`).
+- `BulkCopyImportModal` : nouvelles props `className` + `assignmentTitle` → transmises à `getAppSubDir`.
+- `CorrectionSeriePage` : utilise `getAppSubDir(‘copies’, assignment.class_name, assignment.title)` pour l’import individuel.
+- `documentUploadService` : classification IA AVANT écriture sur disque → destination `documents/<niveau>/<matière>/`.
+
+### 2. Types d’évaluation — CRUD complet (`TypesEvaluationSettings`)
+
+- Nouvelle sous-page Paramètres `types-evaluation` → `TypesEvaluationSettings`.
+- CRUD complet: création, édition, suppression (soft delete `is_active=0`).
+- Liens M:N vers `skills` (`assignment_type_skill_map`) et `general_competencies` (`assignment_type_competency_map`).
+- Multi-sélection par badges (capacités) et badges colorés (compétences générales).
+- Service `assignmentTypeService` : `getAll / create / update / delete / getSkillIds / setSkills / getCompetencyIds / setCompetencies`.
+- Migration `017_competencies.sql`.
+
+### 3. Compétences générales — CRUD complet (`CompetencesGeneralesSettings`)
+
+- Nouvelle sous-page Paramètres `competences` → `CompetencesGeneralesSettings`.
+- Champs : libellé, description, couleur (color picker natif).
+- Liens M:N vers `skills` (`skill_competency_map`) : une capacité peut appartenir à plusieurs compétences.
+- Service `generalCompetencyService` : `getAll / create / update / delete / getSkillIds / setSkills`.
+- `skillService` étendu : `getCompetencyIds(skillId)` + `setCompetencies(skillId, competencyIds)`.
+- `CapacitesSettings` mis à jour : badges compétences associées en création/édition de capacité.
+
+### 4. DevoirForm branché sur données réelles
+
+- Suppression des 5 constantes `MOCK_*` (`MOCK_ASSIGNMENT_TYPES`, `MOCK_CLASSES`, `MOCK_SUBJECTS`, `MOCK_SEQUENCES`, `MOCK_SKILLS`).
+- Chargement réel à l’ouverture du drawer : `assignmentTypeService`, `classService`, `subjectService`, `sequenceService`, `skillService`.
+- Auto-remplissage `max_score` depuis `default_max_score` du type sélectionné.
+- Filtrage des capacités par matière sélectionnée.
+
+### 5. Descripteurs de niveaux de maîtrise — `GrilleDescriptiveModal`
+
+- Migration `018_skill_descriptors.sql` : table `skill_level_descriptors` (skill_id × level 1-4, UNIQUE).
+- Service `skillDescriptorService` : `getBySkill / getBySkillIds / upsert / upsertAll`.
+- `DEFAULT_LEVEL_LABELS` : Non atteint / Partiellement atteint / Atteint / Dépassé.
+- `GrilleDescriptiveModal` (depuis `CorrectionSeriePage`) : édition des critères observables pour chaque niveau de chaque capacité du devoir.
+- Sauvegarde par capacité ou globale.
+
+### 6. Template de correction imprimable — `CorrectionTemplateModal`
+
+- `CorrectionTemplateModal` (depuis `CorrectionSeriePage`) : modal plein format affiché et imprimable (`window.print()`).
+- Contenu : en-tête devoir/classe/matière, bloc note, appréciation générale, forces/lacunes, grille capacités (3 lignes × 5 colonnes : libellés des 4 niveaux + niveau atteint mis en évidence par couleur).
+- Bouton `Grille descriptive` + bouton `Template correction` ajoutés dans `CorrectionSeriePage`.
+
+Validation:
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+
 ## Reste à faire (backlog priorisé)
 
 ### Priorité 1 - Stabilisation technique
@@ -884,8 +945,13 @@ Validation:
 
 - **Améliorer le système de correction des copies** :
   - ~~**Import par lot**~~ ✅ **Implémenté** — `BulkCopyImportModal` : sélection multiple (PDF, image, DOCX), matching automatique nom de fichier → élève (`studentMatcher`), mapping manuel, barre de progression, rapport final. Import individuel dans `CorrectionSeriePage`.
-  - ~~**Stockage copies dans dossier dédié**~~ ✅ **Migré** — `workspaceService.getCopiesDir()` utilise `appDataDir/copies/` (stable, indépendant de la DB).
+  - ~~**Stockage organisé sous `executableDir`**~~ ✅ **Migré** — `workspaceService.getAppSubDir(type, ...parts)` : `copies/<classe>/<devoir>/`, `documents/<niveau>/<matière>/`, `exports/`, `generations_ia/`, `backups/`. Chaque composant sanitizé.
   - ~~**Pseudonymisation texte avant envoi IA**~~ ✅ **Implémenté** — `pseudonymizeText()` remplace nom + prénom de l’élève par `[Élève]` dans `copie_contenu` avant tout envoi cloud. Limitation connue : les images de copies pouvant contenir un nom manuscrit ne peuvent pas être pseudonymisées (passer à Ollama local pour ces cas).
+  - ~~**Types d’évaluation CRUD**~~ ✅ **Implémenté** — `TypesEvaluationSettings` : création/édition/suppression, liens M:N capacités + compétences.
+  - ~~**Compétences générales CRUD**~~ ✅ **Implémenté** — `CompetencesGeneralesSettings` : couleur, liens M:N capacités; `CapacitesSettings` mis à jour.
+  - ~~**DevoirForm données réelles**~~ ✅ **Implémenté** — suppression des 5 MOCK_*, chargement DB réel, auto-fill barème.
+  - ~~**Descripteurs niveaux de maîtrise**~~ ✅ **Implémenté** — `GrilleDescriptiveModal` + migration 018 + `skillDescriptorService`.
+  - ~~**Template de correction imprimable**~~ ✅ **Implémenté** — `CorrectionTemplateModal` avec grille capacités colorée + `window.print()`.
   - Permettre l’analyse IA en batch sur toutes les copies d’un devoir (pipeline : import texte → `assemblePrompt` correction → `smartCorrect` → persistance `corrections` + `submission_skill_evaluations` + `submission_feedback` pour chaque copie).
   - Raccourcis clavier manquants dans le mode correction 3 colonnes (navigation copie suivante/précédente, finalisation rapide).
 - **Remplissage prédictif du cahier de textes** (effort faible) :
