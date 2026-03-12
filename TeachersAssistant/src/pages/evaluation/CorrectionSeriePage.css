@@ -5,8 +5,16 @@
 
 .correction-page {
   display: flex;
-  gap: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
   height: calc(100vh - var(--header-height) - var(--tabs-height) - 40px);
+}
+
+.correction-page__body {
+  display: flex;
+  gap: var(--space-3);
+  flex: 1;
+  min-height: 0;
 }
 
 .correction-page__panel-title {
@@ -272,4 +280,167 @@
 .correction-page__ia-textarea:focus {
   border-color: var(--color-primary);
   outline: none;
+}
+
+/* ── Score input ── */
+
+.correction-page__header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.correction-page__score-input {
+  width: 52px;
+  padding: 2px 4px;
+  margin: 0 4px;
+  font-size: 12px;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-bold);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: center;
+}
+
+.correction-page__score-input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.correction-page__ai-score {
+  font-size: 11px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.correction-page__ai-score-apply {
+  font-size: 10px;
+  font-family: var(--font-family);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-primary);
+  background: none;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.correction-page__ai-score-apply:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ── Preview empty state with import ── */
+
+.correction-page__preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: var(--space-3);
+}
+
+/* ── Editable feedback rows ── */
+
+.correction-page__fb-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+.correction-page__fb-input {
+  flex: 1;
+  font-size: 11px;
+  font-family: var(--font-family);
+  padding: 2px 6px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.correction-page__fb-input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.correction-page__fb-remove {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.correction-page__fb-remove:hover { color: var(--color-danger); }
+
+.correction-page__fb-add {
+  font-size: 11px;
+  font-family: var(--font-family);
+  color: var(--color-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 2px;
+}
+
+.correction-page__fb-add:hover { text-decoration: underline; }
+
+/* ── Corrigé type (collapsible) ── */
+
+.correction-page__corrige-type {
+  margin-bottom: var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+}
+
+.correction-page__corrige-toggle {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.correction-page__corrige-toggle::before { content: '▶ '; font-size: 10px; }
+.correction-page__corrige-type[open] .correction-page__corrige-toggle::before { content: '▼ '; }
+
+.correction-page__corrige-content {
+  padding: 0 12px 10px;
+}
+
+.correction-page__corrige-text {
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  padding: 8px 10px;
+  margin-bottom: var(--space-2);
+}
+
+.correction-page__corrige-empty {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
 }

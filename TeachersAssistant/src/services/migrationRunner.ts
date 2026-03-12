@@ -31,6 +31,9 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '011_sequence_documents.sql', url: '/db/011_sequence_documents.sql' },
   { filename: '012_ai_custom_tasks.sql', url: '/db/012_ai_custom_tasks.sql' },
   { filename: '013_ai_provider_settings.sql', url: '/db/013_ai_provider_settings.sql' },
+  { filename: '014_timetable_recurrence.sql', url: '/db/014_timetable_recurrence.sql' },
+  { filename: '015_program_keywords.sql', url: '/db/015_program_keywords.sql' },
+  { filename: '016_correction_workflow.sql', url: '/db/016_correction_workflow.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──

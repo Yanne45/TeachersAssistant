@@ -9,6 +9,8 @@ import { EleveForm } from '../../components/forms';
 import { EmptyState } from '../../components/ui';
 import { db } from '../../services/db';
 import { studentService } from '../../services';
+import { parseCSVText, parsePdfFile } from '../../services/classImportParser';
+import type { ParsedStudent } from '../../services/classImportParser';
 import './ClassesPage.css';
 
 // ── Types locaux ──
@@ -29,12 +31,6 @@ interface StudentInfo {
   gender: string | null;
 }
 
-interface ParsedStudent {
-  last_name: string;
-  first_name: string;
-  birth_year?: number;
-  gender?: string;
-}
 
 interface EleveSaveData {
   last_name: string;
@@ -172,7 +168,7 @@ function OverviewView() {
   };
 
   if (loading) {
-    return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement des classes…</p>;
+    return <p className="loading-text">Chargement des classes…</p>;
   }
 
   return (
@@ -316,73 +312,15 @@ function ImportView() {
 
     if (ext === 'csv' || ext === 'txt') {
       const text = await file.text();
-      parseCSV(text);
+      const result = parseCSVText(text);
+      if (result.error) { setError(result.error); return; }
+      setParsed(result.students);
     } else if (ext === 'pdf') {
-      await parsePDF(file);
+      const result = await parsePdfFile(file);
+      if (result.error) { setError(result.error); return; }
+      setParsed(result.students);
     } else {
       setError(`Format non supporté : .${ext}. Utilisez .csv ou .pdf`);
-    }
-  };
-
-  // ── Parse CSV ──
-
-  const parseCSV = (text: string) => {
-    const lines = text.trim().split('\n').filter(l => l.trim());
-    if (lines.length === 0) { setError('Fichier vide'); return; }
-
-    const firstLine = lines[0] ?? '';
-    const sep = firstLine.includes(';') ? ';' : ',';
-    const rows = lines.map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')));
-
-    const first = (rows[0] ?? []).map(c => c.toLowerCase());
-    const hasHeader = first.includes('nom') || first.includes('last_name') || first.includes('prénom')
-      || first.includes('élève') || first.includes('eleve');
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-
-    if (dataRows.length === 0) { setError('Aucune donnée trouvée'); return; }
-    const firstDataRow = dataRows[0];
-    if (!firstDataRow || firstDataRow.length < 2) {
-      setError('Format attendu : Nom ; Prénom [; Année ; Genre]');
-      return;
-    }
-
-    const students = dataRows
-      .map(r => ({
-        last_name: r[0] || '',
-        first_name: r[1] || '',
-        birth_year: r[2] ? parseInt(r[2]) : undefined,
-        gender: r[3] || undefined,
-      }))
-      .filter(s => s.last_name && s.first_name);
-
-    setParsed(students);
-  };
-
-  // ── Parse PDF (Pronote) ──
-
-  const parsePDF = async (file: File) => {
-    try {
-      // Lire le PDF comme ArrayBuffer et extraire le texte brut
-      const buffer = await file.arrayBuffer();
-      const text = extractTextFromPdfBuffer(buffer);
-
-      if (!text || text.trim().length < 10) {
-        setError('Impossible d\'extraire le texte du PDF. Essayez avec un export CSV depuis Pronote.');
-        return;
-      }
-
-      // Parser les lignes pour trouver des noms d'élèves
-      const students = extractStudentsFromText(text);
-
-      if (students.length === 0) {
-        setError('Aucun élève détecté dans ce PDF. Vérifiez qu\'il s\'agit bien d\'une liste de classe Pronote.');
-        return;
-      }
-
-      setParsed(students);
-    } catch (err) {
-      console.error('[Import PDF] Erreur:', err);
-      setError('Erreur lors de la lecture du PDF. Essayez avec un export CSV.');
     }
   };
 
@@ -546,115 +484,3 @@ function ImportView() {
   );
 }
 
-// ============================================================================
-// Utilitaires — extraction texte PDF (basique, sans librairie externe)
-// ============================================================================
-
-/**
- * Extraction basique de texte depuis un buffer PDF.
- * Parcourt les streams décompressés pour extraire les opérateurs Tj/TJ.
- * Pour les PDF complexes (Pronote), une librairie dédiée serait préférable.
- */
-function extractTextFromPdfBuffer(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const raw = new TextDecoder('latin1').decode(bytes);
-
-  // Chercher les blocs de texte entre BT...ET
-  const textBlocks: string[] = [];
-  const btRegex = /BT\s([\s\S]*?)ET/g;
-  let match;
-
-  while ((match = btRegex.exec(raw)) !== null) {
-    const block = match[1] ?? '';
-
-    // Extraire les chaînes Tj
-    const tjRegex = /\(([^)]*)\)\s*Tj/g;
-    let tj;
-    while ((tj = tjRegex.exec(block)) !== null) {
-      const value = tj[1];
-      if (value !== undefined) textBlocks.push(value);
-    }
-
-    // Extraire les arrays TJ
-    const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g;
-    let tja;
-    while ((tja = tjArrayRegex.exec(block)) !== null) {
-      const inner = tja[1] ?? '';
-      const strRegex = /\(([^)]*)\)/g;
-      let s;
-      let line = '';
-      while ((s = strRegex.exec(inner)) !== null) {
-        line += s[1] ?? '';
-      }
-      if (line.trim()) textBlocks.push(line);
-    }
-  }
-
-  // Aussi chercher le texte brut entre les streams (fallback)
-  if (textBlocks.length === 0) {
-    // Essayer FlateDecode streams (non compressé — cas rare mais possible)
-    const plainText = raw.replace(/[^\x20-\x7EÀ-ÿ\n\r]/g, ' ');
-    return plainText;
-  }
-
-  return textBlocks.join('\n');
-}
-
-/**
- * Extraire des noms d'élèves depuis du texte brut (PDF/Pronote).
- * Heuristiques :
- * - Lignes "NOM Prénom" (NOM tout en majuscules)
- * - Lignes "NOM;Prénom" (séparateur)
- * - Lignes numérotées "1. NOM Prénom"
- */
-function extractStudentsFromText(text: string): ParsedStudent[] {
-  const students: ParsedStudent[] = [];
-  const seen = new Set<string>();
-
-  const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(l => l.length > 2);
-
-  for (const line of lines) {
-    let lastName = '';
-    let firstName = '';
-
-    // Pattern 1 : "NOM Prénom" — NOM entièrement en majuscules
-    const namePattern = /^(?:\d+[.\s)]*)?([A-ZÀ-Ü]{2,}(?:[\s-][A-ZÀ-Ü]+)*)\s+([A-ZÀ-ÿa-z][\wà-ÿ-]+(?:\s+[A-ZÀ-ÿa-z][\wà-ÿ-]+)*)$/;
-    const m1 = line.match(namePattern);
-    if (m1) {
-      const ln = m1[1];
-      const fn = m1[2];
-      if (ln && fn) {
-        lastName = ln.trim();
-        firstName = fn.trim();
-      }
-    }
-
-    // Pattern 2 : séparateur "NOM;Prénom" ou "NOM,Prénom"
-    if (!lastName) {
-      const parts = line.split(/[;,\t]/).map(p => p.trim());
-      const p0 = parts[0];
-      const p1 = parts[1];
-      if (parts.length >= 2 && p0 && p1 && p0.length >= 2 && p1.length >= 2) {
-        // Vérifier que le premier part ressemble à un nom (majuscules)
-        if (/^[A-ZÀ-Ü]{2,}/.test(p0)) {
-          lastName = p0;
-          firstName = p1;
-        }
-      }
-    }
-
-    if (lastName && firstName) {
-      // Normaliser : NOM → Nom
-      const key = `${lastName}|${firstName}`.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        students.push({
-          last_name: lastName.toUpperCase(),
-          first_name: firstName.charAt(0).toUpperCase() + firstName.slice(1),
-        });
-      }
-    }
-  }
-
-  return students;
-}

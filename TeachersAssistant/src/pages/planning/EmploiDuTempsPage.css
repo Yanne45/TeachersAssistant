@@ -32,6 +32,7 @@
 
 .edt-grid {
   display: grid;
+  /* grid-template-columns set inline via style prop (dynamic day count) */
   grid-template-columns: 50px repeat(5, 1fr);
 }
 

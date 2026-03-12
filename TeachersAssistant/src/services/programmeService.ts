@@ -5,6 +5,7 @@
 import { db } from './db';
 import type {
   ProgramTopic, ProgramTopicInsert, ProgramTopicTree,
+  ProgramTopicKeyword,
   Skill, SkillInsert,
   ContentType,
   SequenceTemplate,
@@ -107,6 +108,32 @@ function buildTree(flat: ProgramTopic[]): ProgramTopicTree[] {
 
   return roots;
 }
+
+// ── Mots-clés de programme ──
+
+export const programKeywordService = {
+  async getByTopic(topicId: ID): Promise<ProgramTopicKeyword[]> {
+    return db.select(
+      'SELECT * FROM program_topic_keywords WHERE program_topic_id = ? ORDER BY sort_order',
+      [topicId]
+    );
+  },
+
+  async setKeywords(topicId: ID, keywords: string[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute('DELETE FROM program_topic_keywords WHERE program_topic_id = ?', [topicId]);
+      for (let i = 0; i < keywords.length; i++) {
+        const kw = keywords[i]?.trim();
+        if (kw) {
+          await db.execute(
+            'INSERT INTO program_topic_keywords (program_topic_id, keyword, sort_order) VALUES (?, ?, ?)',
+            [topicId, kw, i]
+          );
+        }
+      }
+    });
+  },
+};
 
 // ── Compétences ──
 

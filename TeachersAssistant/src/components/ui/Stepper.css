@@ -1,0 +1,93 @@
+/* ============================================================================
+   Stepper — Horizontal step indicator
+   ============================================================================ */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.stepper__step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  cursor: default;
+  font-family: var(--font-family);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.stepper__step:not(:disabled) {
+  cursor: pointer;
+}
+
+.stepper__step:not(:disabled):hover .stepper__label {
+  text-decoration: underline;
+}
+
+.stepper__circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  flex-shrink: 0;
+  border: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
+.stepper__label {
+  font-weight: var(--font-weight-semibold);
+}
+
+.stepper__connector {
+  flex: 1;
+  min-width: 16px;
+  max-width: 40px;
+  height: 2px;
+  background: var(--color-border);
+  border-radius: 1px;
+}
+
+/* ── Done state ── */
+
+.stepper__step--done .stepper__circle {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: #fff;
+}
+
+.stepper__step--done .stepper__label {
+  color: var(--color-success);
+}
+
+.stepper__connector--done {
+  background: var(--color-success);
+}
+
+/* ── Active state ── */
+
+.stepper__step--active .stepper__circle {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+
+.stepper__step--active .stepper__label {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}

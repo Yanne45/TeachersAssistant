@@ -24,11 +24,13 @@ export const PDFPreviewModal: React.FC<Props> = ({ html, title, filename, open, 
     setRenderError(null);
 
     if (!hasHtml) {
+      console.warn('[PDFPreviewModal] Contenu HTML vide');
       setRenderError("Aperçu indisponible : contenu vide. Vérifiez que des données existent pour cette période.");
       return;
     }
 
     if (!iframeRef.current) {
+      console.warn('[PDFPreviewModal] iframeRef non initialisé');
       setRenderError("Aperçu indisponible : composant non initialisé.");
       return;
     }
@@ -36,6 +38,7 @@ export const PDFPreviewModal: React.FC<Props> = ({ html, title, filename, open, 
     try {
       const doc = iframeRef.current.contentDocument;
       if (!doc) {
+        console.warn('[PDFPreviewModal] Accès contentDocument refusé');
         setRenderError("Aperçu indisponible : accès à l'iframe refusé (sécurité navigateur).");
         return;
       }
@@ -47,10 +50,12 @@ export const PDFPreviewModal: React.FC<Props> = ({ html, title, filename, open, 
       setTimeout(() => {
         const body = iframeRef.current?.contentDocument?.body;
         if (body && body.children.length === 0 && body.textContent?.trim() === '') {
+          console.warn('[PDFPreviewModal] Iframe body vide après écriture');
           setRenderError("L'aperçu a été chargé mais semble vide. Le contenu est peut-être incompatible.");
         }
       }, 300);
-    } catch {
+    } catch (err) {
+      console.error('[PDFPreviewModal] Échec écriture iframe:', err);
       setRenderError("Échec du chargement de l'aperçu. Format non supporté ou chemin inaccessible.");
     }
   };

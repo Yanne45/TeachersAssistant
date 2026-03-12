@@ -142,3 +142,109 @@
   display: flex;
   gap: var(--space-3);
 }
+
+/* ── Stat cards grid (Synthèse) ── */
+
+.fiche-eleve__stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.fiche-eleve__stat-card {
+  padding: 10px 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+}
+
+.fiche-eleve__stat-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.fiche-eleve__stat-value {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ── List items (corrections, bulletins, notes, docs, etc.) ── */
+
+.fiche-eleve__item-list {
+  display: grid;
+  gap: 8px;
+}
+
+.fiche-eleve__item-card {
+  padding: 8px 10px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+}
+
+.fiche-eleve__item-card--grid {
+  display: grid;
+  gap: 6px;
+}
+
+.fiche-eleve__item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.fiche-eleve__item-title {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fiche-eleve__item-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.fiche-eleve__item-text {
+  font-size: 12px;
+}
+
+.fiche-eleve__item-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+/* ── Quick actions ── */
+
+.fiche-eleve__quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ── Grades summary ── */
+
+.fiche-eleve__grades-summary {
+  font-size: 12px;
+  margin-bottom: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ── Loading state ── */
+
+.fiche-eleve__loading {
+  padding: 20px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+/* ── Layout ── */
+
+.fiche-eleve--padded { padding: 20px; }
+
+/* ── Modifiers ── */
+
+.fiche-eleve__item-text--bold { font-weight: 700; }
+.fiche-eleve__item-text--muted { color: var(--color-text-muted); }
+.fiche-eleve__item-row--mb { margin-bottom: 4px; }
+.fiche-eleve__item-list--gap-lg { gap: 10px; }
+.fiche-eleve__item-list--mt { margin-top: 8px; }
+.fiche-eleve__item-text--mb { margin-bottom: 4px; }

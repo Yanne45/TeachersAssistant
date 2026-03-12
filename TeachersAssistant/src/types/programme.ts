@@ -31,6 +31,15 @@ export interface ProgramTopicTree extends ProgramTopic {
   coverage_percent?: number;
 }
 
+// ── Mots-clés de programme ──
+
+export interface ProgramTopicKeyword {
+  id: ID;
+  program_topic_id: ID;
+  keyword: string;
+  sort_order: number;
+}
+
 // ── Capacités / compétences ──
 
 export type SkillType = 'exercise_specific' | 'general';

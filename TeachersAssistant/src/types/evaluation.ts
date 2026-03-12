@@ -44,9 +44,18 @@ export interface Assignment extends TrackedEntity {
   due_date: ISODate | null;
   status: AssignmentStatus;
   is_graded: boolean;
+  subject_file_path: string | null;
+  subject_document_id: ID | null;
+  subject_extracted_text: string | null;
+  correction_model_text: string | null;
 }
 
-export type AssignmentInsert = Omit<Assignment, 'id' | 'created_at' | 'updated_at'>;
+export type AssignmentInsert = Omit<Assignment, 'id' | 'created_at' | 'updated_at' | 'subject_file_path' | 'subject_document_id' | 'subject_extracted_text' | 'correction_model_text'> & {
+  subject_file_path?: string | null;
+  subject_document_id?: ID | null;
+  subject_extracted_text?: string | null;
+  correction_model_text?: string | null;
+};
 
 /** Devoir enrichi pour la liste */
 export interface AssignmentWithDetails extends Assignment {
@@ -79,6 +88,8 @@ export interface Submission extends TrackedEntity {
   status: SubmissionStatus;
   submitted_at: ISODateTime | null;
   graded_at: ISODateTime | null;
+  text_content: string | null;
+  ai_suggested_score: number | null;
 }
 
 /** Copie enrichie pour la correction en série */

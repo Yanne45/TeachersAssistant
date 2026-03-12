@@ -2,7 +2,7 @@
 // DevoirForm — Créer / Modifier un devoir (Drawer)
 // ============================================================================
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Drawer } from '../ui/Drawer';
 import './forms.css';
 
@@ -18,12 +18,15 @@ interface DevoirFormData {
   due_date: string;
   instructions: string;
   skill_ids: string[];
+  subject_file: File | null;
+  subject_extracted_text: string;
 }
 
 const EMPTY: DevoirFormData = {
   title: '', class_id: '', subject_id: '', sequence_id: '',
   assignment_type_id: '', max_score: '20', coefficient: '1',
   assignment_date: '', due_date: '', instructions: '', skill_ids: [],
+  subject_file: null, subject_extracted_text: '',
 };
 
 const MOCK_TYPES = [
@@ -63,6 +66,8 @@ interface Props {
 export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData }) => {
   const [form, setForm] = useState<DevoirFormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof DevoirFormData, string>>>({});
+  const [extracting, setExtracting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -70,6 +75,39 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
       setErrors({});
     }
   }, [open, initialData]);
+
+  const handleSubjectFile = async (file: File) => {
+    setExtracting(true);
+    try {
+      let text = '';
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      if (ext === 'pdf') {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const pages: string[] = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          pages.push(content.items.map((item: any) => item.str).join(' '));
+        }
+        text = pages.join('\n\n');
+      } else if (ext === 'docx') {
+        const mammoth = await import('mammoth');
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        text = result.value;
+      } else {
+        text = await file.text();
+      }
+      setForm(prev => ({ ...prev, subject_file: file, subject_extracted_text: text.trim() }));
+    } catch {
+      setForm(prev => ({ ...prev, subject_file: file, subject_extracted_text: '' }));
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   const set = (field: keyof DevoirFormData, value: string | string[]) =>
     setForm(prev => ({ ...prev, [field]: value }));
@@ -176,6 +214,46 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
         <div className="form__field form__field--full">
           <label className="form__label">Consignes</label>
           <textarea className="form__textarea" rows={3} value={form.instructions} onChange={e => set('instructions', e.target.value)} placeholder="Consignes et sujet…" />
+        </div>
+
+        <div className="form__field form__field--full">
+          <label className="form__label">Sujet (PDF / DOCX)</label>
+          <div className="prog-tree__file-drop" style={{ padding: 14 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt"
+              className="prog-tree__file-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleSubjectFile(f);
+              }}
+            />
+            <div className="prog-tree__file-label">
+              {extracting ? (
+                <span>Extraction en cours…</span>
+              ) : form.subject_file ? (
+                <span>
+                  {form.subject_file.name}
+                  {form.subject_extracted_text ? ` (${(form.subject_extracted_text.length / 1000).toFixed(1)}k car.)` : ''}
+                  <button
+                    type="button"
+                    className="settings-sub__link settings-sub__link--danger"
+                    style={{ marginLeft: 8, pointerEvents: 'auto' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setForm(prev => ({ ...prev, subject_file: null, subject_extracted_text: '' }));
+                      if (fileInputRef.current) fileInputRef.current.value = '';
+                    }}
+                  >
+                    Retirer
+                  </button>
+                </span>
+              ) : (
+                <span>Cliquez pour joindre le sujet (PDF, DOCX)</span>
+              )}
+            </div>
+          </div>
         </div>
 
         <hr className="form__separator" style={{ gridColumn: '1 / -1' }} />

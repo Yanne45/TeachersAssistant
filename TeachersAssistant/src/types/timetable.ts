@@ -7,7 +7,7 @@ import type { ID, ISODateTime, TimeString, DayOfWeek, TrackedEntity, BaseEntity 
 
 // ── Créneaux EDT ──
 
-export type SlotRecurrence = 'all' | 'q1' | 'q2';
+export type SlotRecurrence = 'all' | 'q1' | 'q2' | 't1' | 't2' | 't3' | 's1' | 's2';
 
 export interface TimetableSlot extends TrackedEntity {
   academic_year_id: ID;

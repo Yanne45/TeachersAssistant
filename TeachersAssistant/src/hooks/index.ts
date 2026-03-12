@@ -24,3 +24,5 @@ export {
   useKeyboardShortcuts, useCorrectionShortcuts, useDebounce, useOnlineStatus,
 } from './useUI';
 export type { ToastData, CorrectionShortcutHandlers } from './useUI';
+
+export { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from './useDevTelemetry';

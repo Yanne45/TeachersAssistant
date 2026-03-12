@@ -49,4 +49,16 @@ export { PromptVariablePicker } from './PromptVariablePicker';
 export { PanelError } from './PanelError';
 export type { PanelErrorProps } from './PanelError';
 
+export { ErrorBoundary } from './ErrorBoundary';
+export type { ErrorBoundaryProps } from './ErrorBoundary';
+
+export { ConfirmDialog } from './ConfirmDialog';
+export type { ConfirmDialogProps } from './ConfirmDialog';
+
+export { StatusBadge } from './StatusBadge';
+export type { StatusBadgeProps } from './StatusBadge';
+
 export { VoiceInput } from './VoiceInput';
+
+export { Stepper } from './Stepper';
+export type { StepDef } from './Stepper';

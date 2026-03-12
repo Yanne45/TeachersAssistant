@@ -134,7 +134,7 @@ function AppMain() {
   const [showSettings, setShowSettings] = React.useState(false);
   const [showSearch, setShowSearch] = React.useState(false);
 
-  const hasSidebar = activeTab !== 'dashboard';
+  const hasSidebar = activeTab !== 'dashboard' && !showSettings;
 
   return (
     <AppLayout
@@ -166,6 +166,7 @@ function AppMain() {
         />
       }
       sidebar={hasSidebar ? <AppSidebar tab={activeTab} /> : undefined}
+      flush={showSettings}
     >
       {showSettings ? (
         <ParametresPage />

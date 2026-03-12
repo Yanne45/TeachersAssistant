@@ -30,7 +30,7 @@ export const WelcomePage: React.FC = () => {
         {status === 'loading' && (
           <div className="welcome__loading">
             <div className="welcome__spinner" />
-            <span>Ouverture en cours...</span>
+            <span>Ouverture en cours…</span>
           </div>
         )}
 

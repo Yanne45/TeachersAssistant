@@ -52,6 +52,35 @@ export interface CorrectionAIResult {
   strengths: string[];
   weaknesses: string[];
   general_comment: string;
+  suggested_score?: number;
+}
+
+// ── Multimodal support ──
+
+type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+type MessageContent = string | ContentPart[];
+
+/** Convert a local file path to a base64 data URL for vision APIs */
+export async function filePathToBase64DataUrl(filePath: string): Promise<string> {
+  const { readFile } = await import('@tauri-apps/plugin-fs');
+  const bytes = await readFile(filePath);
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  const mime = ext === 'png' ? 'image/png'
+    : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
+    : ext === 'gif' ? 'image/gif'
+    : ext === 'webp' ? 'image/webp'
+    : 'application/octet-stream';
+  const base64 = btoa(String.fromCharCode(...bytes));
+  return `data:${mime};base64,${base64}`;
+}
+
+/** Check if a file extension is an image type */
+export function isImageFile(filePath: string): boolean {
+  const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
 }
 
 // === AI SETTINGS ===
@@ -383,7 +412,7 @@ export const ollamaService = {
   },
 };
 
-interface ChatMessage { role: "system" | "user" | "assistant"; content: string; }
+interface ChatMessage { role: "system" | "user" | "assistant"; content: MessageContent; }
 interface ChatResponse { content: string; model: string; tokens_input: number; tokens_output: number; }
 
 async function callChatAPI(messages: ChatMessage[], model?: string): Promise<ChatResponse> {
@@ -497,6 +526,42 @@ export const aiCorrectionService = {
     const skills = await db.select<any>(
       "SELECT s.label FROM skills s JOIN assignment_skill_map asm ON asm.skill_id = s.id WHERE asm.assignment_id = ?", [assignmentId]);
     const submission = await db.selectOne<any>("SELECT * FROM submissions WHERE id = ?", [submissionId]);
+
+    const hasTextContent = !!submission?.text_content?.trim();
+    const hasImageFile = submission?.file_path && isImageFile(submission.file_path);
+    const correctionModelText = assignment?.correction_model_text ?? null;
+
+    // If image copy with no text → use multimodal (direct callChatAPI)
+    if (!hasTextContent && hasImageFile) {
+      const { systemMessage, userMessage } = await assemblePrompt({
+        taskCode: "analyze_submission",
+        variables: {
+          type_exercice: assignment?.assignment_type ?? "dissertation",
+          matiere: assignment?.title ?? "",
+          competences: skills.map((s: any) => s.label).join(", "),
+          copie_contenu: "[Voir image jointe]",
+          bareme: assignment?.max_score ? "/" + assignment.max_score : "/20",
+        },
+        rawDocumentContexts: correctionModelText ? [`Corrigé type :\n${correctionModelText}`] : undefined,
+      });
+
+      const imageDataUrl = await filePathToBase64DataUrl(submission.file_path);
+      const userContent: ContentPart[] = [
+        { type: "text", text: userMessage },
+        { type: "image_url", image_url: { url: imageDataUrl } },
+      ];
+
+      const response = await callChatAPI([
+        { role: "system", content: systemMessage },
+        { role: "user", content: userContent },
+      ]);
+
+      try {
+        return JSON.parse(response.content.replace(/```json\n?/g, "").replace(/```/g, "").trim()) as CorrectionAIResult;
+      } catch { return { skills: [], strengths: [], weaknesses: [], general_comment: response.content }; }
+    }
+
+    // Text-based analysis (original path, now with correction model context)
     const gen: any = await aiGenerationService.generate({
       taskCode: "analyze_submission",
       variables: {
@@ -506,6 +571,7 @@ export const aiCorrectionService = {
         copie_contenu: submission?.text_content?.substring(0, 4000) ?? "[Copie non numerisee]",
         bareme: assignment?.max_score ? "/" + assignment.max_score : "/20",
       },
+      rawDocumentContexts: correctionModelText ? [`Corrigé type :\n${correctionModelText}`] : undefined,
       contextEntityType: "submission", contextEntityId: submissionId,
     });
     try {

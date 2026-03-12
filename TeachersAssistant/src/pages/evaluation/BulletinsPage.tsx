@@ -3,18 +3,20 @@
 // ============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EmptyState, PanelError } from '../../components/ui';
+import { EmptyState, ErrorBoundary, PanelError } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
 import {
   aiBulletinService,
   bulletinService,
   classService,
+  db,
   pdfExportService,
   reportPeriodService,
   studentService,
   subjectService,
 } from '../../services';
 import { useApp } from '../../stores';
+import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
 import { BULLETIN_STATUS_META } from '../../constants/statuses';
 import './BulletinsPage.css';
 
@@ -77,6 +79,8 @@ export const BulletinsPage: React.FC = () => {
   const gradesCacheRef = useRef<Map<number, any[]>>(new Map());
   const gradesPromiseRef = useRef<Map<number, Promise<any[]>>>(new Map());
 
+  usePageLoadTelemetry('BulletinsPage', loading);
+
   const periodCacheKey = (studentId: number, periodId: number) => `${studentId}:${periodId}`;
 
   const getStudentPeriodEntries = useCallback(async (studentId: number, periodId: number, force = false) => {
@@ -88,11 +92,12 @@ export const BulletinsPage: React.FC = () => {
     }
 
     const cached = bulletinEntriesCacheRef.current.get(key);
-    if (cached) return cached;
+    if (cached) { trackCacheHit('bulletinEntries'); return cached; }
 
     const inflight = bulletinEntriesPromiseRef.current.get(key);
     if (inflight) return inflight;
 
+    trackCacheMiss('bulletinEntries');
     const promise = bulletinService.getByStudentPeriod(studentId, periodId)
       .then((entries) => {
         bulletinEntriesCacheRef.current.set(key, entries);
@@ -371,23 +376,36 @@ export const BulletinsPage: React.FC = () => {
         },
       );
 
-      for (const [studentId, content] of generated.entries()) {
+      // Pré-charger les entrées existantes (lectures)
+      const entriesByStudent = new Map<number, any>();
+      for (const [studentId] of generated.entries()) {
         const existing = await getStudentPeriodEntries(studentId, activePeriodId);
-        const classTeacher = existing.find((e) => e.entry_type === 'class_teacher');
-        if (classTeacher) {
-          await bulletinService.update(classTeacher.id, content, 'ai');
-          await bulletinService.updateStatus(classTeacher.id, 'draft');
-        } else {
-          await bulletinService.create({
-            student_id: studentId,
-            report_period_id: activePeriodId,
-            entry_type: 'class_teacher',
-            subject_id: activeSubjectId,
-            content,
-            status: 'draft',
-            source: 'ai',
-          });
+        entriesByStudent.set(studentId, existing);
+      }
+
+      // Écriture groupée dans une seule transaction
+      await db.transaction(async () => {
+        for (const [studentId, content] of generated.entries()) {
+          const existing = entriesByStudent.get(studentId) ?? [];
+          const classTeacher = existing.find((e: any) => e.entry_type === 'class_teacher');
+          if (classTeacher) {
+            await bulletinService.update(classTeacher.id, content, 'ai');
+            await bulletinService.updateStatus(classTeacher.id, 'draft');
+          } else {
+            await bulletinService.create({
+              student_id: studentId,
+              report_period_id: activePeriodId,
+              entry_type: 'class_teacher',
+              subject_id: activeSubjectId,
+              content,
+              status: 'draft',
+              source: 'ai',
+            });
+          }
         }
+      });
+
+      for (const [studentId] of generated.entries()) {
         invalidateStudentPeriodCache(studentId, activePeriodId);
       }
 
@@ -543,6 +561,7 @@ export const BulletinsPage: React.FC = () => {
         />
       )}
 
+      <ErrorBoundary>
       <div className="bulletins-page__body">
         <div
           className="bulletins-page__list"
@@ -550,7 +569,7 @@ export const BulletinsPage: React.FC = () => {
           onScroll={(e) => setListScrollTop(e.currentTarget.scrollTop)}
         >
           {loading ? (
-            <div style={{ padding: 12, fontSize: 12, color: 'var(--color-text-muted)' }}>Chargement...</div>
+            <div className="loading-text">Chargement…</div>
           ) : (
             <table className="bulletins-page__table">
               <thead>
@@ -598,7 +617,7 @@ export const BulletinsPage: React.FC = () => {
                 rows={6}
                 value={editorText}
                 onChange={(e) => setEditorText(e.target.value)}
-                placeholder="Rédiger l'appréciation..."
+                placeholder="Rédiger l'appréciation…"
               />
 
               <details className="bulletins-page__ia-instructions">
@@ -627,6 +646,7 @@ export const BulletinsPage: React.FC = () => {
           )}
         </div>
       </div>
+      </ErrorBoundary>
 
       <PDFPreviewModal
         html={pdfHtml ?? ''}

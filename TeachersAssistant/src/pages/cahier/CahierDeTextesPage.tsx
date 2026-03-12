@@ -193,7 +193,7 @@ ${entries
       </div>
 
       {loading ? (
-        <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>
+        <p className="loading-text">Chargement…</p>
       ) : (
         <div className="cahier__list">
           {filtered.map((entry) => (

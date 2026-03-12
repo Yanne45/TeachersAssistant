@@ -46,10 +46,18 @@ export interface UserPreference {
 }
 
 /** Clés de préférences connues */
-export type PreferenceKey = 'theme' | 'ui_density' | 'sidebar_width' | 'default_tab';
+export type PreferenceKey =
+  | 'theme' | 'ui_density' | 'sidebar_width' | 'default_tab'
+  | 'timetable_working_days' | 'timetable_week_start'
+  | 'timetable_day_start' | 'timetable_day_end'
+  | 'timetable_break_start' | 'timetable_break_end'
+  | 'timetable_recess1_start' | 'timetable_recess1_end'
+  | 'timetable_recess2_start' | 'timetable_recess2_end'
+  | 'timetable_recurrence_mode';
 
 export type ThemeValue = 'light' | 'dark';
 export type UIDensity = 'compact' | 'standard' | 'comfortable';
+export type RecurrenceMode = 'quarters' | 'trimesters' | 'semesters';
 
 /** Préférences typées (après lecture de la DB) */
 export interface AppPreferences {
@@ -57,4 +65,24 @@ export interface AppPreferences {
   ui_density: UIDensity;
   sidebar_width: number;
   default_tab: string;
+  /** Jours travaillés : tableau de DayOfWeek (1=Lun … 7=Dim) — JSON string */
+  timetable_working_days: number[];
+  /** Premier jour de la semaine : 1=Lundi, 7=Dimanche */
+  timetable_week_start: number;
+  /** Heure début de journée (HH:MM) */
+  timetable_day_start: string;
+  /** Heure fin de journée (HH:MM) */
+  timetable_day_end: string;
+  /** Pause début (HH:MM) */
+  timetable_break_start: string;
+  /** Pause fin (HH:MM) */
+  timetable_break_end: string;
+  /** Récréation matin (HH:MM, vide = aucune) */
+  timetable_recess1_start: string;
+  timetable_recess1_end: string;
+  /** Récréation après-midi (HH:MM, vide = aucune) */
+  timetable_recess2_start: string;
+  timetable_recess2_end: string;
+  /** Mode de récurrence */
+  timetable_recurrence_mode: RecurrenceMode;
 }

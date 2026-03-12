@@ -4,9 +4,11 @@ import { backupService2, downloadBlob, preferenceService } from '../../services'
 import { useApp, useRouter } from '../../stores';
 import { AITemplateEditorPage } from './AITemplateEditorPage';
 import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings } from './SettingsSubPages';
+import { EmploiDuTempsSettings } from './EmploiDuTempsSettings';
+import { ProgrammeSettings } from './ProgrammeSettings';
 import './ParametresPage.css';
 
-type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation';
+type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme';
 
 type ThemeValue = 'light' | 'dark';
 type UIDensity = 'compact' | 'standard' | 'comfortable';
@@ -23,9 +25,19 @@ const SETTINGS_CARDS = [
     navigateTo: 'matieres' as SubPage,
   },
   {
+    icon: '📖', key: 'programme', title: 'Programmes', description: 'Thèmes, chapitres, mots-clés',
+    details: ['Édition manuelle de l\'arbre', 'Import structuré (IA)', 'Mots-clés & volumes horaires'],
+    navigateTo: 'programme' as SubPage,
+  },
+  {
     icon: '🗓️', key: 'calendrier', title: 'Calendrier scolaire', description: 'Zone C - 30 sem. travaillées',
     details: ['5 périodes de vacances', '11 jours fériés'],
     navigateTo: 'calendrier' as SubPage,
+  },
+  {
+    icon: '🕐', key: 'emploi-du-temps', title: 'Emploi du temps', description: 'Grille horaire & jours',
+    details: ['Jours travaillés', 'Horaires & pause', 'Périodes (Q/T/S)'],
+    navigateTo: 'emploi-du-temps' as SubPage,
   },
   {
     icon: '🤖', key: 'ia', title: 'IA & génération', description: 'GPT-4o configuré',
@@ -95,151 +107,155 @@ export const ParametresPage: React.FC = () => {
     input.click();
   };
 
-  if (subPage === 'ia-templates') {
-    return (
-      <div className="parametres-page">
-        <SubPageBreadcrumb label="IA & génération" onBack={() => setSubPage('hub')} />
-        <AITemplateEditorPage />
-      </div>
-    );
-  }
-
-  const SUB_PAGE_MAP: Record<string, { label: string; component: React.ReactNode }> = {
-    annee: { label: 'Année scolaire', component: <AnneeSettings /> },
-    matieres: { label: 'Matières & volumes', component: <MatieresSettings /> },
-    calendrier: {
-      label: 'Calendrier scolaire',
-      component: (
-        <CalendrierRedirect
-          onBack={() => setSubPage('hub')}
-          onGo={() => {
-            navigate({ tab: 'planning', page: 'calendrier' });
-            setSubPage('hub');
-          }}
-        />
-      ),
-    },
-    'export-pdf': { label: 'Export PDF', component: <ExportPDFSettings /> },
-    capacites: { label: 'Capacités', component: <CapacitesSettings /> },
-    'periodes-notation': { label: 'Périodes de notation', component: <PeriodesNotationSettings /> },
+  const handleThemeChange = (t: ThemeValue) => {
+    setTheme(t);
+    addToast('success', `Thème ${t === 'dark' ? 'sombre' : 'clair'} activé`);
   };
 
-  const subPageInfo = SUB_PAGE_MAP[subPage];
-  if (subPageInfo) {
-    return (
-      <div className="parametres-page">
-        <SubPageBreadcrumb label={subPageInfo.label} onBack={() => setSubPage('hub')} />
-        {subPageInfo.component}
-      </div>
-    );
-  }
+  const handleDensityChange = (d: UIDensity) => {
+    setUiDensity(d);
+    document.documentElement.setAttribute('data-ui', d);
+    preferenceService.set('ui_density', d);
+    addToast('success', `Densité : ${d}`);
+  };
 
-  if (subPage === 'interface') {
-    const handleThemeChange = (t: ThemeValue) => {
-      setTheme(t);
-      addToast('success', `Thème ${t === 'dark' ? 'sombre' : 'clair'} activé`);
-    };
-
-    const handleDensityChange = (d: UIDensity) => {
-      setUiDensity(d);
-      document.documentElement.setAttribute('data-ui', d);
-      preferenceService.set('ui_density', d);
-      addToast('success', `Densité : ${d}`);
-    };
-
-    return (
-      <div className="parametres-page">
-        <SubPageBreadcrumb label="Interface" onBack={() => setSubPage('hub')} />
-
-        <div className="interface-settings">
-          <Card className="interface-settings__card">
-            <h3 className="interface-settings__section-title">Thème</h3>
-            <p className="interface-settings__section-desc">Choisissez entre le mode clair et le mode sombre.</p>
-            <div className="interface-settings__toggle-group">
-              <button
-                className={`interface-settings__toggle-btn ${theme === 'light' ? 'interface-settings__toggle-btn--active' : ''}`}
-                onClick={() => handleThemeChange('light')}
-              >
-                <span className="interface-settings__toggle-icon">☀️</span>
-                <span>Clair</span>
-              </button>
-              <button
-                className={`interface-settings__toggle-btn ${theme === 'dark' ? 'interface-settings__toggle-btn--active' : ''}`}
-                onClick={() => handleThemeChange('dark')}
-              >
-                <span className="interface-settings__toggle-icon">🌙</span>
-                <span>Sombre</span>
-              </button>
-            </div>
-          </Card>
-
-          <Card className="interface-settings__card">
-            <h3 className="interface-settings__section-title">Densité de l'interface</h3>
-            <p className="interface-settings__section-desc">Ajuste la taille du texte et l'espacement général.</p>
-            <div className="interface-settings__toggle-group">
-              {[
-                { value: 'compact' as UIDensity, label: 'Compact', desc: '15px' },
-                { value: 'standard' as UIDensity, label: 'Standard', desc: '16px' },
-                { value: 'comfortable' as UIDensity, label: 'Confort', desc: '17px' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`interface-settings__toggle-btn ${uiDensity === opt.value ? 'interface-settings__toggle-btn--active' : ''}`}
-                  onClick={() => handleDensityChange(opt.value)}
-                >
-                  <span>{opt.label}</span>
-                  <span className="interface-settings__toggle-detail">{opt.desc}</span>
-                </button>
-              ))}
-            </div>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  const SUB_PAGE_MAP: Record<string, React.ReactNode> = {
+    hub: <SettingsHub cards={SETTINGS_CARDS} onNavigate={setSubPage} onExportZip={handleExportZip} onImportZip={handleImportZip} />,
+    annee: <AnneeSettings />,
+    matieres: <MatieresSettings />,
+    calendrier: (
+      <CalendrierRedirect
+        onBack={() => setSubPage('hub')}
+        onGo={() => {
+          navigate({ tab: 'planning', page: 'calendrier' });
+          setSubPage('hub');
+        }}
+      />
+    ),
+    'emploi-du-temps': <EmploiDuTempsSettings />,
+    programme: <ProgrammeSettings />,
+    'ia-templates': <AITemplateEditorPage />,
+    'export-pdf': <ExportPDFSettings />,
+    capacites: <CapacitesSettings />,
+    'periodes-notation': <PeriodesNotationSettings />,
+    interface: (
+      <InterfaceSettings
+        theme={theme}
+        uiDensity={uiDensity}
+        onThemeChange={handleThemeChange}
+        onDensityChange={handleDensityChange}
+      />
+    ),
+  };
 
   return (
     <div className="parametres-page">
-      <h1 className="parametres-page__title">Paramètres</h1>
-
-      <div className="parametres-page__grid">
+      <nav className="parametres-page__sidebar">
+        <div className="parametres-page__sidebar-title">Paramètres</div>
         {SETTINGS_CARDS.map((card) => (
-          <Card
+          <button
             key={card.key}
-            onClick={() => {
-              if (card.navigateTo) setSubPage(card.navigateTo);
-            }}
-            className="param-card"
+            className={`parametres-page__sidebar-item ${subPage === (card.navigateTo ?? card.key) ? 'parametres-page__sidebar-item--active' : ''}`}
+            onClick={() => { if (card.navigateTo) setSubPage(card.navigateTo); }}
+            aria-pressed={subPage === (card.navigateTo ?? card.key)}
           >
-            <div className="param-card__header">
-              <span className="param-card__icon">{card.icon}</span>
-              <div className="param-card__text">
-                <span className="param-card__title">{card.title}</span>
-                <span className="param-card__desc">{card.description}</span>
-              </div>
-            </div>
-            <ul className="param-card__details">
-              {card.details.map((d, j) => (
-                <li key={j}>{d}</li>
-              ))}
-            </ul>
-          </Card>
+            <span className="parametres-page__sidebar-icon">{card.icon}</span>
+            {card.title}
+          </button>
         ))}
-      </div>
-
-      <div className="parametres-page__actions">
-        <button className="parametres-page__action-btn" onClick={handleExportZip}>📦 Exporter sauvegarde ZIP</button>
-        <button className="parametres-page__action-btn" onClick={handleImportZip}>📥 Restaurer depuis ZIP</button>
+      </nav>
+      <div className="parametres-page__content">
+        {SUB_PAGE_MAP[subPage] ?? SUB_PAGE_MAP.hub}
       </div>
     </div>
   );
 };
 
-const SubPageBreadcrumb: React.FC<{ label: string; onBack: () => void }> = ({ label, onBack }) => (
-  <div className="parametres-page__breadcrumb">
-    <button className="parametres-page__back" onClick={onBack}>← Paramètres</button>
-    <span className="parametres-page__breadcrumb-sep">/</span>
-    <span className="parametres-page__breadcrumb-current">{label}</span>
+const SettingsHub: React.FC<{
+  cards: typeof SETTINGS_CARDS;
+  onNavigate: (page: SubPage) => void;
+  onExportZip: () => void;
+  onImportZip: () => void;
+}> = ({ cards, onNavigate, onExportZip, onImportZip }) => (
+  <>
+    <h1 className="parametres-page__title">Paramètres</h1>
+    <div className="parametres-page__grid">
+      {cards.map((card) => (
+        <Card
+          key={card.key}
+          onClick={() => { if (card.navigateTo) onNavigate(card.navigateTo); }}
+          className="param-card"
+        >
+          <div className="param-card__header">
+            <span className="param-card__icon">{card.icon}</span>
+            <div className="param-card__text">
+              <span className="param-card__title">{card.title}</span>
+              <span className="param-card__desc">{card.description}</span>
+            </div>
+          </div>
+          <ul className="param-card__details">
+            {card.details.map((d, j) => (
+              <li key={j}>{d}</li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+    </div>
+    <div className="parametres-page__actions">
+      <button className="parametres-page__action-btn" onClick={onExportZip}>📦 Exporter sauvegarde ZIP</button>
+      <button className="parametres-page__action-btn" onClick={onImportZip}>📥 Restaurer depuis ZIP</button>
+    </div>
+  </>
+);
+
+const InterfaceSettings: React.FC<{
+  theme: string;
+  uiDensity: UIDensity;
+  onThemeChange: (t: ThemeValue) => void;
+  onDensityChange: (d: UIDensity) => void;
+}> = ({ theme, uiDensity, onThemeChange, onDensityChange }) => (
+  <div className="interface-settings">
+    <Card className="interface-settings__card">
+      <h3 className="interface-settings__section-title">Thème</h3>
+      <p className="interface-settings__section-desc">Choisissez entre le mode clair et le mode sombre.</p>
+      <div className="interface-settings__toggle-group">
+        <button
+          className={`interface-settings__toggle-btn ${theme === 'light' ? 'interface-settings__toggle-btn--active' : ''}`}
+          onClick={() => onThemeChange('light')}
+        >
+          <span className="interface-settings__toggle-icon">☀️</span>
+          <span>Clair</span>
+        </button>
+        <button
+          className={`interface-settings__toggle-btn ${theme === 'dark' ? 'interface-settings__toggle-btn--active' : ''}`}
+          onClick={() => onThemeChange('dark')}
+        >
+          <span className="interface-settings__toggle-icon">🌙</span>
+          <span>Sombre</span>
+        </button>
+      </div>
+    </Card>
+
+    <Card className="interface-settings__card">
+      <h3 className="interface-settings__section-title">Densité de l'interface</h3>
+      <p className="interface-settings__section-desc">Ajuste la taille du texte et l'espacement général.</p>
+      <div className="interface-settings__toggle-group">
+        {([
+          { value: 'compact' as UIDensity, label: 'Compact', desc: '15px' },
+          { value: 'standard' as UIDensity, label: 'Standard', desc: '16px' },
+          { value: 'comfortable' as UIDensity, label: 'Confort', desc: '17px' },
+        ]).map((opt) => (
+          <button
+            key={opt.value}
+            className={`interface-settings__toggle-btn ${uiDensity === opt.value ? 'interface-settings__toggle-btn--active' : ''}`}
+            onClick={() => onDensityChange(opt.value)}
+          >
+            <span>{opt.label}</span>
+            <span className="interface-settings__toggle-detail">{opt.desc}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
   </div>
 );
 

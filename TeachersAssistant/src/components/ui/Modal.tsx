@@ -51,6 +51,8 @@ export const Modal: React.FC<ModalProps> = ({
     <dialog
       ref={dialogRef}
       className={`modal modal--${size}`}
+      aria-modal="true"
+      aria-labelledby={title ? 'modal-title' : undefined}
       onClick={(e) => {
         // Fermer en cliquant sur le backdrop
         if (e.target === e.currentTarget) onClose();
@@ -59,7 +61,7 @@ export const Modal: React.FC<ModalProps> = ({
       <div className="modal__container">
         {title && (
           <div className="modal__header">
-            <h2 className="modal__title">{title}</h2>
+            <h2 className="modal__title" id="modal-title">{title}</h2>
             <button className="modal__close" onClick={onClose} aria-label="Fermer">
               ✕
             </button>

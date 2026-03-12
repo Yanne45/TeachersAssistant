@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
 import { Card, Button, ProgressBar, EmptyState } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
-import { aiCorrectionService, assignmentService, bilanService, pdfExportService } from '../../services';
+import { aiCorrectionService, assignmentService, bilanService, downloadBlob, grilleExportService, pdfExportService } from '../../services';
 import { useApp, useData, useRouter } from '../../stores';
 import type { AssignmentStats } from '../../types';
 import './BilanDevoirPage.css';
@@ -123,7 +123,7 @@ export const BilanDevoirPage: React.FC = () => {
   };
 
   if (loading) {
-    return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>;
+    return <p className="loading-text">Chargement…</p>;
   }
 
   if (!assignmentId || !assignment || !stats) {
@@ -217,7 +217,7 @@ export const BilanDevoirPage: React.FC = () => {
 
       <div className="bilan-page__actions">
         <Button variant="primary" size="M" onClick={handleGenerateBilan} disabled={generatingBilan}>
-          {generatingBilan ? 'Génération...' : 'Générer commentaire classe (IA)'}
+          {generatingBilan ? 'Génération…' : 'Générer commentaire classe (IA)'}
         </Button>
         <Button
           variant="secondary"
@@ -237,6 +237,42 @@ export const BilanDevoirPage: React.FC = () => {
           }}
         >
           Export PDF bilan
+        </Button>
+        <Button
+          variant="secondary"
+          size="M"
+          onClick={async () => {
+            try {
+              const { rows, skills } = await grilleExportService.fetchGrilleData(assignmentId!);
+              const csv = grilleExportService.buildCSV(rows, skills);
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+              downloadBlob(blob, `grille-competences-${assignment?.title ?? 'devoir'}.csv`);
+              addToast('success', 'Grille CSV exportée');
+            } catch (error) {
+              console.error('[BilanDevoirPage] Erreur export CSV:', error);
+              addToast('error', 'Erreur export CSV');
+            }
+          }}
+          disabled={!assignmentId}
+        >
+          Export grille CSV
+        </Button>
+        <Button
+          variant="secondary"
+          size="M"
+          onClick={async () => {
+            try {
+              const { rows, skills } = await grilleExportService.fetchGrilleData(assignmentId!);
+              const html = grilleExportService.buildHTML(rows, skills, assignment?.title ?? 'Devoir');
+              pdfExportService.printHTML(html);
+            } catch (error) {
+              console.error('[BilanDevoirPage] Erreur impression grille:', error);
+              addToast('error', 'Erreur impression grille');
+            }
+          }}
+          disabled={!assignmentId}
+        >
+          Imprimer grille
         </Button>
       </div>
 

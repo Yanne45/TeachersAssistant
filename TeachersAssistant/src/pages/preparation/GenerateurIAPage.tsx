@@ -13,6 +13,7 @@ import {
   aiQueueService, documentService,
 } from '../../services';
 import { useApp, useRouter } from '../../stores';
+import { AI_TASK_STATUS_META } from '../../constants/statuses';
 import type { AITask, AITaskVariable, AITaskParam } from '../../services';
 import type { Subject, Level } from '../../types';
 import './GenerateurIAPage.css';
@@ -596,7 +597,7 @@ export const GenerateurIAPage: React.FC = () => {
                   onClick={handleGenerate}
                   disabled={generating || requiredVarsMissing}
                 >
-                  {generating ? 'Génération en cours...' : 'Générer'}
+                  {generating ? 'Génération en cours…' : 'Générer'}
                 </button>
                 <button
                   className="ia-gen__preview-btn"
@@ -753,7 +754,7 @@ export const GenerateurIAPage: React.FC = () => {
                   }
                 }}
               >
-                {processingQueue ? 'Traitement...' : 'Traiter la file'}
+                {processingQueue ? 'Traitement…' : 'Traiter la file'}
               </button>
               <button
                 className="ia-gen__queue-action-btn"
@@ -782,18 +783,13 @@ export const GenerateurIAPage: React.FC = () => {
               <div className="ia-gen__queue-list">
                 {queueItems.map((item: any) => {
                   const payload = typeof item.payload === 'string' ? JSON.parse(item.payload) : item.payload;
-                  const statusColors: Record<string, string> = {
-                    queued: 'var(--color-info)',
-                    processing: 'var(--color-warn)',
-                    error: 'var(--color-danger)',
-                    completed: 'var(--color-success)',
-                  };
+                  const statusMeta = AI_TASK_STATUS_META[item.status as keyof typeof AI_TASK_STATUS_META];
                   return (
                     <div key={item.id} className="ia-gen__queue-item">
                       <div className="ia-gen__queue-item-left">
                         <span
                           className="ia-gen__queue-status-dot"
-                          style={{ background: statusColors[item.status] || 'var(--color-text-muted)' }}
+                          style={{ background: statusMeta?.color ?? 'var(--color-text-muted)' }}
                         />
                         <div>
                           <span className="ia-gen__queue-item-type">{item.request_type}</span>

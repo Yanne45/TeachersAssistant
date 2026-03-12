@@ -21,6 +21,7 @@ export {
 // Programme & contenus
 export {
   programTopicService,
+  programKeywordService,
   skillService,
   sequenceTemplateService,
 } from './programmeService';
@@ -112,6 +113,10 @@ export {
   downloadBlob,
 } from './importExportService';
 export type { CSVStudent } from './importExportService';
+
+// Export grille compétences
+export { grilleExportService } from './grilleExportService';
+export type { GrilleRow } from './grilleExportService';
 
 // Notification engine
 export { generateNotifications } from './notificationEngine';

@@ -4,7 +4,7 @@
 
 import { db } from './db';
 import type {
-  AppPreferences, UserPreference, PreferenceKey, ThemeValue, UIDensity,
+  AppPreferences, UserPreference, PreferenceKey, ThemeValue, UIDensity, RecurrenceMode,
   ExportSettings, ExportSettingsUpdate,
   BackupLog,
   ID,
@@ -17,11 +17,27 @@ export const preferenceService = {
     const rows = await db.select<UserPreference[]>('SELECT * FROM user_preferences');
     const map = new Map(rows.map(r => [r.preference_key, r.preference_value]));
 
+    const workingDaysRaw = map.get('timetable_working_days');
+    let workingDays: number[];
+    try { workingDays = workingDaysRaw ? JSON.parse(workingDaysRaw) : [1, 2, 3, 4, 5]; }
+    catch { workingDays = [1, 2, 3, 4, 5]; }
+
     return {
       theme: (map.get('theme') as ThemeValue) || 'light',
       ui_density: (map.get('ui_density') as UIDensity) || 'standard',
       sidebar_width: parseInt(map.get('sidebar_width') || '260', 10),
       default_tab: map.get('default_tab') || 'dashboard',
+      timetable_working_days: workingDays,
+      timetable_week_start: parseInt(map.get('timetable_week_start') || '1', 10),
+      timetable_day_start: map.get('timetable_day_start') || '08:00',
+      timetable_day_end: map.get('timetable_day_end') || '17:00',
+      timetable_break_start: map.get('timetable_break_start') || '12:00',
+      timetable_break_end: map.get('timetable_break_end') || '13:00',
+      timetable_recess1_start: map.get('timetable_recess1_start') || '',
+      timetable_recess1_end: map.get('timetable_recess1_end') || '',
+      timetable_recess2_start: map.get('timetable_recess2_start') || '',
+      timetable_recess2_end: map.get('timetable_recess2_end') || '',
+      timetable_recurrence_mode: (map.get('timetable_recurrence_mode') as RecurrenceMode) || 'quarters',
     };
   },
 

@@ -321,7 +321,7 @@ export const ProgrammeOfficielPage: React.FC = () => {
 
       {/* Contenu */}
       {loading ? (
-        <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement du programme…</p>
+        <p className="loading-text">Chargement du programme…</p>
       ) : themes.length === 0 ? (
         <EmptyState
           icon="📚"

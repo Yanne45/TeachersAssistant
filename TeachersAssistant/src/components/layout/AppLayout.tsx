@@ -7,6 +7,8 @@ export interface AppLayoutProps {
   sidebar?: React.ReactNode;
   children: React.ReactNode;
   inspector?: React.ReactNode;
+  /** Remove main padding & max-width (for pages with own sidebar) */
+  flush?: boolean;
 }
 
 /**
@@ -19,6 +21,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   sidebar,
   children,
   inspector,
+  flush,
 }) => (
   <div className="app-layout">
     {/* Header fixe */}
@@ -38,7 +41,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           {sidebar}
         </aside>
       )}
-      <main className="app-layout__main">
+      <main className={`app-layout__main${flush ? ' app-layout__main--flush' : ''}`}>
         {children}
       </main>
       {inspector && (

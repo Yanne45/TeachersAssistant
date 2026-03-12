@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Badge, Button, SegmentedBar, Tabs, EmptyState, PanelError } from '../../components/ui';
+import { Card, Badge, Button, Tabs, EmptyState, ErrorBoundary, PanelError } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
 import {
   aiGenerationService,
@@ -12,71 +12,27 @@ import {
   submissionService,
 } from '../../services';
 import { useApp, useData, useRouter } from '../../stores';
+import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
+import {
+  OverviewTabPanel,
+  SkillsTabPanel,
+  GradesTabPanel,
+  CorrectionsTabPanel,
+  BulletinsTabPanel,
+  ProfileTabPanel,
+  OrientationTabPanel,
+  DocumentsTabPanel,
+} from './fiche-eleve';
+import type {
+  SkillEvolution,
+  GradeRow,
+  CorrectionRow,
+  ProfileData,
+  OrientationReportRow,
+  OrientationInterviewRow,
+  StudentDocumentRow,
+} from './fiche-eleve/types';
 import './FicheElevePage.css';
-
-interface SkillEvolution {
-  name: string;
-  t1: number | null;
-  t2: number | null;
-  t3: number | null;
-}
-
-interface GradeRow {
-  submission_id: number;
-  assignment_id: number;
-  assignment_title: string;
-  assignment_date: string | null;
-  score: number | null;
-  max_score: number;
-}
-
-interface CorrectionRow {
-  id: number;
-  assignment_id: number;
-  assignment_title: string;
-  assignment_date: string | null;
-  score: number | null;
-  max_score: number;
-  status: 'final' | 'to_confirm' | 'ai_processing' | 'pending';
-}
-
-interface ProfileData {
-  behavior: number | null;
-  work_ethic: number | null;
-  participation: number | null;
-  autonomy: number | null;
-  methodology: number | null;
-  notes: string | null;
-}
-
-interface OrientationReportRow {
-  id: number;
-  title: string;
-  content: string;
-  created_at: string;
-}
-
-interface OrientationInterviewRow {
-  id: number;
-  interview_date: string;
-  summary: string;
-  decisions: string | null;
-  next_steps: string | null;
-}
-
-interface StudentDocumentRow {
-  id: number;
-  document_id: number;
-  report_period_id: number | null;
-  label: string | null;
-  document_title: string;
-  file_path: string;
-  file_name: string;
-  file_type: string;
-  document_type_label: string | null;
-  subject_label: string | null;
-  period_label: string | null;
-}
 
 const FALLBACK_STUDENT = {
   lastName: 'DUPONT',
@@ -111,43 +67,6 @@ const STUDENT_TABS = [
   { id: 'orientation', label: 'Orientation' },
   { id: 'docs', label: 'Docs' },
 ];
-
-function levelColor(level: number | null) {
-  if (level === null) return { bg: 'var(--color-bg)', text: 'var(--color-text-muted)' };
-  if (level >= 3) return { bg: 'rgba(126,217,87,0.20)', text: 'var(--color-success)' };
-  if (level === 2) return { bg: 'rgba(245,166,35,0.20)', text: 'var(--color-warn)' };
-  return { bg: 'rgba(231,76,60,0.20)', text: 'var(--color-danger)' };
-}
-
-function trend(first: number | null, last: number | null) {
-  if (first === null || last === null) return { arrow: '-', color: 'var(--color-text-muted)' };
-  if (last > first) return { arrow: '↑', color: 'var(--color-success)' };
-  if (last < first) return { arrow: '↓', color: 'var(--color-danger)' };
-  return { arrow: '→', color: 'var(--color-text-muted)' };
-}
-
-function toPreviewSrc(filePath: string): string {
-  const trimmed = filePath.trim();
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('file://')
-  ) {
-    return trimmed;
-  }
-
-  if (/^[A-Za-z]:\\/.test(trimmed)) {
-    return `file:///${trimmed.replace(/\\/g, '/')}`;
-  }
-
-  if (trimmed.startsWith('/')) {
-    return `file://${trimmed}`;
-  }
-
-  return trimmed;
-}
 
 export const FicheElevePage: React.FC = () => {
   const { activeYear, addToast } = useApp();
@@ -185,6 +104,8 @@ export const FicheElevePage: React.FC = () => {
   const documentsCacheRef = useRef(new Map<string, StudentDocumentRow[]>());
   const documentsInflightRef = useRef(new Map<string, Promise<StudentDocumentRow[]>>());
 
+  usePageLoadTelemetry('FicheElevePage', loading);
+
   const studentIdRaw = Number.parseInt(String(route.entityId ?? ''), 10);
   const studentId = Number.isFinite(studentIdRaw) ? studentIdRaw : null;
   const gradeCacheKey = (id: number, limit: number) => `${id}:${limit}`;
@@ -212,11 +133,12 @@ export const FicheElevePage: React.FC = () => {
   const getRecentGradesCached = useCallback((id: number, limit: number) => {
     const key = gradeCacheKey(id, limit);
     const cached = gradesCacheRef.current.get(key);
-    if (cached) return Promise.resolve(cached);
+    if (cached) { trackCacheHit('ficheGrades'); return Promise.resolve(cached); }
 
     const inflight = gradesInflightRef.current.get(key);
     if (inflight) return inflight;
 
+    trackCacheMiss('ficheGrades');
     const request = studentService.getRecentGrades(id, limit)
       .then((rows) => {
         const typedRows = rows as GradeRow[];
@@ -693,12 +615,12 @@ export const FicheElevePage: React.FC = () => {
   }, [periods, addToast]);
 
   if (loading) {
-    return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>;
+    return <p className="fiche-eleve__loading">Chargement…</p>;
   }
 
   if (loadError) {
     return (
-      <div className="fiche-eleve" style={{ padding: 20 }}>
+      <div className="fiche-eleve fiche-eleve--padded">
         <PanelError
           message={loadError}
           onRetry={() => { setLoadError(null); setLoadKey((k) => k + 1); }}
@@ -738,410 +660,80 @@ export const FicheElevePage: React.FC = () => {
 
       <Tabs tabs={STUDENT_TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
+      <ErrorBoundary>
       {activeTab === 'overview' && (
-        <div className="fiche-eleve__skills">
-          <Card noHover>
-            <h3 className="fiche-eleve__section-title">Synthèse</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-              <div style={{ padding: '10px 12px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Moyenne récente</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{gradesAverage !== null ? gradesAverage.toFixed(1) : '-'}</div>
-              </div>
-              <div style={{ padding: '10px 12px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Copies finalisées</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{finalizedCorrections}/{corrections.length}</div>
-              </div>
-              <div style={{ padding: '10px 12px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Compétences suivies</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{displayedSkillLevels.length}</div>
-              </div>
-              <div style={{ padding: '10px 12px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>Documents liés</div>
-                <div style={{ fontSize: 18, fontWeight: 700 }}>{studentDocuments.length}</div>
-              </div>
-            </div>
-          </Card>
-
-          <Card noHover>
-            <h3 className="fiche-eleve__section-title">Derniers éléments</h3>
-            <div style={{ display: 'grid', gap: 8 }}>
-              <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>Dernière note</div>
-                {latestGrade ? (
-                  <div style={{ fontSize: 12 }}>
-                    {latestGrade.assignment_title} - {latestGrade.score?.toFixed(1) ?? '-'} / {latestGrade.max_score}
-                  </div>
-                ) : (
-                  <span className="fiche-eleve__placeholder-text">Aucune note.</span>
-                )}
-              </div>
-
-              <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>Dernière correction</div>
-                {latestCorrection ? (
-                  <div style={{ fontSize: 12 }}>
-                    {latestCorrection.assignment_title} - statut: {latestCorrection.status}
-                  </div>
-                ) : (
-                  <span className="fiche-eleve__placeholder-text">Aucune copie.</span>
-                )}
-              </div>
-
-              <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>
-                  Bulletin ({currentPeriodLabel})
-                </div>
-                {latestBulletin ? (
-                  <div style={{ fontSize: 12 }}>
-                    {latestBulletin.entry_type} - {latestBulletin.status}
-                  </div>
-                ) : (
-                  <span className="fiche-eleve__placeholder-text">Aucune entrée bulletin.</span>
-                )}
-              </div>
-
-              <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>Dernier rapport orientation</div>
-                {latestOrientationReport ? (
-                  <div style={{ fontSize: 12 }}>
-                    {latestOrientationReport.title || `Rapport #${latestOrientationReport.id}`}
-                  </div>
-                ) : (
-                  <span className="fiche-eleve__placeholder-text">Aucun rapport.</span>
-                )}
-              </div>
-
-              <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginBottom: 4 }}>Dernier document</div>
-                {latestDocument ? (
-                  <div style={{ fontSize: 12 }}>{latestDocument.label || latestDocument.document_title}</div>
-                ) : (
-                  <span className="fiche-eleve__placeholder-text">Aucun document.</span>
-                )}
-              </div>
-            </div>
-          </Card>
-
-          <Card noHover>
-            <h3 className="fiche-eleve__section-title">Accès rapide</h3>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <Button variant="secondary" size="S" onClick={() => setActiveTab('grades')}>Voir notes</Button>
-              <Button variant="secondary" size="S" onClick={() => setActiveTab('corrections')}>Voir corrections</Button>
-              <Button variant="secondary" size="S" onClick={() => setActiveTab('profile')}>Voir profil</Button>
-              <Button variant="secondary" size="S" onClick={() => setActiveTab('docs')}>Voir docs</Button>
-            </div>
-          </Card>
-        </div>
+        <OverviewTabPanel
+          gradesAverage={gradesAverage}
+          finalizedCorrections={finalizedCorrections}
+          correctionsCount={corrections.length}
+          skillLevelsCount={displayedSkillLevels.length}
+          studentDocumentsCount={studentDocuments.length}
+          latestGrade={latestGrade}
+          latestCorrection={latestCorrection}
+          latestBulletin={latestBulletin}
+          currentPeriodLabel={currentPeriodLabel}
+          latestOrientationReport={latestOrientationReport}
+          latestDocument={latestDocument}
+          onNavigateGrades={() => setActiveTab('grades')}
+          onNavigateCorrections={() => setActiveTab('corrections')}
+          onNavigateProfile={() => setActiveTab('profile')}
+          onNavigateDocs={() => setActiveTab('docs')}
+        />
       )}
 
       {activeTab === 'skills' && (
-        <div className="fiche-eleve__skills">
-          <Card noHover>
-            <h3 className="fiche-eleve__section-title">Niveau actuel par compétence</h3>
-            <div className="fiche-eleve__skill-list">
-              {displayedSkillLevels.map((s) => (
-                <div key={s.name} className="skill-current">
-                  <div className="skill-current__header">
-                    <span className="skill-current__name">{s.name}</span>
-                    <span className="skill-current__score">{s.level}/4</span>
-                  </div>
-                  <SegmentedBar level={s.level} maxLevel={4} height={8} />
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          <Card noHover>
-            <h3 className="fiche-eleve__section-title">Évolution sur l'année</h3>
-            <div className="fiche-eleve__period-badges">
-              <Badge variant="filter" active>T1</Badge>
-              <Badge variant="filter" active>T2</Badge>
-              <Badge variant="info">T3</Badge>
-            </div>
-
-            <div className="fiche-eleve__evolution-list">
-              {displayedEvolution.map((s) => {
-                const t = trend(s.t1, s.t2);
-                return (
-                  <div key={s.name} className="evolution-row">
-                    <span className="evolution-row__name">{s.name}</span>
-                    {[s.t1, s.t2, s.t3].map((level, i) => {
-                      const c = levelColor(level);
-                      return (
-                        <span key={i} className="evolution-row__dot" style={{ backgroundColor: c.bg, color: c.text }}>
-                          {level ?? '-'}
-                        </span>
-                      );
-                    })}
-                    <span className="evolution-row__trend" style={{ color: t.color }}>
-                      {t.arrow}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+        <SkillsTabPanel
+          skillLevels={displayedSkillLevels}
+          skillEvolution={displayedEvolution}
+        />
       )}
 
       {activeTab === 'grades' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Dernières notes</h3>
-          <div style={{ fontSize: 12, marginBottom: 10, color: 'var(--color-text-muted)' }}>
-            Moyenne récente: <strong>{gradesAverage !== null ? gradesAverage.toFixed(1) : '-'}</strong>
-          </div>
-          {grades.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune note disponible.</span>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {grades.map((g) => (
-                <div
-                  key={g.submission_id}
-                  style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}
-                >
-                  <span style={{ fontSize: 12 }}>{g.assignment_title}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>
-                    {g.score?.toFixed(1) ?? '-'} / {g.max_score}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        <GradesTabPanel
+          gradesAverage={gradesAverage}
+          grades={grades}
+        />
       )}
 
       {activeTab === 'corrections' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Corrections</h3>
-          {corrections.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune copie pour cet élève.</span>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {corrections.map((c) => (
-                <div
-                  key={c.id}
-                  style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)', display: 'grid', gap: 6 }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <strong style={{ fontSize: 12 }}>{c.assignment_title}</strong>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{c.assignment_date ?? '-'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-                    <span style={{ fontSize: 12 }}>
-                      Note: {c.score?.toFixed(1) ?? '-'} / {c.max_score}
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                      Statut: {c.status}
-                    </span>
-                    <Button
-                      variant="secondary"
-                      size="S"
-                      onClick={() => navigate({ tab: 'evaluation', page: 'correction-serie', entityId: c.assignment_id })}
-                    >
-                      Ouvrir devoir
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        <CorrectionsTabPanel
+          corrections={corrections}
+          onOpenAssignment={(assignmentId) => navigate({ tab: 'evaluation', page: 'correction-serie', entityId: assignmentId })}
+        />
       )}
 
       {activeTab === 'bulletins' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Bulletins</h3>
-          {periods.length > 0 && (
-            <div className="fiche-eleve__period-badges" style={{ marginBottom: 12 }}>
-              {periods.map((period) => (
-                <Badge
-                  key={period.id}
-                  variant="filter"
-                  active={selectedPeriodId === period.id}
-                  onClick={() => setSelectedPeriodId(period.id)}
-                >
-                  {period.label}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {bulletins.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune entrée de bulletin pour cette période.</span>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {bulletins.map((b) => (
-                <div key={b.id} style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-                    <strong style={{ fontSize: 12 }}>{b.entry_type}</strong>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{b.status}</span>
-                  </div>
-                  <div style={{ fontSize: 12 }}>{b.content}</div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        <BulletinsTabPanel
+          periods={periods}
+          selectedPeriodId={selectedPeriodId}
+          bulletins={bulletins}
+          onPeriodChange={setSelectedPeriodId}
+        />
       )}
 
       {activeTab === 'profile' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Profil période</h3>
-          {periods.length > 0 && (
-            <div className="fiche-eleve__period-badges" style={{ marginBottom: 12 }}>
-              {periods.map((period) => (
-                <Badge
-                  key={period.id}
-                  variant="filter"
-                  active={selectedPeriodId === period.id}
-                  onClick={() => setSelectedPeriodId(period.id)}
-                >
-                  {period.label}
-                </Badge>
-              ))}
-            </div>
-          )}
-
-          {!profile ? (
-            <span className="fiche-eleve__placeholder-text">Aucun profil saisi pour cette période.</span>
-          ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {[
-                { key: 'behavior', label: 'Comportement' },
-                { key: 'work_ethic', label: 'Travail' },
-                { key: 'participation', label: 'Participation' },
-                { key: 'autonomy', label: 'Autonomie' },
-                { key: 'methodology', label: 'Methode' },
-              ].map((item) => {
-                const value = profile[item.key as keyof ProfileData] as number | null;
-                return (
-                  <div
-                    key={item.key}
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}
-                  >
-                    <span style={{ fontSize: 12 }}>{item.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700 }}>{value ?? '-'}/5</span>
-                  </div>
-                );
-              })}
-
-              {profile.notes && (
-                <div style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)', fontSize: 12 }}>
-                  <strong>Notes:</strong> {profile.notes}
-                </div>
-              )}
-            </div>
-          )}
-        </Card>
+        <ProfileTabPanel
+          periods={periods}
+          selectedPeriodId={selectedPeriodId}
+          profile={profile}
+          onPeriodChange={setSelectedPeriodId}
+        />
       )}
 
       {activeTab === 'orientation' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Orientation</h3>
-
-          <div style={{ display: 'grid', gap: 10 }}>
-            <div>
-              <strong style={{ fontSize: 12 }}>Rapports</strong>
-              {orientationReports.length === 0 ? (
-                <div className="fiche-eleve__placeholder-text">Aucun rapport d'orientation.</div>
-              ) : (
-                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                  {orientationReports.map((r) => (
-                    <div key={r.id} style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-                        <strong style={{ fontSize: 12 }}>{r.title || `Rapport #${r.id}`}</strong>
-                        <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{r.created_at}</span>
-                      </div>
-                      <div style={{ fontSize: 12 }}>{r.content}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <strong style={{ fontSize: 12 }}>Entretiens</strong>
-              {orientationInterviews.length === 0 ? (
-                <div className="fiche-eleve__placeholder-text">Aucun entretien d'orientation.</div>
-              ) : (
-                <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-                  {orientationInterviews.map((i) => (
-                    <div key={i.id} style={{ padding: '8px 10px', border: 'var(--border-default)', borderRadius: 'var(--radius-xs)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-                        <strong style={{ fontSize: 12 }}>Entretien</strong>
-                        <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>{i.interview_date}</span>
-                      </div>
-                      <div style={{ fontSize: 12, marginBottom: 4 }}>{i.summary}</div>
-                      {i.decisions && <div style={{ fontSize: 12 }}><strong>Décisions:</strong> {i.decisions}</div>}
-                      {i.next_steps && <div style={{ fontSize: 12 }}><strong>Étapes suivantes:</strong> {i.next_steps}</div>}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
+        <OrientationTabPanel
+          orientationReports={orientationReports}
+          orientationInterviews={orientationInterviews}
+        />
       )}
 
       {activeTab === 'docs' && (
-        <Card noHover className="fiche-eleve__placeholder">
-          <h3 className="fiche-eleve__section-title">Documents élève</h3>
-          {periods.length > 0 && (
-            <div className="fiche-eleve__period-badges" style={{ marginBottom: 12 }}>
-              {periods.map((period) => (
-                <Badge
-                  key={period.id}
-                  variant="filter"
-                  active={selectedPeriodId === period.id}
-                  onClick={() => setSelectedPeriodId(period.id)}
-                >
-                  {period.label}
-                </Badge>
-              ))}
-            </div>
-          )}
-          {studentDocuments.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucun document lié à cet élève.</span>
-          ) : (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {studentDocuments.map((doc) => (
-                <div
-                  key={doc.id}
-                  style={{
-                    padding: '8px 10px',
-                    border: 'var(--border-default)',
-                    borderRadius: 'var(--radius-xs)',
-                    display: 'grid',
-                    gap: 6,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <strong style={{ fontSize: 12 }}>{doc.label || doc.document_title}</strong>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>
-                      {doc.period_label ?? 'Toutes périodes'}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
-                    {(doc.document_type_label ?? 'Type non défini')}
-                    {' • '}
-                    {(doc.subject_label ?? 'Matière non définie')}
-                    {' • '}
-                    {doc.file_type.toUpperCase()}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontSize: 12 }} title={doc.file_path}>{doc.file_name}</span>
-                    <Button
-                      variant="secondary"
-                      size="S"
-                      onClick={() => window.open(toPreviewSrc(doc.file_path), '_blank', 'noopener,noreferrer')}
-                    >
-                      Ouvrir
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        <DocumentsTabPanel
+          periods={periods}
+          selectedPeriodId={selectedPeriodId}
+          studentDocuments={studentDocuments}
+          onPeriodChange={setSelectedPeriodId}
+        />
       )}
 
       {activeTab !== 'overview' && activeTab !== 'skills' && activeTab !== 'grades' && activeTab !== 'corrections' && activeTab !== 'bulletins' && activeTab !== 'profile' && activeTab !== 'orientation' && activeTab !== 'docs' && (
@@ -1151,6 +743,7 @@ export const FicheElevePage: React.FC = () => {
           </span>
         </Card>
       )}
+      </ErrorBoundary>
 
       <div className="fiche-eleve__actions">
         <Button variant="primary" size="M" onClick={handleGenerateAppreciation}>Générer appréciation</Button>

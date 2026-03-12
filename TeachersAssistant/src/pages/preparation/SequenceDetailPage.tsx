@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Card, Badge, Button } from '../../components/ui';
+import { Card, Badge, Button, StatusBadge, ConfirmDialog } from '../../components/ui';
 import { SortableList } from '../../components/dnd';
 import { useApp, useData, useRouter } from '../../stores';
 import {
@@ -10,6 +10,7 @@ import {
   sessionService,
   templateExportService,
 } from '../../services';
+import { SEQUENCE_STATUS_META, SESSION_STATUS_META } from '../../constants/statuses';
 import { SequenceForm, SeanceForm } from '../../components/forms';
 import type { SequenceFormResult } from '../../components/forms/SequenceForm';
 import './SequenceDetailPage.css';
@@ -19,23 +20,6 @@ interface ContextMenu {
   y: number;
   seqId: number;
 }
-
-const STATUS_STYLE: Record<string, { label: string; color: string }> = {
-  draft: { label: 'Brouillon', color: 'var(--color-text-muted)' },
-  planned: { label: 'Planifiée', color: 'var(--color-info)' },
-  in_progress: { label: 'En cours', color: 'var(--color-primary)' },
-  done: { label: 'Terminée', color: 'var(--color-success)' },
-};
-
-const SESSION_STATUS: Record<string, { label: string; border: string }> = {
-  planned: { label: 'Prévue', border: 'var(--color-info)' },
-  ready: { label: 'Prête', border: 'var(--color-primary)' },
-  done: { label: 'Réalisée', border: 'var(--color-success)' },
-  cancelled: { label: 'Annulée', border: 'var(--color-text-muted)' },
-};
-
-const FALLBACK_STATUS = { label: 'Brouillon', color: 'var(--color-text-muted)' };
-const FALLBACK_SESSION_STATUS = { label: 'Prévue', border: 'var(--color-info)' };
 
 function toIsoDate(value?: string | null): string {
   return value || new Date().toISOString().split('T')[0] || new Date().toISOString();
@@ -58,6 +42,8 @@ export const SequenceDetailPage: React.FC = () => {
 
   const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
   const contextRef = useRef<HTMLDivElement>(null);
+  const [deleteSeqTarget, setDeleteSeqTarget] = useState<any | null>(null);
+  const [deletingSeq, setDeletingSeq] = useState(false);
 
   const yearId = activeYear?.id ?? null;
 
@@ -334,7 +320,7 @@ export const SequenceDetailPage: React.FC = () => {
   }, [activeSeqId, activeSeq, addToast, navigate]);
 
   if (loading) {
-    return <div className="seq-detail"><p style={{ padding: 40, color: 'var(--color-text-muted)' }}>Chargement...</p></div>;
+    return <div className="seq-detail"><p className="loading-text">Chargement…</p></div>;
   }
 
   return (
@@ -351,9 +337,7 @@ export const SequenceDetailPage: React.FC = () => {
           </div>
         )}
 
-        {visibleSequences.map((seq) => {
-          const st = STATUS_STYLE[seq.status] ?? FALLBACK_STATUS;
-          return (
+        {visibleSequences.map((seq) => (
             <div
               key={seq.id}
               className={`seq-detail__seq-card ${activeSeqId === seq.id ? 'seq-detail__seq-card--active' : ''}`}
@@ -366,12 +350,11 @@ export const SequenceDetailPage: React.FC = () => {
                 <Badge variant="default" style={{ color: seq.subject_color, backgroundColor: `${seq.subject_color}18` }}>
                   {seq.subject_short_label ?? seq.subject_label ?? 'Matière'}
                 </Badge>
-                <span style={{ color: st.color, fontSize: 10, fontWeight: 600 }}>{st.label}</span>
+                <StatusBadge meta={SEQUENCE_STATUS_META} value={seq.status} />
                 {seq.total_hours > 0 && <span className="seq-detail__seq-hours">{seq.total_hours}h</span>}
               </div>
             </div>
-          );
-        })}
+        ))}
       </div>
 
       <div className="seq-detail__main">
@@ -386,9 +369,7 @@ export const SequenceDetailPage: React.FC = () => {
                 <Badge variant="default" style={{ color: activeSeq.subject_color, backgroundColor: `${activeSeq.subject_color}18` }}>
                   {activeSeq.subject_short_label ?? activeSeq.subject_label}
                 </Badge>
-                <Badge variant={activeSeq.status === 'done' ? 'success' : 'default'}>
-                  {(STATUS_STYLE[activeSeq.status] ?? FALLBACK_STATUS).label}
-                </Badge>
+                <StatusBadge meta={SEQUENCE_STATUS_META} value={activeSeq.status} />
               </div>
             </div>
 
@@ -408,9 +389,10 @@ export const SequenceDetailPage: React.FC = () => {
               onReorder={handleReorderSessions}
               renderItem={(sess) => {
                 const expanded = expandedSessions.has(sess.id);
-                const sst = SESSION_STATUS[sess.status] ?? FALLBACK_SESSION_STATUS;
+                const sessMeta = SESSION_STATUS_META[sess.status as keyof typeof SESSION_STATUS_META];
+                const borderColor = sessMeta?.color ?? 'var(--color-info)';
                 return (
-                  <Card key={sess.id} className="seq-detail__session" borderLeftColor={sst.border} noHover>
+                  <Card key={sess.id} className="seq-detail__session" borderLeftColor={borderColor} noHover>
                     <div className="seq-detail__session-header" onClick={() => toggleSession(sess.id)}>
                       <div className="seq-detail__session-left">
                         <span className="seq-detail__chevron">{expanded ? '▼' : '▶'}</span>
@@ -418,7 +400,7 @@ export const SequenceDetailPage: React.FC = () => {
                       </div>
                       <div className="seq-detail__session-right">
                         <Badge variant="info">{Math.round((sess.duration_minutes ?? 120) / 60)}h</Badge>
-                        <Badge variant={sess.status === 'done' ? 'success' : sess.status === 'ready' ? 'info' : 'default'}>{sst.label}</Badge>
+                        <StatusBadge meta={SESSION_STATUS_META} value={sess.status} />
                       </div>
                     </div>
                     {expanded && (
@@ -454,13 +436,11 @@ export const SequenceDetailPage: React.FC = () => {
             setSeqFormOpen(true);
             closeContextMenu();
           }}>Modifier</button>
-          <button className="seq-context-menu__item seq-context-menu__item--danger" onClick={async () => {
+          <button className="seq-context-menu__item seq-context-menu__item--danger" onClick={() => {
             const seq = sequences.find((s) => s.id === contextMenu.seqId);
             closeContextMenu();
             if (!seq) return;
-            if (!window.confirm(`Supprimer la séquence "${seq.title}" ?`)) return;
-            await sequenceService.delete(seq.id);
-            await reload();
+            setDeleteSeqTarget(seq);
           }}>Supprimer</button>
         </div>
       )}
@@ -476,6 +456,29 @@ export const SequenceDetailPage: React.FC = () => {
         onClose={() => setSeanceFormOpen(false)}
         onSave={handleSaveSeance}
         sequenceTitle={activeSeq?.title}
+      />
+
+      <ConfirmDialog
+        open={deleteSeqTarget !== null}
+        onClose={() => setDeleteSeqTarget(null)}
+        onConfirm={async () => {
+          if (!deleteSeqTarget) return;
+          setDeletingSeq(true);
+          try {
+            await sequenceService.delete(deleteSeqTarget.id);
+            await reload();
+            addToast('success', 'Séquence supprimée');
+          } catch (error) {
+            console.error('[SequenceDetailPage] Erreur suppression:', error);
+            addToast('error', 'Échec de la suppression');
+          } finally {
+            setDeletingSeq(false);
+            setDeleteSeqTarget(null);
+          }
+        }}
+        title="Supprimer la séquence"
+        message={`Supprimer la séquence « ${deleteSeqTarget?.title ?? ''} » et toutes ses séances ? Cette action est irréversible.`}
+        loading={deletingSeq}
       />
     </div>
   );

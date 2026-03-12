@@ -474,7 +474,7 @@ export const AITemplateEditorPage: React.FC = () => {
                   className="ai-tpl-page__setting-input"
                   value={apiKeyValue}
                   onChange={e => setApiKeyValue(e.target.value)}
-                  placeholder={aiProvider === 'mistral' ? 'Clé Mistral...' : 'sk-...'}
+                  placeholder={aiProvider === 'mistral' ? 'Clé Mistral…' : 'sk-…'}
                 />
                 <button className="ai-tpl-page__apikey-toggle" onClick={() => setShowApiKey(v => !v)}>
                   {showApiKey ? '🙈' : '👁'}

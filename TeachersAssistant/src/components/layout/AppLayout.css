@@ -57,6 +57,14 @@
   margin-right: auto;
 }
 
+/* Full-bleed children (own sidebar layout) — remove padding & max-width */
+.app-layout__main--flush {
+  padding: 0;
+}
+.app-layout__main--flush > * {
+  max-width: none;
+}
+
 /* ── Inspector ── */
 
 .app-layout__inspector {

@@ -120,3 +120,96 @@ export const ASSIGNMENT_STATUS_META: Record<AssignmentStatus, StatusMeta> = {
     bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
   },
 };
+
+// ── Séquences ─────────────────────────────────────────────────────────────────
+
+export type SequenceStatus = 'draft' | 'planned' | 'in_progress' | 'done';
+
+export const SEQUENCE_STATUS_META: Record<SequenceStatus, StatusMeta> = {
+  draft: {
+    label: 'Brouillon',
+    icon: '✎',
+    color: 'var(--color-text-muted)',
+    bg: 'var(--color-bg)',
+  },
+  planned: {
+    label: 'Planifiée',
+    icon: '◎',
+    color: 'var(--color-primary)',
+    bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+  },
+  in_progress: {
+    label: 'En cours',
+    icon: '▶',
+    color: 'var(--color-primary)',
+    bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+  },
+  done: {
+    label: 'Terminée',
+    icon: '✓',
+    color: 'var(--color-success)',
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+  },
+};
+
+// ── Séances ───────────────────────────────────────────────────────────────────
+
+export type SessionStatus = 'planned' | 'ready' | 'done' | 'cancelled';
+
+export const SESSION_STATUS_META: Record<SessionStatus, StatusMeta> = {
+  planned: {
+    label: 'Prévue',
+    icon: '◎',
+    color: 'var(--color-primary)',
+    bg: 'color-mix(in srgb, var(--color-primary) 10%, transparent)',
+  },
+  ready: {
+    label: 'Prête',
+    icon: '✓',
+    color: 'var(--color-info)',
+    bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)',
+  },
+  done: {
+    label: 'Réalisée',
+    icon: '✓✓',
+    color: 'var(--color-success)',
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+  },
+  cancelled: {
+    label: 'Annulée',
+    icon: '✕',
+    color: 'var(--color-text-muted)',
+    bg: 'transparent',
+  },
+};
+
+// ── Tâches IA ─────────────────────────────────────────────────────────────────
+
+export type AITaskStatus = 'queued' | 'processing' | 'completed' | 'error';
+
+export const AI_TASK_STATUS_META: Record<AITaskStatus, StatusMeta> = {
+  queued: {
+    label: 'En file',
+    icon: '…',
+    color: 'var(--color-text-muted)',
+    bg: 'transparent',
+  },
+  processing: {
+    label: 'En cours',
+    icon: '⟳',
+    color: 'var(--color-info)',
+    bg: 'color-mix(in srgb, var(--color-info) 10%, transparent)',
+  },
+  completed: {
+    label: 'Terminé',
+    icon: '✓',
+    color: 'var(--color-success)',
+    bg: 'color-mix(in srgb, var(--color-success) 10%, transparent)',
+  },
+  error: {
+    label: 'Erreur',
+    icon: '✕',
+    color: 'var(--color-danger)',
+    bg: 'color-mix(in srgb, var(--color-danger) 10%, transparent)',
+  },
+};

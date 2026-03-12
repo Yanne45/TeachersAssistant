@@ -34,7 +34,8 @@ export const assignmentService = {
        JOIN subjects sub ON a.subject_id = sub.id
        LEFT JOIN assignment_types at2 ON a.assignment_type_id = at2.id
        WHERE a.academic_year_id = ?
-       ORDER BY a.due_date DESC`,
+       ORDER BY a.due_date DESC
+       LIMIT 200`,
       [yearId]
     );
     return rows.map((row: any) => ({
@@ -128,6 +129,13 @@ export const assignmentService = {
     await db.execute('DELETE FROM assignments WHERE id = ?', [id]);
   },
 
+  async updateCorrectionModel(id: ID, text: string): Promise<void> {
+    await db.execute(
+      "UPDATE assignments SET correction_model_text = ?, updated_at = datetime('now') WHERE id = ?",
+      [text, id]
+    );
+  },
+
   /** Compter les corrections en attente */
   async countPendingCorrections(yearId: ID): Promise<number> {
     const row = await db.selectOne<{ c: number }>(
@@ -167,7 +175,7 @@ export const submissionService = {
     );
   },
 
-  async updateScore(id: ID, score: number): Promise<void> {
+  async updateScore(id: ID, score: number | null): Promise<void> {
     await db.execute(
       "UPDATE submissions SET score = ?, updated_at = datetime('now') WHERE id = ?",
       [score, id]
@@ -193,6 +201,27 @@ export const submissionService = {
            SELECT student_id FROM submissions WHERE assignment_id = ?
          )`,
       [assignmentId, classId, assignmentId]
+    );
+  },
+
+  async updateFilePath(id: ID, filePath: string): Promise<void> {
+    await db.execute(
+      "UPDATE submissions SET file_path = ?, updated_at = datetime('now') WHERE id = ?",
+      [filePath, id]
+    );
+  },
+
+  async updateTextContent(id: ID, textContent: string): Promise<void> {
+    await db.execute(
+      "UPDATE submissions SET text_content = ?, updated_at = datetime('now') WHERE id = ?",
+      [textContent, id]
+    );
+  },
+
+  async updateAiSuggestedScore(id: ID, score: number): Promise<void> {
+    await db.execute(
+      "UPDATE submissions SET ai_suggested_score = ?, updated_at = datetime('now') WHERE id = ?",
+      [score, id]
     );
   },
 
@@ -269,6 +298,21 @@ export const skillEvaluationService = {
       [submissionId, skillId, level, source, comment ?? null]
     );
   },
+
+  async upsertBatch(items: Array<{ submissionId: ID; skillId: ID; level: number; source: string; comment?: string }>): Promise<void> {
+    if (items.length === 0) return;
+    await db.transaction(async () => {
+      for (const item of items) {
+        await db.execute(
+          `INSERT INTO submission_skill_evaluations (submission_id, skill_id, level, source, comment)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(submission_id, skill_id)
+           DO UPDATE SET level = excluded.level, source = excluded.source, comment = excluded.comment, updated_at = datetime('now')`,
+          [item.submissionId, item.skillId, item.level, item.source, item.comment ?? null]
+        );
+      }
+    });
+  },
 };
 
 // ── Feedback qualitatif ──
@@ -290,6 +334,19 @@ export const feedbackService = {
       'INSERT INTO submission_feedback (submission_id, feedback_type, content, source, sort_order) VALUES (?, ?, ?, ?, ?)',
       [submissionId, type, content, source, (maxOrder?.m ?? -1) + 1]
     );
+  },
+
+  async createBatch(items: Array<{ submissionId: ID; type: 'strength' | 'weakness' | 'suggestion'; content: string; source: 'manual' | 'ai' }>): Promise<void> {
+    if (items.length === 0) return;
+    await db.transaction(async () => {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i]!;
+        await db.execute(
+          'INSERT INTO submission_feedback (submission_id, feedback_type, content, source, sort_order) VALUES (?, ?, ?, ?, ?)',
+          [item.submissionId, item.type, item.content, item.source, i]
+        );
+      }
+    });
   },
 
   async deleteBySubmission(submissionId: ID): Promise<void> {

@@ -10,41 +10,6 @@ export const SUBJECT_COLORS: Record<string, string> = {
   hggsp: '#7B3FA0',
 };
 
-// ── Statuts séquences ──
-
-export const SEQUENCE_STATUS_CONFIG = {
-  draft:       { label: 'Brouillon',   color: 'var(--color-text-muted)', badgeVariant: 'info' as const },
-  planned:     { label: 'Planifiée',   color: 'var(--color-primary)',    badgeVariant: 'info' as const },
-  in_progress: { label: 'En cours',    color: 'var(--color-primary)',    badgeVariant: 'filter' as const },
-  done:        { label: 'Terminée',    color: 'var(--color-success)',    badgeVariant: 'success' as const },
-};
-
-// ── Statuts séances ──
-
-export const SESSION_STATUS_CONFIG = {
-  planned:   { label: 'Prévue',    color: 'var(--color-primary)',    borderColor: 'var(--color-primary)' },
-  ready:     { label: 'Prête',     color: 'var(--color-info)',       borderColor: 'var(--color-info)' },
-  done:      { label: 'Réalisée',  color: 'var(--color-success)',    borderColor: 'var(--color-success)' },
-  cancelled: { label: 'Annulée',   color: 'var(--color-text-muted)', borderColor: 'var(--color-text-muted)' },
-};
-
-// ── Statuts correction ──
-
-export const SUBMISSION_STATUS_CONFIG = {
-  pending:        { label: 'Non commencé', icon: '⬜', color: 'var(--color-text-muted)' },
-  ai_processing:  { label: 'IA en cours',  icon: '⏳', color: 'var(--color-info)' },
-  to_confirm:     { label: 'À confirmer',  icon: '⚠',  color: 'var(--color-warn)' },
-  final:          { label: 'Final',         icon: '✅', color: 'var(--color-success)' },
-};
-
-// ── Statuts bulletin ──
-
-export const BULLETIN_STATUS_CONFIG = {
-  draft:  { label: 'Brouillon', color: 'var(--color-text-muted)' },
-  review: { label: 'Relecture', color: 'var(--color-warn)' },
-  final:  { label: 'Final',     color: 'var(--color-success)' },
-};
-
 // ── Types de fichiers → icônes ──
 
 export const FILE_TYPE_ICONS: Record<string, string> = {

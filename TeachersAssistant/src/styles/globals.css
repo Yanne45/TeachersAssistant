@@ -96,6 +96,13 @@ button {
   background: none;
 }
 
+/* ── Loading text (shared across pages) ── */
+.loading-text {
+  padding: 20px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
 /* ── Skeleton loading animation ── */
 @keyframes skeleton-pulse {
   0%   { opacity: 0.6; }

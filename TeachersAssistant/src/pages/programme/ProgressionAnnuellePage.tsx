@@ -264,7 +264,7 @@ export const ProgressionAnnuellePage: React.FC = () => {
 
         {loading ? (
           <Card noHover style={{ flex: 1 }}>
-            <p style={{ margin: 0, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>
+            <p className="loading-text" style={{ margin: 0 }}>Chargement…</p>
           </Card>
         ) : mode === 'timeline' ? (
           sequences.length > 0 ? (
