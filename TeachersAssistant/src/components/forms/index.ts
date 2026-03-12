@@ -12,5 +12,6 @@ export { CreneauForm } from './CreneauForm';
 export { CahierEntreeForm } from './CahierEntreeForm';
 export { ImportElevesModal } from './ImportElevesModal';
 export { ICSMappingModal } from './ICSMappingModal';
+export { GoogleCalendarModal } from './GoogleCalendarModal';
 
 export { PDFPreviewModal } from './PDFPreviewModal';

@@ -29,6 +29,8 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '009_dedup_levels.sql', url: '/db/009_dedup_levels.sql' },
   { filename: '010_merge_1ere_level.sql', url: '/db/010_merge_1ere_level.sql' },
   { filename: '011_sequence_documents.sql', url: '/db/011_sequence_documents.sql' },
+  { filename: '012_ai_custom_tasks.sql', url: '/db/012_ai_custom_tasks.sql' },
+  { filename: '013_ai_provider_settings.sql', url: '/db/013_ai_provider_settings.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──

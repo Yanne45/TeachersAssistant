@@ -17,35 +17,49 @@ interface Props {
 export const PDFPreviewModal: React.FC<Props> = ({ html, title, filename, open, onClose }) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [renderKey, setRenderKey] = useState(0);
   const hasHtml = html.trim().length > 0;
 
-  useEffect(() => {
-    if (!open) return;
+  const writeToIframe = () => {
     setRenderError(null);
 
     if (!hasHtml) {
-      setRenderError('Apercu indisponible: contenu HTML vide.');
+      setRenderError("Aperçu indisponible : contenu vide. Vérifiez que des données existent pour cette période.");
       return;
     }
 
     if (!iframeRef.current) {
-      setRenderError('Apercu indisponible: iframe non initialisee.');
+      setRenderError("Aperçu indisponible : composant non initialisé.");
       return;
     }
 
     try {
       const doc = iframeRef.current.contentDocument;
       if (!doc) {
-        setRenderError('Apercu indisponible: document iframe inaccessible.');
+        setRenderError("Aperçu indisponible : accès à l'iframe refusé (sécurité navigateur).");
         return;
       }
       doc.open();
       doc.write(html);
       doc.close();
+
+      // Vérification post-écriture : corps vide = rendu probablement échoué
+      setTimeout(() => {
+        const body = iframeRef.current?.contentDocument?.body;
+        if (body && body.children.length === 0 && body.textContent?.trim() === '') {
+          setRenderError("L'aperçu a été chargé mais semble vide. Le contenu est peut-être incompatible.");
+        }
+      }, 300);
     } catch {
-      setRenderError('Echec de chargement de l apercu PDF.');
+      setRenderError("Échec du chargement de l'aperçu. Format non supporté ou chemin inaccessible.");
     }
-  }, [html, open, hasHtml]);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    writeToIframe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html, open, hasHtml, renderKey]);
 
   // Escape to close
   useEffect(() => {
@@ -98,9 +112,16 @@ export const PDFPreviewModal: React.FC<Props> = ({ html, title, filename, open, 
         </div>
         <div className="pdf-preview__body">
           {renderError ? (
-            <div className="pdf-preview__error">{renderError}</div>
+            <div className="pdf-preview__error">
+              <span>{renderError}</span>
+              {hasHtml && (
+                <button className="pdf-preview__retry" onClick={() => setRenderKey((k) => k + 1)} type="button">
+                  ↺ Recharger
+                </button>
+              )}
+            </div>
           ) : (
-            <iframe ref={iframeRef} className="pdf-preview__iframe" title="Apercu PDF" />
+            <iframe ref={iframeRef} className="pdf-preview__iframe" title="Aperçu PDF" />
           )}
         </div>
         <div className="pdf-preview__footer">

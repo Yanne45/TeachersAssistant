@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Button, SkillLevelSelector, EmptyState } from '../../components/ui';
+import { Card, Button, SkillLevelSelector, EmptyState, PanelError } from '../../components/ui';
 import {
   assignmentService,
   correctionService,
@@ -10,6 +10,7 @@ import {
 } from '../../services';
 import { useCorrectionShortcuts } from '../../hooks';
 import { useApp, useData, useRouter } from '../../stores';
+import { SUBMISSION_STATUS_META } from '../../constants/statuses';
 import type { CorrectionAIResult } from '../../services';
 import './CorrectionSeriePage.css';
 
@@ -38,36 +39,13 @@ const DEFAULT_SKILLS: SkillDef[] = [
   { id: null, label: 'Analyser doc.' },
 ];
 
-const MOCK_STUDENTS: StudentSubmission[] = [
-  {
-    id: 1,
-    name: 'DUPONT Lea',
-    score: 14,
-    status: 'final',
-    filePath: null,
-    skillLevels: { Problematise: 3, 'Construire un plan': 3, 'Mobiliser connaissances': 4, Redaction: 3, 'Analyser doc.': 2 },
-    strengths: ['Bonne maitrise des connaissances', 'Introduction bien construite'],
-    weaknesses: ['Analyse de documents trop superficielle'],
-    correctionText: 'Bon travail dans l\'ensemble.',
-  },
-  {
-    id: 2,
-    name: 'MARTIN Lucas',
-    score: 11,
-    status: 'to_confirm',
-    filePath: null,
-    skillLevels: { Problematise: 2, 'Construire un plan': 2, 'Mobiliser connaissances': 3, Redaction: 2, 'Analyser doc.': 2 },
-    strengths: ['Connaissances presentes'],
-    weaknesses: ['Plan desequilibre', 'Transitions absentes'],
-    correctionText: 'Le plan manque de coherence.',
-  },
-];
 
+// Icônes de statut depuis le dictionnaire centralisé
 const STATUS_ICONS: Record<StudentSubmission['status'], string> = {
-  final: 'OK',
-  to_confirm: '!',
-  ai_processing: '...',
-  pending: '-',
+  final: SUBMISSION_STATUS_META.final.icon,
+  to_confirm: SUBMISSION_STATUS_META.to_confirm.icon,
+  ai_processing: SUBMISSION_STATUS_META.ai_processing.icon,
+  pending: SUBMISSION_STATUS_META.pending.icon,
 };
 const VIRTUAL_STUDENT_ROW_HEIGHT = 36;
 const VIRTUAL_STUDENT_OVERSCAN = 8;
@@ -104,6 +82,8 @@ export const CorrectionSeriePage: React.FC = () => {
   const [students, setStudents] = useState<StudentSubmission[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [activeSkillIdx, setActiveSkillIdx] = useState(0);
   const studentsListRef = useRef<HTMLDivElement | null>(null);
@@ -230,12 +210,13 @@ export const CorrectionSeriePage: React.FC = () => {
 
     const load = async () => {
       setLoading(true);
+      setLoadError(null);
 
       if (!assignmentId) {
         if (!cancelled) {
           setSkills(DEFAULT_SKILLS);
-          setStudents(MOCK_STUDENTS);
-          setSelectedId(MOCK_STUDENTS[0]?.id ?? null);
+          setStudents([]);
+          setSelectedId(null);
           setLoading(false);
         }
         return;
@@ -300,7 +281,7 @@ export const CorrectionSeriePage: React.FC = () => {
           setSkills(DEFAULT_SKILLS);
           setStudents([]);
           setSelectedId(null);
-          addToast('error', 'Impossible de charger les copies');
+          setLoadError('Impossible de charger les copies du devoir.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -311,7 +292,7 @@ export const CorrectionSeriePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [assignmentId, addToast, getAssignmentSkillsCached, getAssignmentSubmissionsCached, getSubmissionDetailsCached]);
+  }, [assignmentId, addToast, getAssignmentSkillsCached, getAssignmentSubmissionsCached, getSubmissionDetailsCached, loadKey]);
 
   useEffect(() => {
     const node = studentsListRef.current;
@@ -521,6 +502,17 @@ export const CorrectionSeriePage: React.FC = () => {
 
   if (loading) {
     return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="correction-page" style={{ padding: 20 }}>
+        <PanelError
+          message={loadError}
+          onRetry={() => { setLoadError(null); setLoadKey((k) => k + 1); }}
+        />
+      </div>
+    );
   }
 
   if (!selected) {

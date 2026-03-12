@@ -1,6 +1,6 @@
 ﻿# Audit Fonctionnel - Écrans & Branchement
 
-Date: 2026-03-11  
+Date: 2026-03-12
 Périmètre: `TeachersAssistant/TeachersAssistant`
 
 ## Légende
@@ -21,7 +21,7 @@ Périmètre: `TeachersAssistant/TeachersAssistant`
 | Préparation | SequenceDetailPage | Implémenté partiel | CRUD séquences/séances branché, plusieurs actions UI non câblées. |
 | Préparation | BibliothequePage | Implémenté partiel | Vue branchée + import modal, mais certains filtres sidebar non pris en compte. |
 | Préparation | GenerateurIAPage | Implémenté partiel | Génération/history/queue internes; intégration routeur partielle. |
-| Planning | EmploiDuTempsPage | Implémenté partiel | Branché, import ICS OK, flux création/Google Calendar incomplets. |
+| Planning | EmploiDuTempsPage | Implémenté + branché | Import ICS OK, OAuth Google Calendar implémenté (flux Desktop loopback), création créneau persistée. |
 | Planning | CalendrierScolairePage | Implémenté partiel | Branché, persistance partielle, encore du mock. |
 | Cahier | CahierDeTextesPage | Implémenté partiel | Branché, fallback mock, édition incomplète. |
 | Classes | ClassesPage (overview/import) | Implémenté partiel | Navigation overview/import OK, ajout/édition élève incomplets. |
@@ -33,7 +33,8 @@ Périmètre: `TeachersAssistant/TeachersAssistant`
 | Évaluation | BulletinsPage | Implémenté partiel | Branché mais flux principal mock. |
 | Recherche | RechercheGlobalePage | Implémenté + branché | Overlay branché, navigation vers pages active. |
 | Paramètres | ParametresPage | Implémenté + branché | Hub + sous-pages branchés, backup ZIP fonctionnel. |
-| Paramètres | AITemplateEditorPage | Implémenté + branché | Accessible depuis Paramètres, API key + templates branchés. |
+| Paramètres | AITemplateEditorPage | Implémenté + branché | Accessible depuis Paramètres, API key + templates branchés, CRUD tâches custom, multi-fournisseur. |
+| Préparation | AIUsagePage | Implémenté + branché | Tableau de bord consommation IA; accessible via sidebar `ia-couts`. |
 | Paramètres | SettingsSubPages | Implémenté partiel | Certaines sous-actions restent TODO. |
 
 ## 2) Fonctions/écrans implémentés mais non branchés (ou branchés partiellement)
@@ -748,6 +749,120 @@ Validation:
 - `npm run lint`: OK.
 - `npm run build`: OK.
 
+## 37) Avancement complémentaire - IA : CRUD tâches, aperçu prompt, mode vocal, tableau de bord coûts, multi-fournisseur
+
+Corrections et nouveautés appliquées:
+
+### Tâches IA custom (CRUD)
+
+- `AITemplateEditorPage`:
+  - bouton `+` dans la sidebar déclenche un formulaire inline de création de tâche;
+  - champs: libellé → auto-génération du code slug, catégorie, icône, format de sortie;
+  - persistance DB via `aiTaskService.createTask()` (colonne `is_custom = 1`, migration `012_ai_custom_tasks.sql`);
+  - bouton duplication `⧉` (hover) crée une copie complète incluant variables et paramètres (`aiTaskService.duplicateTask()`);
+  - bouton `Supprimer` visible uniquement sur les tâches custom (`is_custom = 1`);
+  - badge visuel `CUSTOM` + bordure gauche colorée distinguant tâches system vs. custom dans la sidebar.
+
+### Aperçu du prompt assemblé
+
+- `GenerateurIAPage`:
+  - bouton `Aperçu du prompt` adjacent au bouton `Générer`;
+  - appel `assemblePrompt()` sans appel API → affichage du prompt résolu dans un panneau dédié;
+  - panneau multi-couches (Couche 1 système en fond violet, Couches 2+3 message utilisateur);
+  - permet de vérifier les variables résolues et le texte exact soumis au modèle avant génération.
+
+### Mode vocal (Web Speech API)
+
+- Composant `VoiceInput` (`src/components/ui/VoiceInput.tsx`):
+  - utilise `window.SpeechRecognition` / `window.webkitSpeechRecognition` (API navigateur native, gratuite);
+  - bouton micro intégré à la section "Consignes complémentaires" du `GenerateurIAPage`;
+  - animation pulsante rouge en écoute active;
+  - fallback gracieux si l'API n'est pas disponible (bouton masqué).
+- Coût: nul (API navigateur locale, aucun appel réseau payant).
+
+### Tableau de bord consommation & coûts IA
+
+- Nouvelle page `AIUsagePage` (`src/pages/preparation/AIUsagePage.tsx`):
+  - 4 KPIs: coût estimé ce mois / coût total / tokens consommés / coût moyen par génération;
+  - table par modèle (tokens entrée/sortie, count, coût estimé);
+  - barres horizontales par catégorie (contenus, évaluations, planification, correction, système);
+  - histogramme vertical mensuel sur 6 mois (tokens + coût);
+  - tableau des 20 générations récentes (tâche, catégorie, modèle, tokens, coût, date);
+  - sélecteur de modèle pour recalculer les coûts avec un tarif différent.
+- Service `aiUsageService`: `byModel()`, `byCategory()`, `byMonth(limit)`, `recent(limit)`, `totalsThisMonth()`.
+- Fonction `estimateCost(tokensIn, tokensOut, model)` avec table de prix `MODEL_PRICING`.
+- Navigation: sidebar `Préparation > GÉNÉRATEUR IA > Consommation & coûts` (`ia-couts`), branché dans `App.tsx`.
+
+### Multi-fournisseur IA (Mistral + Ollama local)
+
+- `aiService.ts` étendu:
+  - type `AIProvider`: `'openai' | 'mistral' | 'anthropic' | 'local'`;
+  - `getApiKey(provider)` / `setApiKey(key, provider)`: clé keyring spécifique par fournisseur;
+  - `callChatAPI()` provider-aware: endpoint + header d'authentification sélectionné selon le fournisseur actif;
+  - Mistral: `api.mistral.ai/v1/chat/completions` avec `Authorization: Bearer {key}`;
+  - Local (Ollama): `{local_server_url}/v1/chat/completions` sans header d'auth.
+- `ollamaService`:
+  - `ping(baseUrl)`: GET `/api/version` (timeout 3s) → booléen online/offline;
+  - `listModels(baseUrl)`: GET `/api/tags` → liste des modèles installés (`string[]`).
+- `AITemplateEditorPage` sidebar paramètres:
+  - sélecteur fournisseur (OpenAI / Mistral / Anthropic / Serveur local);
+  - champ API key masqué avec toggle visibilité (masqué pour Ollama local);
+  - bloc Ollama: champ URL serveur + pastille statut (vert/rouge) + bouton Rafraîchir les modèles;
+  - sélecteur de modèle dynamique (catalogue Ollama) ou statique (cloud providers);
+  - auto-ping au changement de fournisseur vers `local`.
+- Migration `013_ai_provider_settings.sql`: ajout colonnes `provider` et `local_server_url` dans `ai_settings`.
+- Modèles Mistral ajoutés à `MODEL_PRICING`: `mistral-large-latest`, `mistral-small-latest`, `open-mistral-7b`, `open-mixtral-8x7b`.
+
+### Google Calendar sync (OAuth implémenté)
+
+- **OAuth Desktop flow implémenté** (`googleCalendarService.ts` + commandes Tauri `oauth_init`/`oauth_wait` dans `lib.rs`):
+  - Loopback HTTP server sur port aléatoire (`127.0.0.1:0`) — aucune dépendance externe, stdlib Rust uniquement.
+  - Ouverture du navigateur via `@tauri-apps/plugin-shell` (`shell:allow-open`).
+  - Échange du code d'autorisation contre `access_token` + `refresh_token` via `fetch()`.
+  - Stockage du `refresh_token` dans le keyring OS (fallback localStorage).
+  - Rafraîchissement automatique du token avant expiration.
+- **Nouveau modal `GoogleCalendarModal`** (`src/components/forms/GoogleCalendarModal.tsx`):
+  - Onglet configuration (client_id, client_secret, aide pas-à-pas).
+  - Onglet import : sélecteur de calendrier (liste dynamique via API), sélecteur de plage (7j/30j/trimestre/année scolaire).
+  - Réutilise `ICSMappingModal` pour la correspondance événements → matières/classes.
+  - Déconnexion avec révocation du token.
+- **`EmploiDuTempsPage`** : bouton "Google Calendar" ouvre désormais `GoogleCalendarModal` au lieu d'un toast inactif.
+- **Scope** : `https://www.googleapis.com/auth/calendar.readonly` (lecture seule, import one-way vers l'EDT local).
+- Statut audit mis à jour : `Import ICS fonctionnel, OAuth Google implémenté (flux Desktop loopback)`.
+
+Validation:
+
+- `npm run lint`: OK.
+- `npm run build`: OK.
+
+## 38) Avancement complémentaire - documents de référence pour la génération IA
+
+Nouveautés appliquées:
+
+### Pièces jointes documents dans `GenerateurIAPage`
+
+- Nouvelle section "Documents de référence" insérée entre les consignes et le bouton Générer:
+  - **Picker bibliothèque** : barre de recherche avec debounce (250ms) → `documentService.search()` ou `getRecent(8)` si vide;
+  - résultats affichés sous forme de liste cliquable; icône ⚠ si `extracted_text` absent (import non effectué);
+  - documents sélectionnés affichés sous forme de **chips** (bleu) avec bouton ✕ individuel;
+  - **Fichier ad-hoc** : bouton "Joindre un fichier (.txt/.docx)" → extraction locale:
+    - `.txt` via `file.text()`,
+    - `.docx` via `mammoth.extractRawText()` (import dynamique),
+    - PDF : nécessite import via la bibliothèque (extracted_text déjà en base);
+  - fichiers joints affichés en chips orange distincts.
+- État réinitialisé à chaque changement de tâche IA.
+
+### Injection dans `assemblePrompt()`
+
+- `AIGenerationRequest` étendu: `rawDocumentContexts?: string[]`.
+- Pour chaque `documentId`: lecture `extracted_text` + `title` depuis `documents` → injection `--- Document de référence : {title} ---\n{texte}\n---` avant les consignes.
+- Pour chaque contexte brut: injection `--- Fichier joint ---\n{texte}\n---`.
+- Les deux `handleGenerate` et `handlePreviewPrompt` transmettent `documentIds` et `rawDocumentContexts`.
+
+Validation:
+
+- `npm run build`: OK (aucun warning nouveau).
+
 ## Reste à faire (backlog priorisé)
 
 ### Priorité 1 - Stabilisation technique
@@ -767,19 +882,49 @@ Validation:
 
 ### Priorité 2 - Qualité fonctionnelle
 
+- **Améliorer le système de correction des copies** :
+  - **Import par lot** : permettre à l’enseignant de déposer un dossier ou un ensemble de fichiers (.txt, .docx, PDF) correspondant chacun à la copie d’un élève, avec mapping automatique (nom de fichier → nom élève) ou sélection manuelle; traitement séquentiel avec barre de progression et rapport final (copies importées / ignorées / en erreur).
+  - Permettre l’analyse IA en batch sur toutes les copies d’un devoir (pipeline : import texte → `assemblePrompt` correction → `smartCorrect` → persistance `corrections` + `submission_skill_evaluations` + `submission_feedback` pour chaque copie).
+  - Raccourcis clavier manquants dans le mode correction 3 colonnes (navigation copie suivante/précédente, finalisation rapide).
+- **Remplissage prédictif du cahier de textes** (effort faible) :
+  - Bouton “Générer le résumé IA” dans `CahierEntreeForm` : envoie titre séance, matière, classe, notes libres saisies (ou retranscription vocale) à une tâche IA dédiée → texte résumé propre pour les élèves/parents + liste de devoirs suggérée.
+  - Prérequis déjà en place : `VoiceInput`, `CahierEntreeForm` persisté, `assemblePrompt` / `smartGenerate`.
+- **Différenciation pédagogique instantanée** (effort faible) :
+  - Tâche IA catalogue “Différencier un document” avec paramètre `niveau` : simplifié (lexique, syntaxe allégés) / standard / enrichi (approfondissements).
+  - Génération des 3 versions en une seule interaction (prompt unique retournant les 3, ou 3 appels parallèles).
+  - Aucune infrastructure nouvelle requise — s’intègre dans le `GenerateurIAPage` existant avec le document joint en référence.
+- **Rapport de classe pour conseil de classe** (effort faible) :
+  - Tâche IA “Synthèse conseil de classe” : agrège moyenne classe, répartition des notes, top compétences acquises/manquantes, mentions indicatives par élève → texte équilibré et factuel exportable PDF.
+  - Données déjà disponibles : `assignmentService`, `bilanService`, `submission_skill_evaluations`, `studentService`.
 - Compléter les flows CRUD manquants restants dans les onglets encore partiels (actions secondaires, confirmations, cas vides).
 - Harmoniser les statuts métiers affichés avec un dictionnaire unique (libellé, couleur, icône) partagé UI/services.
 - Vérifier les filtres sidebar et recherche globale sur jeux de données volumineux (combinatoire filtres + pagination).
 
-### Priorité 3 - Qualité UX/UI
+### Priorité 3 - Qualité UX/UI et fonctionnalités analytiques
 
 - Remplacer les styles inline répétitifs des pages Evaluation par des classes CSS dédiées pour homogénéiser et faciliter la maintenance.
 - Renforcer l’accessibilité clavier/ARIA sur tableaux virtualisés, badges cliquables et actions secondaires.
 - Uniformiser les microcopies finales (terminologie métier, accents, messages d’action) sur l’ensemble des écrans restants.
+- **Détection des “signaux faibles” élèves** (effort moyen) :
+  - Algorithme de tendance sur `submission_skill_evaluations` : si un élève est en baisse sur une compétence donnée 3 devoirs consécutifs → alerte dans `FicheElevePage` et/ou dashboard.
+  - Pas d’IA nécessaire (logique SQL + seuils) ; l’IA peut enrichir le commentaire d’alerte une fois le signal détecté.
+  - Exemples d’alertes : “Maîtrise la théorie mais chute sur l’analyse de documents depuis 3 devoirs”, “Note en baisse constante depuis le trimestre 2”.
+- **Cartographie des compétences de la classe** (effort moyen) :
+  - Vue synthétique cross-devoirs : agréger les `submission_skill_evaluations` sur tous les devoirs de l’année par classe → heatmap ou radar par compétence (compétences en ligne, périodes en colonne).
+  - Mettre en évidence les compétences acquises par ≥ 80% des élèves vs. celles en dessous du seuil → cibles de révision collective.
+  - `recharts` déjà disponible ; données déjà en base.
 
-### Priorité 4 - Industrialisation
+### Priorité 4 - Industrialisation et fonctionnalités avancées
 
 - Ajouter des tests ciblés:
   - unitaires sur helpers cache/invalidation,
   - intégration sur les parcours critiques (chargement, sauvegarde, finalisation, génération IA).
 - Mettre en place une checklist CI “stabilité” (lint, build, test, smoke navigation) avant push de lots importants.
+- **Séquence “à rebours”** (effort élevé) :
+  - L’enseignant fixe une date d’évaluation finale et des compétences cibles → l’IA rétro-planifie les séances dans l’emploi du temps en tenant compte des jours fériés, des vacances et du volume horaire de la matière.
+  - Prérequis : `timetableService` (créneaux EDT), `calendarService` (jours fériés/vacances), `sequenceService` (création séances), tâche IA `generate_sequence_plan` étendue.
+  - Complexité principale : logique calendaire (calculer les créneaux disponibles, gérer les contraintes).
+- **Génération de supports multimédias** (effort élevé) :
+  - Trame de présentation : tâche IA avec `output_format: slides` → texte structuré (titre/sous-titres/puces) exportable ou affiché dans un visualisateur simple.
+  - Quiz interactif : nouveau type d’écran dédié ou export vers format standard (Kahoot CSV, Moodle XML).
+  - Nécessite une dépendance externe (ex. `pptxgenjs`) pour l’export PPTX réel.

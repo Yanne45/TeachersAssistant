@@ -12,6 +12,7 @@ export interface AITask {
   id: ID; code: string; label: string; description: string;
   category: string; icon: string; system_prompt: string; default_template: string;
   output_format: string; default_params: string; is_active: number; sort_order: number;
+  is_custom: number;
 }
 
 export interface AITaskVariable {
@@ -42,6 +43,8 @@ export interface AIGenerationRequest {
   sequenceId?: ID;
   sessionId?: ID;
   documentIds?: ID[];
+  /** Texte brut extrait de fichiers joints ad-hoc (non enregistrés dans la bibliothèque) */
+  rawDocumentContexts?: string[];
 }
 
 export interface CorrectionAIResult {
@@ -111,6 +114,152 @@ export const aiTaskService = {
   async updateDefaultTemplate(code: string, template: string): Promise<void> {
     await db.execute("UPDATE ai_tasks SET default_template = ?, updated_at = datetime('now') WHERE code = ?", [template, code]);
   },
+  async createTask(data: {
+    code: string; label: string; description: string;
+    category: string; icon: string; system_prompt: string;
+    default_template: string; output_format: string;
+  }): Promise<ID> {
+    return db.insert(
+      "INSERT INTO ai_tasks (code, label, description, category, icon, system_prompt, default_template, output_format, is_custom, sort_order) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, (SELECT COALESCE(MAX(sort_order), 0) + 10 FROM ai_tasks))",
+      [data.code, data.label, data.description || '', data.category, data.icon || '✏', data.system_prompt || '', data.default_template || '', data.output_format || 'text']
+    );
+  },
+  async duplicateTask(sourceId: ID, newCode: string, newLabel: string): Promise<ID> {
+    const source = await db.selectOne<AITask>("SELECT * FROM ai_tasks WHERE id = ?", [sourceId]);
+    if (!source) throw new Error("Tâche source introuvable");
+    const newId = await db.insert(
+      "INSERT INTO ai_tasks (code, label, description, category, icon, system_prompt, default_template, output_format, default_params, is_custom, sort_order) " +
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)",
+      [newCode, newLabel, source.description || '', source.category, source.icon, source.system_prompt, source.default_template, source.output_format, source.default_params || '{}', source.sort_order + 1]
+    );
+    const vars = await db.select<AITaskVariable[]>("SELECT * FROM ai_task_variables WHERE task_id = ?", [sourceId]);
+    for (const v of vars) {
+      await db.insert(
+        "INSERT INTO ai_task_variables (task_id, variable_code, variable_label, variable_description, data_source, is_required, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [newId, v.variable_code, v.variable_label, v.variable_description, v.data_source, v.is_required, v.sort_order]
+      );
+    }
+    const params = await db.select<AITaskParam[]>("SELECT * FROM ai_task_params WHERE task_id = ?", [sourceId]);
+    for (const p of params) {
+      await db.insert(
+        "INSERT INTO ai_task_params (task_id, param_code, param_label, param_type, param_options, default_value, injection_template, sort_order, is_common) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [newId, p.param_code, p.param_label, p.param_type, p.param_options, p.default_value, p.injection_template, p.sort_order, p.is_common]
+      );
+    }
+    return newId;
+  },
+  async deleteTask(taskId: ID): Promise<void> {
+    const task = await db.selectOne<AITask>("SELECT * FROM ai_tasks WHERE id = ?", [taskId]);
+    if (!task) throw new Error("Tâche introuvable");
+    if (!task.is_custom) throw new Error("Impossible de supprimer une tâche système");
+    await db.execute("DELETE FROM ai_tasks WHERE id = ?", [taskId]);
+  },
+};
+
+// === AI USAGE & COST SERVICE ===
+
+export type AIProvider = 'openai' | 'mistral' | 'anthropic' | 'local';
+
+export const PROVIDER_LABELS: Record<AIProvider, string> = {
+  openai:    'OpenAI',
+  mistral:   'Mistral AI',
+  anthropic: 'Anthropic (Claude)',
+  local:     'Serveur local (Ollama)',
+};
+
+export const PROVIDER_MODELS: Record<AIProvider, { value: string; label: string }[]> = {
+  openai: [
+    { value: 'gpt-4o',       label: 'GPT-4o' },
+    { value: 'gpt-4o-mini',  label: 'GPT-4o mini' },
+    { value: 'gpt-4-turbo',  label: 'GPT-4 Turbo' },
+  ],
+  mistral: [
+    { value: 'mistral-large-latest', label: 'Mistral Large' },
+    { value: 'mistral-small-latest', label: 'Mistral Small' },
+    { value: 'open-mistral-7b',      label: 'Mistral 7B (open)' },
+    { value: 'open-mixtral-8x7b',    label: 'Mixtral 8x7B' },
+  ],
+  anthropic: [
+    { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+    { value: 'claude-opus-4-6',            label: 'Claude Opus 4.6' },
+  ],
+  local: [], // dynamique via Ollama /api/tags
+};
+
+export const PROVIDER_ENDPOINTS: Record<Exclude<AIProvider, 'local'>, string> = {
+  openai:    'https://api.openai.com/v1/chat/completions',
+  mistral:   'https://api.mistral.ai/v1/chat/completions',
+  anthropic: 'https://api.anthropic.com/v1/messages',
+};
+
+/** Tarifs en $/million de tokens (mars 2025) */
+export const MODEL_PRICING: Record<string, { input: number; output: number; label: string; provider: string }> = {
+  'gpt-4o':                     { input: 2.50,  output: 10.00, label: 'GPT-4o',            provider: 'openai' },
+  'gpt-4o-mini':                { input: 0.15,  output: 0.60,  label: 'GPT-4o mini',       provider: 'openai' },
+  'gpt-4-turbo':                { input: 10.00, output: 30.00, label: 'GPT-4 Turbo',       provider: 'openai' },
+  'claude-sonnet-4-5-20250929': { input: 3.00,  output: 15.00, label: 'Claude Sonnet 4.5', provider: 'anthropic' },
+  'claude-opus-4-6':            { input: 15.00, output: 75.00, label: 'Claude Opus 4.6',   provider: 'anthropic' },
+  'mistral-large-latest':       { input: 3.00,  output: 9.00,  label: 'Mistral Large',     provider: 'mistral' },
+  'mistral-small-latest':       { input: 0.20,  output: 0.60,  label: 'Mistral Small',     provider: 'mistral' },
+  'open-mistral-7b':            { input: 0.25,  output: 0.25,  label: 'Mistral 7B (open)', provider: 'mistral' },
+  'open-mixtral-8x7b':          { input: 0.70,  output: 0.70,  label: 'Mixtral 8x7B',      provider: 'mistral' },
+};
+
+export function estimateCost(tokensIn: number, tokensOut: number, model: string): number {
+  const pricing = MODEL_PRICING[model];
+  if (!pricing) return 0;
+  return (tokensIn / 1_000_000) * pricing.input + (tokensOut / 1_000_000) * pricing.output;
+}
+
+export interface UsageByModel  { model: string; tokens_input: number; tokens_output: number; count: number; }
+export interface UsageByCategory { category: string; tokens_input: number; tokens_output: number; count: number; }
+export interface UsageByMonth  { month: string; tokens_input: number; tokens_output: number; count: number; }
+export interface RecentGenUsage {
+  id: ID; task_label: string; task_icon: string; category: string;
+  model: string; tokens_input: number; tokens_output: number; status: string; created_at: string;
+}
+
+export const aiUsageService = {
+  async byModel(): Promise<UsageByModel[]> {
+    return db.select<UsageByModel[]>(
+      "SELECT model, SUM(tokens_input) as tokens_input, SUM(tokens_output) as tokens_output, COUNT(*) as count " +
+      "FROM ai_generations WHERE status = 'completed' AND model IS NOT NULL GROUP BY model ORDER BY count DESC"
+    );
+  },
+  async byCategory(): Promise<UsageByCategory[]> {
+    return db.select<UsageByCategory[]>(
+      "SELECT at.category, SUM(ag.tokens_input) as tokens_input, SUM(ag.tokens_output) as tokens_output, COUNT(*) as count " +
+      "FROM ai_generations ag JOIN ai_tasks at ON ag.task_id = at.id " +
+      "WHERE ag.status = 'completed' GROUP BY at.category ORDER BY count DESC"
+    );
+  },
+  async byMonth(limit = 6): Promise<UsageByMonth[]> {
+    return db.select<UsageByMonth[]>(
+      "SELECT strftime('%Y-%m', created_at) as month, SUM(tokens_input) as tokens_input, SUM(tokens_output) as tokens_output, COUNT(*) as count " +
+      "FROM ai_generations WHERE status = 'completed' GROUP BY month ORDER BY month DESC LIMIT ?",
+      [limit]
+    );
+  },
+  async recent(limit = 20): Promise<RecentGenUsage[]> {
+    return db.select<RecentGenUsage[]>(
+      "SELECT ag.id, COALESCE(at.label, 'Tâche inconnue') as task_label, COALESCE(at.icon, '🤖') as task_icon, " +
+      "COALESCE(at.category, '') as category, COALESCE(ag.model, '') as model, " +
+      "ag.tokens_input, ag.tokens_output, ag.status, ag.created_at " +
+      "FROM ai_generations ag LEFT JOIN ai_tasks at ON ag.task_id = at.id " +
+      "WHERE ag.status = 'completed' ORDER BY ag.created_at DESC LIMIT ?",
+      [limit]
+    );
+  },
+  async totalsThisMonth(): Promise<{ tokens_input: number; tokens_output: number; count: number }> {
+    const month = new Date().toISOString().slice(0, 7);
+    const row = await db.selectOne<{ ti: number; to_: number; cnt: number }>(
+      "SELECT SUM(tokens_input) as ti, SUM(tokens_output) as to_, COUNT(*) as cnt " +
+      "FROM ai_generations WHERE status = 'completed' AND strftime('%Y-%m', created_at) = ?",
+      [month]
+    );
+    return { tokens_input: row?.ti ?? 0, tokens_output: row?.to_ ?? 0, count: row?.cnt ?? 0 };
+  },
 };
 
 // === PROMPT ASSEMBLER ===
@@ -133,6 +282,26 @@ export async function assemblePrompt(request: AIGenerationRequest): Promise<{
   const parts: string[] = [];
   if (resolvedTemplate) parts.push(resolvedTemplate);
   if (paramsBlock) parts.push(paramsBlock);
+
+  // Inject library documents (extracted_text)
+  if (request.documentIds?.length) {
+    for (const docId of request.documentIds) {
+      const doc = await db.selectOne<{ title: string; extracted_text: string | null }>(
+        "SELECT title, extracted_text FROM documents WHERE id = ?", [docId]
+      );
+      if (doc?.extracted_text?.trim()) {
+        parts.push(`\n--- Document de référence : ${doc.title} ---\n${doc.extracted_text.trim()}\n---`);
+      }
+    }
+  }
+
+  // Inject ad-hoc file contents
+  if (request.rawDocumentContexts?.length) {
+    for (const ctx of request.rawDocumentContexts) {
+      if (ctx.trim()) parts.push(`\n--- Fichier joint ---\n${ctx.trim()}\n---`);
+    }
+  }
+
   if (request.userInstructions?.trim()) {
     parts.push("\n--- Consignes complementaires ---\n" + request.userInstructions.trim());
   }
@@ -169,35 +338,75 @@ function buildParamsBlock(taskParams: AITaskParam[], values: Record<string, stri
 
 // === API CLIENT ===
 
-export async function getApiKey(): Promise<string> {
+/** Récupère la clé API depuis le keyring pour un fournisseur donné */
+export async function getApiKey(provider: AIProvider = 'openai'): Promise<string> {
+  const keyName = provider === 'openai' ? 'openai-api-key' : provider + '-api-key';
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    const key = await invoke("plugin:keyring|get", { service: "teacher-assistant", key: "openai-api-key" });
+    const key = await invoke("plugin:keyring|get", { service: "teacher-assistant", key: keyName });
     if (key) return key as string;
   } catch { /* fallback */ }
-  const envKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
-  if (envKey) return envKey;
-  throw new Error("Cle API non configuree. Ajoutez-la dans Parametres > IA.");
+  if (provider === 'openai') {
+    const envKey = (import.meta as any).env?.VITE_OPENAI_API_KEY;
+    if (envKey) return envKey;
+  }
+  throw new Error("Clé API non configurée pour " + PROVIDER_LABELS[provider] + ". Ajoutez-la dans Paramètres > IA.");
 }
 
-export async function setApiKey(key: string): Promise<void> {
+export async function setApiKey(key: string, provider: AIProvider = 'openai'): Promise<void> {
+  const keyName = provider === 'openai' ? 'openai-api-key' : provider + '-api-key';
   try {
     const { invoke } = await import("@tauri-apps/api/core");
-    await invoke("plugin:keyring|set", { service: "teacher-assistant", key: "openai-api-key", value: key });
+    await invoke("plugin:keyring|set", { service: "teacher-assistant", key: keyName, value: key });
   } catch { console.warn("[AI] Keyring indisponible"); }
 }
+
+// === OLLAMA SERVICE (serveur local) ===
+
+export const ollamaService = {
+  /** Vérifie que le serveur Ollama est joignable (timeout 3s) */
+  async ping(baseUrl: string): Promise<boolean> {
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(baseUrl.replace(/\/$/, '') + '/api/version', { signal: controller.signal });
+      clearTimeout(t);
+      return res.ok;
+    } catch { return false; }
+  },
+  /** Liste les modèles installés sur le serveur Ollama */
+  async listModels(baseUrl: string): Promise<string[]> {
+    const res = await fetch(baseUrl.replace(/\/$/, '') + '/api/tags');
+    if (!res.ok) throw new Error('Serveur local inaccessible (' + res.status + ')');
+    const data = await res.json();
+    return ((data.models ?? []) as any[]).map(m => m.name as string);
+  },
+};
 
 interface ChatMessage { role: "system" | "user" | "assistant"; content: string; }
 interface ChatResponse { content: string; model: string; tokens_input: number; tokens_output: number; }
 
 async function callChatAPI(messages: ChatMessage[], model?: string): Promise<ChatResponse> {
-  const apiKey = await getApiKey();
   const settings = await aiSettingsService.get();
-  const endpoint = settings?.api_endpoint || "https://api.openai.com/v1/chat/completions";
-  const modelName = model ?? settings?.model ?? "gpt-4o";
+  const provider: AIProvider = (settings?.provider as AIProvider) || 'openai';
+  const modelName = model ?? settings?.model ?? 'gpt-4o';
+
+  let endpoint: string;
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  if (provider === 'local') {
+    const baseUrl = (settings?.local_server_url || 'http://localhost:11434').replace(/\/$/, '');
+    endpoint = baseUrl + '/v1/chat/completions';
+    // Pas de clé d'auth pour un serveur local
+  } else {
+    endpoint = settings?.api_endpoint || PROVIDER_ENDPOINTS[provider] || PROVIDER_ENDPOINTS.openai;
+    const apiKey = await getApiKey(provider);
+    headers['Authorization'] = 'Bearer ' + apiKey;
+  }
+
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + apiKey },
+    headers,
     body: JSON.stringify({ model: modelName, messages,
       max_tokens: settings?.max_tokens_per_request ?? 4096, temperature: settings?.temperature ?? 0.7 }),
   });

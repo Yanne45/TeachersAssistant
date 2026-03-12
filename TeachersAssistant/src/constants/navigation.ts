@@ -60,6 +60,7 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'prep-sep-ia',       label: 'GÉNÉRATEUR IA',            isSection: true },
     { id: 'prep-generer',      label: 'Générer contenu',           page: 'ia-generer',  indent: 1, icon: '🤖' },
     { id: 'prep-historique',   label: 'Historique',                 page: 'ia-historique', indent: 1 },
+    { id: 'prep-couts',        label: 'Consommation & coûts',       page: 'ia-couts',    indent: 1, icon: '💰' },
   ],
 
   planning: [

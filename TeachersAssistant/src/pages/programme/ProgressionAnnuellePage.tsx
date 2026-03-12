@@ -290,7 +290,7 @@ export const ProgressionAnnuellePage: React.FC = () => {
                     <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{seq.totalHours}h</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 4 }}>
-                    Début: M{Math.floor(seq.startMonth) + 1} - Durée: {seq.durationMonths.toFixed(1)} mois
+                    Début: {MONTHS[Math.floor(seq.startMonth)] ?? `M${Math.floor(seq.startMonth) + 1}`} · {seq.durationMonths.toFixed(1)} mois
                   </div>
                 </div>
               ))}

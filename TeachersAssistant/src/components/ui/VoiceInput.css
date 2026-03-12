@@ -1,0 +1,61 @@
+/* VoiceInput — Bouton micro inline */
+
+.voice-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice-input__btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.voice-input__btn:hover:not(:disabled) {
+  background: rgba(61, 180, 198, 0.1);
+}
+
+.voice-input__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.voice-input__btn--active {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: white;
+  animation: voice-pulse 1s ease-in-out infinite;
+}
+
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.4); }
+  50%       { box-shadow: 0 0 0 6px rgba(231, 76, 60, 0); }
+}
+
+.voice-input__interim {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-input__unsupported {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  cursor: default;
+}

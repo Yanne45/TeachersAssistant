@@ -19,12 +19,184 @@
   flex-direction: column;
 }
 
+.ai-tpl-page__sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 12px 16px;
+}
+
 .ai-tpl-page__sidebar-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text);
-  padding: 0 16px 12px;
   margin: 0;
+}
+
+.ai-tpl-page__new-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ai-tpl-page__new-btn:hover {
+  background: rgba(61, 180, 198, 0.1);
+}
+
+/* Inline new task form */
+.ai-tpl-page__new-form {
+  margin: 0 8px 8px;
+  padding: 10px;
+  background: rgba(61, 180, 198, 0.05);
+  border: 1px solid rgba(61, 180, 198, 0.2);
+  border-radius: var(--radius-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ai-tpl-page__new-input,
+.ai-tpl-page__new-select {
+  width: 100%;
+  padding: 5px 8px;
+  font-size: 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.ai-tpl-page__new-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-tpl-page__new-row .ai-tpl-page__new-select {
+  flex: 1;
+}
+
+.ai-tpl-page__new-icon {
+  width: 44px;
+  padding: 5px 6px;
+  font-size: 14px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  text-align: center;
+}
+
+.ai-tpl-page__new-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-tpl-page__new-confirm {
+  flex: 1;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.ai-tpl-page__new-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-tpl-page__new-cancel {
+  padding: 5px 10px;
+  font-size: 12px;
+  background: none;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+/* Task row with duplicate button */
+.ai-tpl-page__task-row {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.ai-tpl-page__task-row .ai-tpl-page__task-item {
+  flex: 1;
+}
+
+.ai-tpl-page__task-dup {
+  display: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  margin-right: 4px;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-tpl-page__task-row:hover .ai-tpl-page__task-dup {
+  display: flex;
+}
+
+.ai-tpl-page__task-dup:hover {
+  background: var(--color-bg);
+  color: var(--color-primary);
+}
+
+.ai-tpl-page__task-item--custom {
+  border-left: 2px solid var(--color-accent);
+}
+
+/* Custom badge in header */
+.ai-tpl-page__custom-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: white;
+  border-radius: 20px;
+  vertical-align: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Delete button */
+.ai-tpl-page__delete-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.ai-tpl-page__delete-btn:hover {
+  background: rgba(231, 76, 60, 0.08);
 }
 
 .ai-tpl-page__group {
@@ -396,6 +568,37 @@
   background: var(--color-primary);
   color: white;
   border-color: var(--color-primary);
+}
+
+/* Ollama status */
+.ai-tpl-page__ollama-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.ai-tpl-page__ollama-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.ai-tpl-page__ollama-dot--online  { background: var(--color-success); }
+.ai-tpl-page__ollama-dot--offline { background: var(--color-danger); }
+
+.ai-tpl-page__local-model-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ai-tpl-page__local-model-row .ai-tpl-page__setting-select {
+  flex: 1;
 }
 
 .ai-tpl-page__setting-hint {

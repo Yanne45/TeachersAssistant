@@ -3,10 +3,10 @@ import { Card, Button } from '../../components/ui';
 import { backupService2, downloadBlob, preferenceService } from '../../services';
 import { useApp, useRouter } from '../../stores';
 import { AITemplateEditorPage } from './AITemplateEditorPage';
-import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings } from './SettingsSubPages';
+import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings } from './SettingsSubPages';
 import './ParametresPage.css';
 
-type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites';
+type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation';
 
 type ThemeValue = 'light' | 'dark';
 type UIDensity = 'compact' | 'standard' | 'comfortable';
@@ -50,6 +50,11 @@ const SETTINGS_CARDS = [
     icon: '🎯', key: 'capacites', title: 'Capacités', description: '24 capacités définies',
     details: ['12 spécifiques exercice', '12 générales'],
     navigateTo: 'capacites' as SubPage,
+  },
+  {
+    icon: '📊', key: 'periodes-notation', title: 'Périodes de notation', description: 'Trimestres, semestres ou personnalisé',
+    details: ['Périodes librement définies', 'Bulletins par période', 'Exportables en PDF'],
+    navigateTo: 'periodes-notation' as SubPage,
   },
 ];
 
@@ -116,6 +121,7 @@ export const ParametresPage: React.FC = () => {
     },
     'export-pdf': { label: 'Export PDF', component: <ExportPDFSettings /> },
     capacites: { label: 'Capacités', component: <CapacitesSettings /> },
+    'periodes-notation': { label: 'Périodes de notation', component: <PeriodesNotationSettings /> },
   };
 
   const subPageInfo = SUB_PAGE_MAP[subPage];

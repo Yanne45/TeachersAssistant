@@ -6,11 +6,11 @@
 // ============================================================================
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Card, Badge } from '../../components/ui';
+import { Card, Badge, VoiceInput } from '../../components/ui';
 import {
-  aiTaskService, aiGenerationService, smartGenerate,
+  aiTaskService, aiGenerationService, assemblePrompt, smartGenerate,
   subjectService, levelService, sequenceService,
-  aiQueueService,
+  aiQueueService, documentService,
 } from '../../services';
 import { useApp, useRouter } from '../../stores';
 import type { AITask, AITaskVariable, AITaskParam } from '../../services';
@@ -64,6 +64,11 @@ export const GenerateurIAPage: React.FC = () => {
   const [result, setResult] = useState<any | null>(null);
   const [resultContent, setResultContent] = useState<string | null>(null);
 
+  // Aperçu du prompt
+  const [showPromptPreview, setShowPromptPreview] = useState(false);
+  const [promptPreview, setPromptPreview] = useState<{ system: string; user: string } | null>(null);
+  const [promptPreviewLoading, setPromptPreviewLoading] = useState(false);
+
   // History
   const [history, setHistory] = useState<any[]>([]);
 
@@ -71,6 +76,13 @@ export const GenerateurIAPage: React.FC = () => {
   const [queueItems, setQueueItems] = useState<any[]>([]);
   const [queueCount, setQueueCount] = useState(0);
   const [processingQueue, setProcessingQueue] = useState(false);
+
+  // Document attachment
+  const [docSearch, setDocSearch] = useState('');
+  const [docResults, setDocResults] = useState<any[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<number[]>([]);
+  const [selectedDocLabels, setSelectedDocLabels] = useState<Record<number, string>>({});
+  const [adHocFiles, setAdHocFiles] = useState<Array<{ name: string; text: string }>>([]);
 
   // ---- Load tasks + reference data ----
   useEffect(() => {
@@ -92,6 +104,18 @@ export const GenerateurIAPage: React.FC = () => {
       aiQueueService.pendingCount().then(setQueueCount).catch(() => {});
     }
   }, [view, resultContent]);
+
+  // ---- Search library documents ----
+  useEffect(() => {
+    if (!docSearch.trim()) {
+      documentService.getRecent(8).then(setDocResults).catch(() => setDocResults([]));
+      return;
+    }
+    const t = setTimeout(() => {
+      documentService.search(docSearch, 10).then(setDocResults).catch(() => setDocResults([]));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [docSearch]);
 
   // ---- Auto-fill logic using DB reference data ----
   const autoFillVariable = useCallback((v: AITaskVariable): string | null => {
@@ -136,6 +160,10 @@ export const GenerateurIAPage: React.FC = () => {
     setParamValues(defaults);
 
     setUserInstructions('');
+    setSelectedDocIds([]);
+    setSelectedDocLabels({});
+    setAdHocFiles([]);
+    setDocSearch('');
   }, [autoFillVariable]);
 
   // ---- Group tasks by category ----
@@ -217,6 +245,31 @@ export const GenerateurIAPage: React.FC = () => {
     );
   }
 
+  // ---- Handle ad-hoc file attachment ----
+  const handleAdHocFiles = async (files: FileList | null) => {
+    if (!files) return;
+    for (const file of Array.from(files)) {
+      try {
+        let text = '';
+        if (file.name.endsWith('.docx')) {
+          const mammoth = await import('mammoth');
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          text = result.value;
+        } else {
+          text = await file.text();
+        }
+        if (text.trim()) {
+          setAdHocFiles(prev => [...prev, { name: file.name, text: text.trim() }]);
+        } else {
+          addToast('warn', `${file.name} : aucun texte extrait`);
+        }
+      } catch {
+        addToast('error', `Impossible de lire ${file.name}`);
+      }
+    }
+  };
+
   // ---- Generate ----
   const handleGenerate = async () => {
     if (!selectedTask) return;
@@ -230,8 +283,10 @@ export const GenerateurIAPage: React.FC = () => {
         variables: variableValues,
         params: paramValues,
         userInstructions: userInstructions || undefined,
-        subjectId: undefined, // TODO: resolve from variables
+        subjectId: undefined,
         levelId: undefined,
+        documentIds: selectedDocIds.length ? selectedDocIds : undefined,
+        rawDocumentContexts: adHocFiles.length ? adHocFiles.map(f => f.text) : undefined,
       });
 
       if ('queued' in res && res.queued) {
@@ -272,6 +327,28 @@ export const GenerateurIAPage: React.FC = () => {
     if (!result?.id) return;
     await aiGenerationService.rate(result.id, rating);
     addToast('success', 'Note enregistrée');
+  };
+
+  // ---- Aperçu du prompt assemblé ----
+  const handlePreviewPrompt = async () => {
+    if (!selectedTask) return;
+    setPromptPreviewLoading(true);
+    setShowPromptPreview(true);
+    try {
+      const assembled = await assemblePrompt({
+        taskCode: selectedTask.code,
+        variables: variableValues,
+        params: paramValues,
+        userInstructions: userInstructions || undefined,
+        documentIds: selectedDocIds.length ? selectedDocIds : undefined,
+        rawDocumentContexts: adHocFiles.length ? adHocFiles.map(f => f.text) : undefined,
+      });
+      setPromptPreview({ system: assembled.systemMessage, user: assembled.userMessage });
+    } catch (err: any) {
+      setPromptPreview({ system: '', user: 'Erreur : ' + err.message });
+    } finally {
+      setPromptPreviewLoading(false);
+    }
   };
 
   // ---- Check if can generate ----
@@ -401,7 +478,13 @@ export const GenerateurIAPage: React.FC = () => {
 
               {/* User instructions (couche 3) - always visible */}
               <section className="ia-gen__section">
-                <h2 className="ia-gen__section-title">Consignes complémentaires</h2>
+                <div className="ia-gen__section-title-row">
+                  <h2 className="ia-gen__section-title">Consignes complémentaires</h2>
+                  <VoiceInput
+                    onResult={text => setUserInstructions(prev => prev ? prev + ' ' + text : text)}
+                    disabled={generating}
+                  />
+                </div>
                 <p className="ia-gen__section-desc">
                   Instructions libres ajoutées à cette génération uniquement. Non sauvegardées.
                 </p>
@@ -414,6 +497,98 @@ export const GenerateurIAPage: React.FC = () => {
                 />
               </section>
 
+              {/* Documents de référence */}
+              <section className="ia-gen__section">
+                <h2 className="ia-gen__section-title">Documents de référence</h2>
+                <p className="ia-gen__section-desc">
+                  Associez des documents de la bibliothèque ou joignez un fichier .txt/.docx pour que l'IA travaille à partir de leur contenu.
+                </p>
+
+                {/* Library search */}
+                <div className="ia-gen__doc-search-row">
+                  <input
+                    className="ia-gen__doc-search-input"
+                    type="text"
+                    placeholder="Rechercher dans la bibliothèque…"
+                    value={docSearch}
+                    onChange={e => setDocSearch(e.target.value)}
+                  />
+                </div>
+                {docResults.length > 0 && (
+                  <div className="ia-gen__doc-results">
+                    {docResults.map((doc: any) => {
+                      const selected = selectedDocIds.includes(doc.id);
+                      return (
+                        <button
+                          key={doc.id}
+                          className={'ia-gen__doc-result-item' + (selected ? ' ia-gen__doc-result-item--selected' : '')}
+                          onClick={() => {
+                            if (selected) {
+                              setSelectedDocIds(prev => prev.filter(id => id !== doc.id));
+                              setSelectedDocLabels(prev => { const n = { ...prev }; delete n[doc.id]; return n; });
+                            } else {
+                              setSelectedDocIds(prev => [...prev, doc.id]);
+                              setSelectedDocLabels(prev => ({ ...prev, [doc.id]: doc.title }));
+                            }
+                          }}
+                          title={doc.extracted_text ? 'Texte extrait disponible' : 'Aucun texte extrait — importez via la bibliothèque'}
+                        >
+                          <span className="ia-gen__doc-result-icon">{doc.extracted_text ? '📄' : '⚠'}</span>
+                          <span className="ia-gen__doc-result-title">{doc.title}</span>
+                          {selected && <span className="ia-gen__doc-result-check">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Selected chips */}
+                {selectedDocIds.length > 0 && (
+                  <div className="ia-gen__doc-chips">
+                    {selectedDocIds.map(id => (
+                      <span key={id} className="ia-gen__doc-chip">
+                        📄 {selectedDocLabels[id] || `Doc #${id}`}
+                        <button
+                          className="ia-gen__doc-chip-remove"
+                          onClick={() => {
+                            setSelectedDocIds(prev => prev.filter(d => d !== id));
+                            setSelectedDocLabels(prev => { const n = { ...prev }; delete n[id]; return n; });
+                          }}
+                        >✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Ad-hoc file attachment */}
+                <div className="ia-gen__doc-adhoc-row">
+                  <label className="ia-gen__doc-adhoc-btn">
+                    Joindre un fichier (.txt, .docx)
+                    <input
+                      type="file"
+                      accept=".txt,.docx"
+                      multiple
+                      style={{ display: 'none' }}
+                      onChange={e => void handleAdHocFiles(e.target.files)}
+                    />
+                  </label>
+                  <span className="ia-gen__doc-adhoc-hint">Les PDF doivent d'abord être importés via la bibliothèque.</span>
+                </div>
+                {adHocFiles.length > 0 && (
+                  <div className="ia-gen__doc-chips">
+                    {adHocFiles.map((f, i) => (
+                      <span key={i} className="ia-gen__doc-chip ia-gen__doc-chip--adhoc">
+                        📎 {f.name}
+                        <button
+                          className="ia-gen__doc-chip-remove"
+                          onClick={() => setAdHocFiles(prev => prev.filter((_, j) => j !== i))}
+                        >✕</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </section>
+
               {/* Generate button */}
               <div className="ia-gen__generate-bar">
                 <button
@@ -423,10 +598,47 @@ export const GenerateurIAPage: React.FC = () => {
                 >
                   {generating ? 'Génération en cours...' : 'Générer'}
                 </button>
+                <button
+                  className="ia-gen__preview-btn"
+                  onClick={handlePreviewPrompt}
+                  disabled={generating || requiredVarsMissing}
+                  title="Voir le prompt qui sera envoyé à l'IA"
+                >
+                  Aperçu du prompt
+                </button>
                 {requiredVarsMissing && (
                   <span className="ia-gen__missing-warning">Complétez les variables requises (*)</span>
                 )}
               </div>
+
+              {/* Prompt preview panel */}
+              {showPromptPreview && (
+                <div className="ia-gen__prompt-preview">
+                  <div className="ia-gen__prompt-preview-header">
+                    <span className="ia-gen__prompt-preview-title">Prompt assemblé (aperçu)</span>
+                    <button className="ia-gen__prompt-preview-close" onClick={() => setShowPromptPreview(false)}>✕</button>
+                  </div>
+                  {promptPreviewLoading ? (
+                    <div className="ia-gen__loading" style={{ padding: '14px' }}>
+                      <div className="ia-gen__spinner" />
+                      <span>Assemblage du prompt...</span>
+                    </div>
+                  ) : promptPreview && (
+                    <div className="ia-gen__prompt-preview-body">
+                      {promptPreview.system && (
+                        <div className="ia-gen__prompt-layer">
+                          <span className="ia-gen__prompt-layer-label">Couche 1 — Système</span>
+                          <pre className="ia-gen__prompt-layer-text ia-gen__prompt-layer-text--system">{promptPreview.system}</pre>
+                        </div>
+                      )}
+                      <div className="ia-gen__prompt-layer">
+                        <span className="ia-gen__prompt-layer-label">Couche 2+3 — Prompt utilisateur</span>
+                        <pre className="ia-gen__prompt-layer-text">{promptPreview.user}</pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

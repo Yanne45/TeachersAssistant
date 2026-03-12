@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Card, Button, SegmentedControl } from '../../components/ui';
+import { Card, Button, EmptyState, SegmentedControl } from '../../components/ui';
 import { useApp, useData, useRouter } from '../../stores';
-import { CreneauForm, ICSMappingModal } from '../../components/forms';
+import { CreneauForm, ICSMappingModal, GoogleCalendarModal } from '../../components/forms';
 import { icsImportService, timetableService } from '../../services';
 import type { DayOfWeek } from '../../types';
 import './EmploiDuTempsPage.css';
@@ -31,15 +31,6 @@ const RECURRENCE_SEGMENTS = [
   { id: 'q2', label: 'Q2' },
 ];
 
-const MOCK_SLOTS: CourseSlot[] = [
-  { id: 1, dayIndex: 0, startHour: 8, startMinute: 0, durationMinutes: 120, subjectLabel: 'HGGSP', subjectColor: '#7B3FA0', classLabel: 'Tle 2', room: 'A102', recurrence: 'all' },
-  { id: 2, dayIndex: 0, startHour: 14, startMinute: 0, durationMinutes: 60, subjectLabel: 'Histoire', subjectColor: '#2C3E7B', classLabel: 'Tle 4', recurrence: 'all' },
-  { id: 3, dayIndex: 1, startHour: 10, startMinute: 0, durationMinutes: 120, subjectLabel: 'Geo', subjectColor: '#27774E', classLabel: '1ère 3', recurrence: 'all' },
-  { id: 4, dayIndex: 3, startHour: 8, startMinute: 0, durationMinutes: 120, subjectLabel: 'HGGSP', subjectColor: '#7B3FA0', classLabel: 'Tle 2', recurrence: 'all' },
-  { id: 5, dayIndex: 3, startHour: 10, startMinute: 0, durationMinutes: 120, subjectLabel: 'HGGSP', subjectColor: '#7B3FA0', classLabel: 'Tle 4', recurrence: 'q1' },
-  { id: 6, dayIndex: 3, startHour: 14, startMinute: 0, durationMinutes: 120, subjectLabel: 'Histoire', subjectColor: '#2C3E7B', classLabel: 'Tle 2', recurrence: 'all' },
-  { id: 7, dayIndex: 4, startHour: 8, startMinute: 0, durationMinutes: 120, subjectLabel: 'Geo', subjectColor: '#27774E', classLabel: '1ère 3', recurrence: 'all' },
-];
 
 function calcDuration(start?: string, end?: string): number {
   if (!start || !end) return 120;
@@ -69,20 +60,19 @@ function mapWeekSlotsToCourseSlots(data: any[]): CourseSlot[] {
 
 export const EmploiDuTempsPage: React.FC = () => {
   const { activeYear, addToast } = useApp();
-  const { route, navigate } = useRouter();
+  const { route } = useRouter();
   const { loadWeekSlots } = useData();
 
   const [recurrence, setRecurrence] = useState('all');
-  const [slots, setSlots] = useState(MOCK_SLOTS);
+  const [slots, setSlots] = useState<CourseSlot[]>([]);
   const [creneauFormOpen, setCreneauFormOpen] = useState(false);
   const [icsEvents, setIcsEvents] = useState<any[] | null>(null);
+  const [gcalOpen, setGcalOpen] = useState(false);
   const autoImportTriggered = useRef(false);
 
   useEffect(() => {
     loadWeekSlots().then((data) => {
-      if (data.length > 0) {
-        setSlots(mapWeekSlotsToCourseSlots(data));
-      }
+      setSlots(mapWeekSlotsToCourseSlots(data));
     });
   }, [loadWeekSlots]);
 
@@ -129,16 +119,23 @@ export const EmploiDuTempsPage: React.FC = () => {
           <Button
             variant="secondary"
             size="S"
-            onClick={() => {
-              addToast('info', 'Google Calendar non configuré dans cette version');
-              navigate({ tab: 'planning', page: 'calendrier' });
-            }}
+            onClick={() => setGcalOpen(true)}
           >
             Google Calendar
           </Button>
           <Button variant="primary" size="S" onClick={() => setCreneauFormOpen(true)}>+ Nouveau créneau</Button>
         </div>
       </div>
+
+      {slots.length === 0 && (
+        <EmptyState
+          icon="🗓️"
+          title="Emploi du temps vide"
+          description="Importez un fichier ICS ou ajoutez des créneaux manuellement."
+          actionLabel="+ Nouveau créneau"
+          onAction={() => setCreneauFormOpen(true)}
+        />
+      )}
 
       <Card noHover className="edt-grid-wrapper">
         <div className="edt-grid">
@@ -218,9 +215,7 @@ export const EmploiDuTempsPage: React.FC = () => {
             });
 
             const refreshed = await loadWeekSlots();
-            if (refreshed.length > 0) {
-              setSlots(mapWeekSlotsToCourseSlots(refreshed));
-            }
+            setSlots(mapWeekSlotsToCourseSlots(refreshed));
             addToast('success', 'Créneau ajouté');
           } catch (error) {
             console.error('[EmploiDuTempsPage] Erreur création créneau:', error);
@@ -236,13 +231,20 @@ export const EmploiDuTempsPage: React.FC = () => {
           onImported={() => {
             setIcsEvents(null);
             loadWeekSlots().then((data) => {
-              if (data.length > 0) {
-                setSlots(mapWeekSlotsToCourseSlots(data));
-              }
+              setSlots(mapWeekSlotsToCourseSlots(data));
             });
           }}
         />
       )}
+
+      <GoogleCalendarModal
+        open={gcalOpen}
+        onClose={() => setGcalOpen(false)}
+        onImported={(result) => {
+          addToast('success', `${result.imported} créneaux importés depuis Google Calendar`);
+          void loadWeekSlots().then((data) => setSlots(mapWeekSlotsToCourseSlots(data)));
+        }}
+      />
     </div>
   );
 };

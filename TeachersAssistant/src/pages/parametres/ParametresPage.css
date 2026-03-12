@@ -425,3 +425,123 @@
 .settings-sub__link--danger {
   color: var(--color-danger);
 }
+
+.settings-sub__section-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-3) 0;
+  line-height: 1.5;
+}
+
+.settings-sub__presets {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: var(--border-default);
+  flex-wrap: wrap;
+}
+
+.settings-sub__presets-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.settings-sub__preset-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.settings-sub__preset-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.settings-sub__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.settings-sub__section-title {
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.settings-sub__loading {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-4) 0;
+}
+
+.settings-sub__error {
+  font-size: 11px;
+  color: var(--color-danger);
+}
+
+.settings-sub__input--error {
+  border-color: var(--color-danger);
+}
+
+.settings-sub__inline-form {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-s);
+  background: var(--color-bg);
+}
+
+.settings-sub__inline-title {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-3) 0;
+}
+
+.settings-sub__form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.settings-sub__form-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.settings-sub__btn {
+  font-size: 13px;
+  padding: 6px 14px;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  border: none;
+}
+
+.settings-sub__btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.settings-sub__btn--secondary {
+  background: transparent;
+  border: var(--border-default);
+  color: var(--color-text);
+}
+
+.settings-sub__cell-muted {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}

@@ -6,7 +6,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { EmptyState } from '../../components/ui';
 import { useApp, useData, useRouter } from '../../stores';
 import { assignmentService, submissionService } from '../../services';
-import { MOCK_ASSIGNMENTS } from '../../stores/mockData';
 import { DevoirForm } from '../../components/forms';
 import './ListeDevoirsPage.css';
 
@@ -33,7 +32,7 @@ export const ListeDevoirsPage: React.FC = () => {
   const refreshAssignments = useCallback(async () => {
     setLoading(true);
     const data = await loadAssignments();
-    setAssignments(data.length > 0 ? data : MOCK_ASSIGNMENTS);
+    setAssignments(data);
     setLoading(false);
   }, [loadAssignments]);
 
@@ -42,7 +41,7 @@ export const ListeDevoirsPage: React.FC = () => {
     setLoading(true);
     loadAssignments().then(data => {
       if (cancelled) return;
-      setAssignments(data.length > 0 ? data : MOCK_ASSIGNMENTS);
+      setAssignments(data);
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [loadAssignments]);

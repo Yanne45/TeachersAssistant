@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Badge, Button, Input } from '../../components/ui';
-import { useData } from '../../stores';
+import { useApp, useData } from '../../stores';
+import { calendarPeriodService } from '../../services';
 import { CalendrierPeriodeForm } from '../../components/forms';
 import './CalendrierScolairePage.css';
 
@@ -24,16 +25,6 @@ interface DayData {
   dayOfMonth: number;
   isWeekend: boolean;
 }
-
-const MOCK_PERIODS: CalendarPeriod[] = [
-  { id: 1, label: 'Vacances de Toussaint', type: 'vacation', startDate: '2025-10-18', endDate: '2025-11-03' },
-  { id: 2, label: 'Vacances de Noël', type: 'vacation', startDate: '2025-12-20', endDate: '2026-01-05' },
-  { id: 3, label: "Vacances d'hiver", type: 'vacation', startDate: '2026-02-14', endDate: '2026-03-02' },
-  { id: 4, label: 'Vacances de printemps', type: 'vacation', startDate: '2026-04-11', endDate: '2026-04-27' },
-  { id: 5, label: 'Jour de Noël', type: 'holiday', startDate: '2025-12-25', endDate: '2025-12-25' },
-  { id: 6, label: "Jour de l'an", type: 'holiday', startDate: '2026-01-01', endDate: '2026-01-01' },
-  { id: 7, label: 'Bac blanc', type: 'exam', startDate: '2026-02-02', endDate: '2026-02-06' },
-];
 
 const PERIOD_TYPE_LABELS: Record<CalendarPeriod['type'], string> = {
   vacation: 'Vacances',
@@ -66,28 +57,50 @@ function generateSchoolYear(): MonthData[] {
   return months;
 }
 
+function mapPeriod(p: any): CalendarPeriod {
+  return {
+    id: p.id,
+    label: p.label,
+    type: p.period_type ?? 'vacation',
+    startDate: p.start_date,
+    endDate: p.end_date,
+  };
+}
+
 export const CalendrierScolairePage: React.FC = () => {
+  const { activeYear, addToast } = useApp();
   const { loadCalendarPeriods } = useData();
-  const [periods, setPeriods] = useState<CalendarPeriod[]>(MOCK_PERIODS);
+  const [periods, setPeriods] = useState<CalendarPeriod[]>([]);
   const [formOpen, setFormOpen] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState<CalendarPeriod | null>(null);
   const months = generateSchoolYear();
 
-  useEffect(() => {
-    loadCalendarPeriods().then((data) => {
-      if (data.length > 0) {
-        setPeriods(data.map((p: any) => ({
-          id: p.id,
-          label: p.label,
-          type: p.period_type ?? 'vacation',
-          startDate: p.start_date,
-          endDate: p.end_date,
-        })));
-      }
-    });
+  const refreshPeriods = useCallback(async () => {
+    const data = await loadCalendarPeriods();
+    setPeriods(data.map(mapPeriod));
   }, [loadCalendarPeriods]);
 
+  useEffect(() => {
+    refreshPeriods();
+  }, [refreshPeriods]);
+
+  const handleDelete = useCallback(async (id: number) => {
+    try {
+      await calendarPeriodService.delete(id);
+      await refreshPeriods();
+    } catch {
+      addToast('error', 'Échec de la suppression');
+    }
+  }, [refreshPeriods, addToast]);
+
+  const vacationDays = periods
+    .filter((p) => p.type === 'vacation')
+    .reduce((acc, p) => {
+      const ms = new Date(p.endDate).getTime() - new Date(p.startDate).getTime();
+      return acc + Math.round(ms / 86400000) + 1;
+    }, 0);
+  const vacationWeeks = Math.round(vacationDays / 5);
   const totalWeeks = 36;
-  const vacationWeeks = 8;
   const holidays = periods.filter((p) => p.type === 'holiday').length;
 
   return (
@@ -147,6 +160,11 @@ export const CalendrierScolairePage: React.FC = () => {
           <Card noHover>
             <h3 className="calendrier-page__param-title">Périodes</h3>
             <div className="periods-list">
+              {periods.length === 0 && (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: 13, padding: '8px 0' }}>
+                  Aucune période configurée
+                </p>
+              )}
               {periods.map((p) => (
                 <div key={p.id} className={`period-row period-row--${p.type}`}>
                   <Badge variant={p.type === 'holiday' ? 'danger' : p.type === 'exam' ? 'warn' : 'info'}>
@@ -154,12 +172,22 @@ export const CalendrierScolairePage: React.FC = () => {
                   </Badge>
                   <span className="period-row__label">{p.label}</span>
                   <span className="period-row__dates">
-                    {p.startDate === p.endDate ? p.startDate : `${p.startDate} -> ${p.endDate}`}
+                    {p.startDate === p.endDate ? p.startDate : `${p.startDate} → ${p.endDate}`}
                   </span>
+                  <button
+                    className="period-row__edit-btn"
+                    title="Modifier"
+                    onClick={() => { setEditingPeriod(p); setFormOpen(true); }}
+                  >✏️</button>
+                  <button
+                    className="period-row__del-btn"
+                    title="Supprimer"
+                    onClick={() => handleDelete(p.id)}
+                  >×</button>
                 </div>
               ))}
             </div>
-            <Button variant="primary" size="S" style={{ marginTop: 12 }} onClick={() => setFormOpen(true)}>
+            <Button variant="primary" size="S" style={{ marginTop: 12 }} onClick={() => { setEditingPeriod(null); setFormOpen(true); }}>
               + Ajouter une période
             </Button>
           </Card>
@@ -168,8 +196,44 @@ export const CalendrierScolairePage: React.FC = () => {
 
       <CalendrierPeriodeForm
         open={formOpen}
-        onClose={() => setFormOpen(false)}
-        onSave={() => setFormOpen(false)}
+        onClose={() => { setFormOpen(false); setEditingPeriod(null); }}
+        initialData={editingPeriod ? {
+          label: editingPeriod.label,
+          period_type: editingPeriod.type,
+          start_date: editingPeriod.startDate,
+          end_date: editingPeriod.endDate,
+          impacts_teaching: true,
+        } : undefined}
+        onSave={async (data) => {
+          if (!activeYear) { addToast('error', 'Aucune année scolaire active'); return; }
+          try {
+            if (editingPeriod) {
+              await calendarPeriodService.update(editingPeriod.id, {
+                label: data.label,
+                period_type: data.period_type as CalendarPeriod['type'],
+                start_date: data.start_date,
+                end_date: data.end_date,
+                impacts_teaching: data.impacts_teaching,
+              });
+            } else {
+              await calendarPeriodService.create({
+                academic_year_id: activeYear.id,
+                label: data.label,
+                period_type: data.period_type as CalendarPeriod['type'],
+                start_date: data.start_date,
+                end_date: data.end_date,
+                impacts_teaching: data.impacts_teaching,
+                color: null,
+                notes: null,
+              });
+            }
+            await refreshPeriods();
+            setFormOpen(false);
+            setEditingPeriod(null);
+          } catch {
+            addToast('error', 'Échec de la sauvegarde');
+          }
+        }}
       />
     </div>
   );

@@ -77,8 +77,10 @@
 .pdf-preview__error {
   height: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 12px;
   text-align: center;
   color: var(--color-danger);
   font-size: 13px;
@@ -86,6 +88,20 @@
   border-radius: var(--radius-xs);
   background: rgba(231, 76, 60, 0.05);
   padding: 16px;
+}
+
+.pdf-preview__retry {
+  padding: 6px 14px;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pdf-preview__retry:hover {
+  background: rgba(231, 76, 60, 0.1);
 }
 
 .pdf-preview__footer {

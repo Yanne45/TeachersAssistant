@@ -90,8 +90,16 @@ export {
   smartGenerate,
   smartCorrect,
   isOnline,
+  aiUsageService,
+  estimateCost,
+  MODEL_PRICING,
+  PROVIDER_LABELS,
+  PROVIDER_MODELS,
+  PROVIDER_ENDPOINTS,
+  ollamaService,
 } from './aiService';
-export type { AITask, AITaskVariable, AITaskParam, AIUserTemplate, AIGenerationRequest, CorrectionAIResult } from './aiService';
+export type { AITask, AITaskVariable, AITaskParam, AIUserTemplate, AIGenerationRequest, CorrectionAIResult,
+  UsageByModel, UsageByCategory, UsageByMonth, RecentGenUsage, AIProvider } from './aiService';
 
 // Import / Export
 export {
@@ -111,3 +119,7 @@ export { generateNotifications } from './notificationEngine';
 // Global search
 export { searchService } from './searchService';
 export type { SearchResult } from './searchService';
+
+// Google Calendar
+export { googleCalendarService } from './googleCalendarService';
+export type { GoogleCalendarConfig, GCalCalendar, GCalEvent, ICSCompatEvent } from './googleCalendarService';

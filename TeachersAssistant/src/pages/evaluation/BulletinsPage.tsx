@@ -3,7 +3,7 @@
 // ============================================================================
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EmptyState } from '../../components/ui';
+import { EmptyState, PanelError } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
 import {
   aiBulletinService,
@@ -15,6 +15,7 @@ import {
   subjectService,
 } from '../../services';
 import { useApp } from '../../stores';
+import { BULLETIN_STATUS_META } from '../../constants/statuses';
 import './BulletinsPage.css';
 
 type BulletinStatus = 'draft' | 'review' | 'final' | 'empty';
@@ -32,12 +33,8 @@ interface StudentRow {
   statuses: Record<string, BulletinStatus>;
 }
 
-const STATUS_DISPLAY: Record<BulletinStatus, { label: string; color: string; bg: string }> = {
-  draft: { label: 'Brouillon', color: 'var(--color-text-muted)', bg: 'var(--color-bg)' },
-  review: { label: 'Relecture', color: 'var(--color-warn)', bg: 'rgba(245, 166, 35, 0.1)' },
-  final: { label: 'Final', color: 'var(--color-success)', bg: 'rgba(126, 217, 87, 0.1)' },
-  empty: { label: '-', color: 'var(--color-text-muted)', bg: 'transparent' },
-};
+// Alias local vers le dictionnaire centralisé
+const STATUS_DISPLAY = BULLETIN_STATUS_META;
 const VIRTUAL_ROW_HEIGHT = 42;
 const VIRTUAL_OVERSCAN = 8;
 
@@ -67,6 +64,8 @@ export const BulletinsPage: React.FC = () => {
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [generatingOne, setGeneratingOne] = useState(false);
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
@@ -175,6 +174,7 @@ export const BulletinsPage: React.FC = () => {
         return;
       }
 
+      setLoadError(null);
       try {
         const [classRows, periodRows, subjectRows] = await Promise.all([
           classService.getByYear(activeYear.id),
@@ -198,7 +198,7 @@ export const BulletinsPage: React.FC = () => {
         setActiveSubjectId((prev) => prev ?? hggsp?.id ?? mappedSubjects[0]?.id ?? null);
       } catch (error) {
         console.error('[BulletinsPage] Erreur chargement contexte:', error);
-        if (!cancelled) addToast('error', 'Impossible de charger classes/périodes');
+        if (!cancelled) setLoadError('Impossible de charger les classes et périodes.');
       }
     };
 
@@ -206,7 +206,7 @@ export const BulletinsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeYear, addToast]);
+  }, [activeYear, addToast, loadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -229,7 +229,7 @@ export const BulletinsPage: React.FC = () => {
         console.error('[BulletinsPage] Erreur chargement élèves/bulletins:', error);
         if (!cancelled) {
           setRows([]);
-          addToast('error', 'Impossible de charger les bulletins');
+          setLoadError('Impossible de charger les bulletins de la classe.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -240,7 +240,7 @@ export const BulletinsPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [activeClassId, periods, addToast, reloadRowsForClass]);
+  }, [activeClassId, periods, addToast, reloadRowsForClass, loadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -535,6 +535,13 @@ export const BulletinsPage: React.FC = () => {
           <span className="bulletins-page__summary-item" style={{ color: 'var(--color-text-muted)' }}>- {statusCounts.draft + statusCounts.empty} restants</span>
         </div>
       </div>
+
+      {loadError && (
+        <PanelError
+          message={loadError}
+          onRetry={() => { setLoadError(null); setLoadKey((k) => k + 1); }}
+        />
+      )}
 
       <div className="bulletins-page__body">
         <div

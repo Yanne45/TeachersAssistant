@@ -29,6 +29,7 @@ import { CalendrierScolairePage } from './pages/planning/CalendrierScolairePage'
 import { SequenceDetailPage } from './pages/preparation/SequenceDetailPage';
 import { BibliothequePage } from './pages/preparation/BibliothequePage';
 import { GenerateurIAPage } from './pages/preparation/GenerateurIAPage';
+import { AIUsagePage } from './pages/preparation/AIUsagePage';
 import { CahierDeTextesPage } from './pages/cahier/CahierDeTextesPage';
 import { CorrectionSeriePage } from './pages/evaluation/CorrectionSeriePage';
 import { BilanDevoirPage } from './pages/evaluation/BilanDevoirPage';
@@ -66,6 +67,7 @@ function PageResolver() {
       case 'importer':      return <BibliothequePage />;
       case 'ia-generer':    return <GenerateurIAPage />;
       case 'ia-historique': return <GenerateurIAPage />;
+      case 'ia-couts':      return <AIUsagePage />;
       default:              return <SequenceDetailPage />;
     }
   }

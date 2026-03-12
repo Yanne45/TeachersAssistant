@@ -153,6 +153,22 @@ export const reportPeriodService = {
       [yearId, code, label, startDate, endDate, order]
     );
   },
+
+  async update(id: ID, data: { label?: string; code?: string; start_date?: string; end_date?: string }): Promise<void> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      fields.push(`${key} = ?`);
+      values.push(val);
+    }
+    if (fields.length === 0) return;
+    values.push(id);
+    await db.execute(`UPDATE report_periods SET ${fields.join(', ')} WHERE id = ?`, values);
+  },
+
+  async delete(id: ID): Promise<void> {
+    await db.execute('DELETE FROM report_periods WHERE id = ?', [id]);
+  },
 };
 
 // ── Profil période ──

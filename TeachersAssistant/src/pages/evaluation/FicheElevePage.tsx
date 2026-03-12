@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Badge, Button, SegmentedBar, Tabs, EmptyState } from '../../components/ui';
+import { Card, Badge, Button, SegmentedBar, Tabs, EmptyState, PanelError } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
 import {
   aiGenerationService,
@@ -157,6 +157,8 @@ export const FicheElevePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('skills');
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadKey, setLoadKey] = useState(0);
   const [student, setStudent] = useState<any | null>(null);
   const [skillEvolution, setSkillEvolution] = useState<SkillEvolution[]>([]);
   const [grades, setGrades] = useState<GradeRow[]>([]);
@@ -400,6 +402,7 @@ export const FicheElevePage: React.FC = () => {
       }
 
       setLoading(true);
+      setLoadError(null);
       try {
         const [studentData, evolutionData, gradeRows, periodRows, correctionRows] = await Promise.all([
           loadStudent(studentId),
@@ -431,6 +434,7 @@ export const FicheElevePage: React.FC = () => {
         setCorrections(correctionRows);
       } catch (error) {
         console.error('[FicheElevePage] Erreur chargement:', error);
+        if (!cancelled) setLoadError('Impossible de charger les données de l\'élève.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -441,7 +445,7 @@ export const FicheElevePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [studentId, activeYear, loadSkillEvolution, loadStudent, getRecentGradesCached, getCorrectionsCached]);
+  }, [studentId, activeYear, loadSkillEvolution, loadStudent, getRecentGradesCached, getCorrectionsCached, loadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -690,6 +694,17 @@ export const FicheElevePage: React.FC = () => {
 
   if (loading) {
     return <p style={{ padding: 20, color: 'var(--color-text-muted)', fontSize: 13 }}>Chargement...</p>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="fiche-eleve" style={{ padding: 20 }}>
+        <PanelError
+          message={loadError}
+          onRetry={() => { setLoadError(null); setLoadKey((k) => k + 1); }}
+        />
+      </div>
+    );
   }
 
   if (!studentId) {

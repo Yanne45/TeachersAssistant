@@ -128,3 +128,24 @@
   font-size: 10px;
   white-space: nowrap;
 }
+
+.period-row__edit-btn,
+.period-row__del-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+.period-row:hover .period-row__edit-btn,
+.period-row:hover .period-row__del-btn {
+  opacity: 1;
+}
+.period-row__del-btn {
+  color: var(--color-danger);
+  font-size: 14px;
+  font-weight: bold;
+}

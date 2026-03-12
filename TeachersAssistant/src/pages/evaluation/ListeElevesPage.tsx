@@ -5,42 +5,47 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { EmptyState } from '../../components/ui';
 import { useApp, useData, useRouter } from '../../stores';
-import { csvImportService, studentService } from '../../services';
-import { MOCK_STUDENTS } from '../../stores/mockData';
+import { classService, csvImportService, studentService } from '../../services';
 import { EleveForm, ImportElevesModal } from '../../components/forms';
 import './ListeElevesPage.css';
 
-const CLASSES = [
-  { id: 1, key: 'tle2', label: 'Terminale 2', count: 28 },
-  { id: 2, key: 'tle4', label: 'Terminale 4', count: 30 },
-  { id: 3, key: '1ere3', label: 'Première 3', count: 32 },
-];
-
 export const ListeElevesPage: React.FC = () => {
-  const { addToast } = useApp();
+  const { activeYear, addToast } = useApp();
   const { loadStudents } = useData();
   const { setPage, setEntity } = useRouter();
+  const [classes, setClasses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeClassId, setActiveClassId] = useState(1);
+  const [activeClassId, setActiveClassId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'avg'>('name');
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
+  useEffect(() => {
+    if (!activeYear) return;
+    classService.getByYear(activeYear.id).then((data) => {
+      setClasses(data);
+      if (data.length > 0 && activeClassId === null) {
+        setActiveClassId(data[0]?.id ?? null);
+      }
+    }).catch(() => setClasses([]));
+  }, [activeYear, activeClassId]);
+
   const refreshStudents = useCallback(async (classId: number) => {
     setLoading(true);
     const data = await loadStudents(classId);
-    setStudents(data.length > 0 ? data : MOCK_STUDENTS);
+    setStudents(data);
     setLoading(false);
   }, [loadStudents]);
 
   useEffect(() => {
+    if (activeClassId === null) return;
     let cancelled = false;
     setLoading(true);
     loadStudents(activeClassId).then(data => {
       if (cancelled) return;
-      setStudents(data.length > 0 ? data : MOCK_STUDENTS);
+      setStudents(data);
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [loadStudents, activeClassId]);
@@ -58,7 +63,7 @@ export const ListeElevesPage: React.FC = () => {
     ? (filtered.reduce((s, e) => s + (e.avg ?? 0), 0) / filtered.length).toFixed(1)
     : '—';
 
-  const activeClassName = CLASSES.find(c => c.id === activeClassId)?.label ?? '';
+  const activeClassName = classes.find((c: any) => c.id === activeClassId)?.name ?? classes.find((c: any) => c.id === activeClassId)?.label ?? '';
 
   return (
     <div className="eleves-page">
@@ -72,9 +77,9 @@ export const ListeElevesPage: React.FC = () => {
       </div>
 
       <div className="eleves-page__classes">
-        {CLASSES.map(c => (
+        {classes.map((c: any) => (
           <button key={c.id} className={`eleves-page__class-btn ${activeClassId === c.id ? 'eleves-page__class-btn--active' : ''}`} onClick={() => setActiveClassId(c.id)}>
-            {c.label} <span className="eleves-page__class-count">{c.count}</span>
+            {c.name ?? c.label ?? c.short_name}
           </button>
         ))}
         <div className="eleves-page__class-stats">Moyenne classe : <strong>{classAvg}</strong></div>
@@ -155,12 +160,12 @@ export const ListeElevesPage: React.FC = () => {
               notes: null,
             });
 
-            const effectiveClassIds = classIds.length > 0 ? classIds : [activeClassId];
+            const effectiveClassIds = classIds.length > 0 ? classIds : (activeClassId !== null ? [activeClassId] : []);
             for (const classId of effectiveClassIds) {
               await studentService.enroll(studentId, classId);
             }
 
-            await refreshStudents(activeClassId);
+            if (activeClassId !== null) await refreshStudents(activeClassId);
             addToast('success', 'Élève ajouté');
           } catch (error) {
             console.error('[ListeElevesPage] Erreur ajout élève:', error);
@@ -176,8 +181,8 @@ export const ListeElevesPage: React.FC = () => {
             birth_year: d.birth_year ? parseInt(d.birth_year) : undefined,
             gender: d.gender,
           }));
-          const result = await csvImportService.importStudents(students, activeClassId);
-          await refreshStudents(activeClassId);
+          const result = await csvImportService.importStudents(students, activeClassId ?? 0);
+          if (activeClassId !== null) await refreshStudents(activeClassId);
           addToast('success', `${result.imported} élève(s) importé(s), ${result.duplicates} doublon(s) ignoré(s)`);
         } catch (e) {
           console.error('Import CSV error:', e);

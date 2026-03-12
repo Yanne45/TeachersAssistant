@@ -45,3 +45,8 @@ export { Breadcrumb } from './Breadcrumb';
 export type { BreadcrumbProps, BreadcrumbItem } from './Breadcrumb';
 
 export { PromptVariablePicker } from './PromptVariablePicker';
+
+export { PanelError } from './PanelError';
+export type { PanelErrorProps } from './PanelError';
+
+export { VoiceInput } from './VoiceInput';
