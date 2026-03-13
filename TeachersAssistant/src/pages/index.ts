@@ -28,6 +28,7 @@ export { FicheElevePage } from './evaluation/FicheElevePage';
 export { ListeDevoirsPage } from './evaluation/ListeDevoirsPage';
 export { ListeElevesPage } from './evaluation/ListeElevesPage';
 export { BulletinsPage } from './evaluation/BulletinsPage';
+export { GrandOralPage } from './evaluation/GrandOralPage';
 
 // Recherche
 export { RechercheGlobalePage } from './search/RechercheGlobalePage';

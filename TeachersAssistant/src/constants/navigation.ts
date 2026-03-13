@@ -133,6 +133,8 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'eval-sep-eleves',    label: 'ÉLÈVES',                  isSection: true },
     { id: 'eval-par-classe',    label: 'Par classe',              page: 'eleves',           indent: 1, icon: '👥' },
     { id: 'eval-fiche',         label: 'Fiche élève',             page: 'fiche-eleve',      indent: 1 },
+    { id: 'eval-sep-grand-oral', label: 'GRAND ORAL',              isSection: true },
+    { id: 'eval-grand-oral',    label: 'Suivi Grand Oral',        page: 'grand-oral',       indent: 1, icon: '🎤' },
     { id: 'eval-sep-bulletins', label: 'BULLETINS',               isSection: true },
     { id: 'eval-bulletins',     label: 'Gestion bulletins',       page: 'bulletins',        indent: 1, icon: '📄' },
   ],

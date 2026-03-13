@@ -278,6 +278,23 @@
   margin-top: 12px;
 }
 
+.ia-gen__result-toolbar {
+  display: flex; gap: 2px; margin-bottom: 10px;
+  border: 1px solid var(--color-border); border-radius: 10px;
+  overflow: hidden; width: fit-content;
+}
+
+.ia-gen__render-toggle {
+  padding: 3px 10px; font-size: 11px; font-weight: 600;
+  border: none; cursor: pointer;
+  background: var(--color-bg); color: var(--color-text-muted);
+  transition: all 0.15s;
+}
+.ia-gen__render-toggle--active {
+  background: rgba(61, 180, 198, 0.15); color: var(--color-primary);
+}
+.ia-gen__render-toggle:hover { background: rgba(61, 180, 198, 0.08); }
+
 .ia-gen__result-text {
   font-size: 13px;
   line-height: 1.65;
@@ -287,6 +304,27 @@
   max-height: 500px;
   overflow-y: auto;
   margin: 0 0 14px;
+}
+
+.ia-gen__result-rendered {
+  font-size: 13px; line-height: 1.7; color: var(--color-text);
+  max-height: 500px; overflow-y: auto; margin: 0 0 14px;
+}
+.ia-gen__result-rendered h2 { font-size: 15px; font-weight: 700; color: var(--color-primary); margin: 16px 0 6px; }
+.ia-gen__result-rendered h3 { font-size: 14px; font-weight: 700; margin: 12px 0 4px; }
+.ia-gen__result-rendered h4 { font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
+.ia-gen__result-rendered h5 { font-size: 12px; font-weight: 700; margin: 8px 0 4px; }
+.ia-gen__result-rendered p { margin: 4px 0; }
+.ia-gen__result-rendered ul, .ia-gen__result-rendered ol { margin: 6px 0; padding-left: 22px; }
+.ia-gen__result-rendered li { margin: 2px 0; }
+.ia-gen__result-rendered strong { color: var(--color-primary); }
+.ia-gen__result-rendered code {
+  background: var(--color-bg); padding: 1px 4px; border-radius: 3px; font-size: 12px;
+}
+.ia-gen__result-rendered .md-code {
+  background: var(--color-bg); padding: 10px; border-radius: var(--radius-xs);
+  font-size: 12px; overflow-x: auto; border: var(--border-default);
+  white-space: pre-wrap; font-family: 'Consolas', 'Monaco', monospace;
 }
 
 .ia-gen__result-actions {
@@ -640,8 +678,11 @@
   border-radius: var(--radius-xs);
   padding: 10px 12px;
   color: var(--color-text);
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
+  width: 100%;
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .ia-gen__prompt-layer-text--system {

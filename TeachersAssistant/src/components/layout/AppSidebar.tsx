@@ -4,7 +4,7 @@
 // Supporte les sections dépliables (collapsible) pour le tab Bibliothèque.
 // ============================================================================
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from '../../stores';
 import { SIDEBAR_MENUS, findActiveSidebarItem } from '../../constants/navigation';
 import { useBibliothequeSidebar } from '../../hooks';
@@ -23,18 +23,27 @@ export const AppSidebar: React.FC<Props> = ({ tab }) => {
   // Use dynamic items for bibliotheque, static for others
   const items = tab === 'bibliotheque' ? bibItems : SIDEBAR_MENUS[tab];
 
-  // Build initial collapsed state from collapsible sections AND sub-items
-  const initialCollapsed = useMemo(() => {
+  // Build collapsed state from items. Recompute when items change (async dynamic load).
+  const computeCollapsed = useCallback((itemList: SidebarItem[]) => {
     const set = new Set<string>();
-    for (const item of items) {
+    for (const item of itemList) {
       if (item.collapsible && !item.defaultOpen) {
         set.add(item.id);
       }
     }
     return set;
-  }, [items]);
+  }, []);
 
-  const [collapsed, setCollapsed] = useState<Set<string>>(initialCollapsed);
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => computeCollapsed(items));
+
+  // Reset collapsed state when items change (e.g. dynamic sidebar items loaded async)
+  const prevItemsRef = useRef(items);
+  useEffect(() => {
+    if (prevItemsRef.current !== items) {
+      prevItemsRef.current = items;
+      setCollapsed(computeCollapsed(items));
+    }
+  }, [items, computeCollapsed]);
 
   // Transitive closure: if a parent is collapsed, children are effectively hidden too
   const effectiveCollapsed = useMemo(() => {

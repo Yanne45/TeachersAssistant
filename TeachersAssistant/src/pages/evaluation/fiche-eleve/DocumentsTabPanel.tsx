@@ -1,30 +1,8 @@
 import React from 'react';
 import { Card, Badge, Button, EmptyState } from '../../../components/ui';
+import { toPreviewSrc } from '../../../services';
 import type { StudentDocumentRow } from './types';
 import '../FicheElevePage.css';
-
-function toPreviewSrc(filePath: string): string {
-  const trimmed = filePath.trim();
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('file://')
-  ) {
-    return trimmed;
-  }
-
-  if (/^[A-Za-z]:\\/.test(trimmed)) {
-    return `file:///${trimmed.replace(/\\/g, '/')}`;
-  }
-
-  if (trimmed.startsWith('/')) {
-    return `file://${trimmed}`;
-  }
-
-  return trimmed;
-}
 
 interface DocumentsTabPanelProps {
   periods: Array<{ id: number; label: string }>;
@@ -82,7 +60,7 @@ export const DocumentsTabPanel: React.FC<DocumentsTabPanelProps> = ({
                     <Button
                       variant="secondary"
                       size="S"
-                      onClick={() => window.open(toPreviewSrc(doc.file_path), '_blank', 'noopener,noreferrer')}
+                      onClick={() => void toPreviewSrc(doc.file_path).then(url => window.open(url, '_blank', 'noopener,noreferrer'))}
                     >
                       Ouvrir
                     </Button>

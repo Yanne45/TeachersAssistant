@@ -4,9 +4,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { skillService } from '../../services';
+import type { Skill } from '../../types';
 import './forms.css';
 
-interface SeanceFormData {
+export interface SeanceFormData {
   title: string;
   session_number: string;
   duration_minutes: string;
@@ -15,12 +17,13 @@ interface SeanceFormData {
   objectives: string;
   activities: string;
   lesson_plan: string;
+  skill_ids: string[];
 }
 
 const EMPTY: SeanceFormData = {
   title: '', session_number: '', duration_minutes: '120',
   session_date: '', status: 'planned', objectives: '',
-  activities: '', lesson_plan: '',
+  activities: '', lesson_plan: '', skill_ids: [],
 };
 
 interface Props {
@@ -29,11 +32,16 @@ interface Props {
   onSave: (data: SeanceFormData) => void;
   sequenceTitle?: string;
   initialData?: Partial<SeanceFormData>;
+  /** ID année active pour charger les capacités */
+  yearId?: number;
+  /** Filtre matière optionnel (pour ne montrer que les capacités de la matière de la séquence) */
+  subjectId?: number;
 }
 
-export const SeanceForm: React.FC<Props> = ({ open, onClose, onSave, sequenceTitle, initialData }) => {
+export const SeanceForm: React.FC<Props> = ({ open, onClose, onSave, sequenceTitle, initialData, yearId, subjectId }) => {
   const [form, setForm] = useState<SeanceFormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof SeanceFormData, string>>>({});
+  const [skills, setSkills] = useState<Skill[]>([]);
 
   useEffect(() => {
     if (open) {
@@ -42,8 +50,29 @@ export const SeanceForm: React.FC<Props> = ({ open, onClose, onSave, sequenceTit
     }
   }, [open, initialData]);
 
+  // Load skills
+  useEffect(() => {
+    if (!open || !yearId) { setSkills([]); return; }
+    (async () => {
+      const allSkills = await skillService.getAll(yearId);
+      setSkills(subjectId
+        ? allSkills.filter(s => !s.subject_id || s.subject_id === subjectId)
+        : allSkills
+      );
+    })().catch(() => setSkills([]));
+  }, [open, yearId, subjectId]);
+
   const set = (field: keyof SeanceFormData, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
+
+  const toggleSkill = (id: string) => {
+    setForm(prev => ({
+      ...prev,
+      skill_ids: prev.skill_ids.includes(id)
+        ? prev.skill_ids.filter(v => v !== id)
+        : [...prev.skill_ids, id],
+    }));
+  };
 
   const validate = (): boolean => {
     const errs: typeof errors = {};
@@ -130,6 +159,27 @@ export const SeanceForm: React.FC<Props> = ({ open, onClose, onSave, sequenceTit
           <label className="form__label">Déroulé <span className="form__label-hint">(étapes numérotées)</span></label>
           <textarea className="form__textarea" rows={5} value={form.lesson_plan} onChange={e => set('lesson_plan', e.target.value)} placeholder="1. Accroche (10 min)&#10;2. Cours dialogué (30 min)&#10;3. Travail en groupe (40 min)&#10;4. Trace écrite (10 min)" />
         </div>
+
+        {skills.length > 0 && (
+          <>
+            <hr className="form__separator" style={{ gridColumn: '1 / -1' }} />
+            <div className="form__field form__field--full">
+              <label className="form__label">Capacités travaillées</label>
+              <div className="form__badge-select">
+                {skills.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`form__badge-option ${form.skill_ids.includes(String(s.id)) ? 'form__badge-option--selected' : ''}`}
+                    onClick={() => toggleSkill(String(s.id))}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </Drawer>
   );

@@ -29,3 +29,6 @@ export type { ToastData, CorrectionShortcutHandlers } from './useUI';
 export { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from './useDevTelemetry';
 
 export { useBibliothequeSidebar } from './useBibliothequeSidebar';
+
+export { useScreenAITasks, AI_SCREEN } from './useScreenAITasks';
+export type { AIScreenCode, ScreenAIContext, ScreenAITaskAction } from './useScreenAITasks';

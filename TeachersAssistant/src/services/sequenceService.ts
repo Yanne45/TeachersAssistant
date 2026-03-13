@@ -151,6 +151,26 @@ export const sequenceService = {
     });
   },
 
+  /** Lier des capacités à une séquence */
+  async getSkillIds(sequenceId: ID): Promise<ID[]> {
+    const rows = await db.select<{ skill_id: ID }[]>(
+      'SELECT skill_id FROM sequence_skills WHERE sequence_id = ?', [sequenceId]
+    );
+    return rows.map(r => r.skill_id);
+  },
+
+  async setSkills(sequenceId: ID, skillIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute('DELETE FROM sequence_skills WHERE sequence_id = ?', [sequenceId]);
+      for (const skillId of skillIds) {
+        await db.execute(
+          'INSERT INTO sequence_skills (sequence_id, skill_id) VALUES (?, ?)',
+          [sequenceId, skillId]
+        );
+      }
+    });
+  },
+
   /** Sauvegarder comme template */
   async saveAsTemplate(id: ID): Promise<ID> {
     const seq = await this.getById(id);
@@ -257,6 +277,26 @@ export const sessionService = {
       status: 'planned',
       source: 'duplicate',
       sort_order: session.sort_order + 1,
+    });
+  },
+
+  /** Lier des capacités à une séance */
+  async getSkillIds(sessionId: ID): Promise<ID[]> {
+    const rows = await db.select<{ skill_id: ID }[]>(
+      'SELECT skill_id FROM session_skills WHERE session_id = ?', [sessionId]
+    );
+    return rows.map(r => r.skill_id);
+  },
+
+  async setSkills(sessionId: ID, skillIds: ID[]): Promise<void> {
+    await db.transaction(async () => {
+      await db.execute('DELETE FROM session_skills WHERE session_id = ?', [sessionId]);
+      for (const skillId of skillIds) {
+        await db.execute(
+          'INSERT INTO session_skills (session_id, skill_id) VALUES (?, ?)',
+          [sessionId, skillId]
+        );
+      }
     });
   },
 };

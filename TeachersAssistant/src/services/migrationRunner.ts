@@ -37,6 +37,10 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '017_competencies.sql', url: '/db/017_competencies.sql' },
   { filename: '018_skill_descriptors.sql', url: '/db/018_skill_descriptors.sql' },
   { filename: '019_rubric_templates.sql', url: '/db/019_rubric_templates.sql' },
+  { filename: '020_ai_new_tasks.sql', url: '/db/020_ai_new_tasks.sql' },
+  { filename: '021_embeddings.sql', url: '/db/021_embeddings.sql' },
+  { filename: '022_grand_oral.sql', url: '/db/022_grand_oral.sql' },
+  { filename: '023_ai_task_screens.sql', url: '/db/023_ai_task_screens.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──

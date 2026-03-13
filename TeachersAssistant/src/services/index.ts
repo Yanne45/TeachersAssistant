@@ -4,7 +4,7 @@
 
 export { db, openDatabase, createDatabase, closeDatabase, getCurrentPath, isOpen } from './db';
 export { runMigrations } from './migrationRunner';
-export { workspaceService } from './workspaceService';
+export { workspaceService, toRelativePath, resolveDocPath, toPreviewSrc } from './workspaceService';
 
 // Cadre annuel
 export {
@@ -114,7 +114,10 @@ export {
   programJsonService,
   templateExportService,
   pdfExportService,
+  aiExportService,
+  markdownToHTML,
   backupService2,
+  syncService,
   downloadBlob,
 } from './importExportService';
 export type { CSVStudent } from './importExportService';
@@ -137,6 +140,9 @@ export { generateNotifications } from './notificationEngine';
 // Global search
 export { searchService } from './searchService';
 export type { SearchResult } from './searchService';
+
+// Embedding / recherche vectorielle
+export { embeddingService } from './embeddingService';
 
 // Google Calendar
 export { googleCalendarService } from './googleCalendarService';

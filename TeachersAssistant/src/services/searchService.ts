@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { db } from './db';
+import { embeddingService } from './embeddingService';
 
 export interface SearchResult {
   id: number;
@@ -415,5 +416,15 @@ export const searchService = {
     filtered.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
 
     return filtered.slice(0, limit);
+  },
+
+  /**
+   * Recherche vectorielle par embeddings.
+   * Génère l'embedding de la requête, puis compare avec les vecteurs en base.
+   * Score = similarité cosinus (0-100).
+   * Nécessite un index préalable (embeddingService.indexAll).
+   */
+  async vectorSearch(query: string, limit = 30): Promise<SearchResult[]> {
+    return embeddingService.search(query, limit);
   },
 };

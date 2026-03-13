@@ -1,0 +1,231 @@
+/* ============================================================================
+   GrandOralPage — Module Grand Oral
+   ============================================================================ */
+
+.go-page {
+  display: flex; gap: var(--space-4); height: 100%;
+}
+
+/* ── Left panel: list ── */
+
+.go-page__list {
+  width: 360px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border-right: var(--border-default);
+  overflow-y: auto;
+}
+
+.go-page__list-header {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-default);
+}
+
+.go-page__title {
+  font-size: 16px; font-weight: 700; margin: 0 0 var(--space-2);
+}
+
+.go-page__filters {
+  display: flex; gap: var(--space-2);
+}
+
+.go-page__filter-select {
+  flex: 1; padding: 4px 8px; font-size: 11px;
+  border: var(--border-default); border-radius: var(--radius-xs);
+  background: var(--color-surface);
+}
+
+.go-page__loading {
+  padding: var(--space-6); text-align: center;
+  color: var(--color-text-muted); font-size: 13px;
+}
+
+.go-page__question-list {
+  flex: 1; overflow-y: auto;
+}
+
+.go-page__question-item {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-default);
+  cursor: pointer; transition: background 0.15s;
+}
+.go-page__question-item:hover { background: var(--color-bg); }
+.go-page__question-item--active { background: rgba(61, 180, 198, 0.08); border-left: 3px solid var(--color-primary); }
+
+.go-page__question-item-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 2px;
+}
+
+.go-page__student-name { font-size: 12px; font-weight: 600; }
+
+.go-page__question-title {
+  font-size: 13px; color: var(--color-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.go-page__question-meta {
+  display: flex; gap: var(--space-2); font-size: 10px;
+  color: var(--color-text-muted); margin-top: 4px;
+}
+
+/* ── Right panel: detail ── */
+
+.go-page__detail {
+  flex: 1; overflow-y: auto; padding: var(--space-4);
+}
+
+.go-page__empty-detail {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; height: 300px;
+  color: var(--color-text-muted); font-size: 14px;
+}
+
+.go-page__detail-header {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: var(--space-4);
+}
+
+.go-page__detail-title {
+  font-size: 16px; font-weight: 700; margin: 0 0 4px;
+}
+
+.go-page__detail-meta {
+  font-size: 12px; color: var(--color-text-muted);
+}
+
+.go-page__section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  color: var(--color-text-muted); letter-spacing: 0.5px;
+  margin-bottom: var(--space-1);
+}
+
+.go-page__plan-text {
+  font-size: 12px; white-space: pre-wrap; font-family: inherit;
+  line-height: 1.6; margin: 0;
+}
+
+/* ── Sections ── */
+
+.go-page__section {
+  margin-top: var(--space-4);
+}
+
+.go-page__section-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.go-page__section-header h4 {
+  font-size: 13px; font-weight: 700; margin: 0;
+}
+
+/* ── Passages ── */
+
+.go-page__passage-card {
+  margin-bottom: var(--space-2);
+}
+
+.go-page__passage-header {
+  display: flex; gap: var(--space-3); align-items: center;
+  font-size: 12px; font-weight: 600; margin-bottom: 4px;
+}
+
+.go-page__passage-scores {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px;
+}
+
+.go-page__score-chip {
+  font-size: 10px; padding: 1px 6px;
+  background: var(--color-bg); border-radius: 8px;
+  color: var(--color-text-muted);
+}
+
+.go-page__passage-comment { font-size: 12px; margin: 4px 0 0; }
+.go-page__passage-strengths { font-size: 11px; color: var(--color-success); margin: 2px 0 0; }
+.go-page__passage-improvements { font-size: 11px; color: var(--color-warning); margin: 2px 0 0; }
+
+/* ── Jury questions ── */
+
+.go-page__jury-item {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface); border: var(--border-default);
+  border-radius: var(--radius-xs); margin-bottom: var(--space-1);
+  font-size: 12px;
+}
+
+.go-page__jury-content { flex: 1; }
+
+.go-page__jury-category {
+  display: inline-block; font-size: 9px; font-weight: 600;
+  padding: 1px 5px; border-radius: 6px;
+  background: var(--color-bg); color: var(--color-text-muted);
+  margin-right: 6px; text-transform: capitalize;
+}
+
+.go-page__jury-delete {
+  width: 20px; height: 20px; border: none; background: none;
+  cursor: pointer; color: var(--color-text-muted); font-size: 11px;
+  border-radius: 50%; flex-shrink: 0;
+}
+.go-page__jury-delete:hover { background: var(--color-danger); color: white; }
+
+/* ── Forms ── */
+
+.go-page__edit-form,
+.go-page__passage-form,
+.go-page__jury-form {
+  padding: var(--space-3);
+}
+
+.go-page__form-field {
+  margin-bottom: var(--space-2);
+}
+
+.go-page__form-field label {
+  display: block; font-size: 11px; font-weight: 600;
+  color: var(--color-text-muted); margin-bottom: 2px;
+}
+
+.go-page__form-field input,
+.go-page__form-field textarea,
+.go-page__form-field select {
+  width: 100%; padding: 6px 8px; font-size: 12px;
+  border: var(--border-default); border-radius: var(--radius-xs);
+  background: var(--color-surface); font-family: inherit;
+}
+
+.go-page__form-field textarea { resize: vertical; }
+
+.go-page__form-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--space-2);
+}
+
+.go-page__form-actions {
+  display: flex; gap: var(--space-2); margin-top: var(--space-3);
+}
+
+/* ── Buttons ── */
+
+.go-page__btn {
+  padding: 6px 14px; font-size: 12px; font-weight: 600;
+  border-radius: var(--radius-xs); cursor: pointer; border: none;
+}
+
+.go-page__btn--primary {
+  background: var(--color-primary); color: white;
+}
+.go-page__btn--primary:hover { opacity: 0.9; }
+
+.go-page__btn--secondary {
+  background: var(--color-bg); color: var(--color-text);
+  border: var(--border-default);
+}
+
+.go-page__btn--small {
+  padding: 3px 10px; font-size: 11px;
+  background: var(--color-bg); color: var(--color-text-muted);
+  border: var(--border-default);
+}
+.go-page__btn--small:hover { border-color: var(--color-primary); color: var(--color-primary); }

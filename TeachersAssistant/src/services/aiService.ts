@@ -12,7 +12,7 @@ export interface AITask {
   id: ID; code: string; label: string; description: string;
   category: string; icon: string; system_prompt: string; default_template: string;
   output_format: string; default_params: string; is_active: number; sort_order: number;
-  is_custom: number;
+  is_custom: number; target_screens: string;
 }
 
 export interface AITaskVariable {
@@ -45,6 +45,12 @@ export interface AIGenerationRequest {
   documentIds?: ID[];
   /** Texte brut extrait de fichiers joints ad-hoc (non enregistrés dans la bibliothèque) */
   rawDocumentContexts?: string[];
+  /** Override du modèle pour cette génération (sinon utilise le modèle global) */
+  modelOverride?: string;
+  /** Prompt système custom (bypass le template de la tâche) */
+  customSystemPrompt?: string;
+  /** Prompt utilisateur custom (bypass le template de la tâche) */
+  customUserPrompt?: string;
 }
 
 export interface CorrectionAIResult {
@@ -65,8 +71,10 @@ type MessageContent = string | ContentPart[];
 
 /** Convert a local file path to a base64 data URL for vision APIs */
 export async function filePathToBase64DataUrl(filePath: string): Promise<string> {
+  const { resolveDocPath } = await import('./workspaceService');
+  const resolved = await resolveDocPath(filePath);
   const { readFile } = await import('@tauri-apps/plugin-fs');
-  const bytes = await readFile(filePath);
+  const bytes = await readFile(resolved);
   const ext = filePath.split('.').pop()?.toLowerCase() ?? '';
   const mime = ext === 'png' ? 'image/png'
     : ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg'
@@ -110,6 +118,12 @@ export const aiTaskService = {
   },
   async getByCode(code: string): Promise<AITask | null> {
     return db.selectOne("SELECT * FROM ai_tasks WHERE code = ?", [code]);
+  },
+  async getByScreen(screen: string): Promise<AITask[]> {
+    return db.select(
+      `SELECT * FROM ai_tasks WHERE is_active = 1 AND target_screens LIKE ? ORDER BY sort_order`,
+      [`%"${screen}"%`]
+    );
   },
   async getVariables(taskId: ID): Promise<AITaskVariable[]> {
     return db.select("SELECT * FROM ai_task_variables WHERE task_id = ? ORDER BY sort_order", [taskId]);
@@ -451,6 +465,11 @@ export const aiGenerationService = {
   async generate(request: AIGenerationRequest) {
     const startTime = Date.now();
     const { systemMessage, userMessage, task, snapshot } = await assemblePrompt(request);
+
+    // Support custom prompts (mode autonome: prompt édité par l'utilisateur)
+    const finalSystem = request.customSystemPrompt ?? systemMessage;
+    const finalUser = request.customUserPrompt ?? userMessage;
+
     const genId = await db.insert(
       "INSERT INTO ai_generations (task_id, subject_id, level_id, sequence_id, session_id, " +
       "context_entity_type, context_entity_id, system_prompt, full_prompt_snapshot, prompt_used, " +
@@ -459,7 +478,7 @@ export const aiGenerationService = {
       [task.id, request.subjectId ?? null, request.levelId ?? null,
        request.sequenceId ?? null, request.sessionId ?? null,
        request.contextEntityType ?? "", request.contextEntityId ?? null,
-       snapshot.system_prompt, snapshot.full_prompt, snapshot.full_prompt,
+       snapshot.system_prompt, snapshot.full_prompt, finalUser,
        snapshot.user_instructions, JSON.stringify(snapshot.params_applied), task.output_format]
     );
     if (request.documentIds?.length) {
@@ -469,9 +488,9 @@ export const aiGenerationService = {
     }
     try {
       const messages: ChatMessage[] = [];
-      if (systemMessage) messages.push({ role: "system", content: systemMessage });
-      messages.push({ role: "user", content: userMessage });
-      const result = await callChatAPI(messages);
+      if (finalSystem) messages.push({ role: "system", content: finalSystem });
+      messages.push({ role: "user", content: finalUser });
+      const result = await callChatAPI(messages, request.modelOverride);
       await db.execute(
         "UPDATE ai_generations SET raw_response = ?, processed_result = ?, output_content = ?, " +
         "model_used = ?, tokens_input = ?, tokens_output = ?, duration_ms = ?, " +
@@ -508,10 +527,40 @@ export const aiGenerationService = {
   async saveToLibrary(id: ID, title: string, subjectId?: ID): Promise<ID> {
     const gen: any = await this.getById(id);
     if (!gen) throw new Error("Generation introuvable");
+
+    // Map task_code → document_type code
+    const TASK_DOC_TYPE: Record<string, string> = {
+      generate_course: 'cours',
+      generate_fiche: 'fiche',
+      generate_exercise: 'sujet',
+      generate_correction: 'corrige',
+      generate_diaporama: 'diaporama',
+      generate_problematisation: 'cours',
+      convert_level: 'cours',
+      generate_croquis_legend: 'fiche',
+      generate_jury_questions: 'fiche',
+      evaluate_grand_oral: 'corrige',
+    };
+    const docTypeCode = TASK_DOC_TYPE[gen.task_code] ?? 'document';
+    const docType = await db.selectOne<any>(
+      "SELECT id FROM document_types WHERE code = ?", [docTypeCode]
+    );
+
     const docId = await db.insert(
-      "INSERT INTO documents (title, doc_type, source, subject_id, level_id, text_content, " +
-      "generated_from_ai_generation_id) VALUES (?, 'generated', 'ai', ?, ?, ?, ?)",
-      [title, subjectId ?? gen.subject_id, gen.level_id, gen.output_content, id]
+      "INSERT INTO documents (title, file_path, file_name, file_type, source, " +
+      "document_type_id, subject_id, level_id, extracted_text, " +
+      "generated_from_ai_generation_id) VALUES (?, ?, ?, ?, 'ai', ?, ?, ?, ?, ?)",
+      [
+        title,
+        `ai-generated/${id}.md`,
+        `${title.substring(0, 60)}.md`,
+        'md',
+        docType?.id ?? null,
+        subjectId ?? gen.subject_id ?? null,
+        gen.level_id ?? null,
+        gen.output_content,
+        id,
+      ]
     );
     await db.execute("UPDATE ai_generations SET is_saved = 1, updated_at = datetime('now') WHERE id = ?", [id]);
     return docId;
@@ -768,4 +817,68 @@ export async function smartCorrect(submissionId: ID, assignmentId: ID): Promise<
     contextEntityType: "submission", contextEntityId: submissionId,
   });
   return { queued: true, queueId };
+}
+
+// === EMBEDDING API ===
+
+/** Modèles d'embedding par défaut par fournisseur */
+const EMBEDDING_MODELS: Record<AIProvider, string> = {
+  openai: 'text-embedding-3-small',
+  mistral: 'mistral-embed',
+  anthropic: 'text-embedding-3-small', // Anthropic n'a pas d'API embedding — fallback OpenAI
+  local: 'nomic-embed-text',
+};
+
+export interface EmbeddingResponse {
+  embedding: number[];
+  model: string;
+  tokens: number;
+}
+
+/**
+ * Appelle l'API d'embedding du fournisseur configuré.
+ * Supporte OpenAI, Mistral et Ollama. Anthropic n'a pas d'endpoint embedding,
+ * donc si le provider est anthropic on tente via OpenAI.
+ */
+export async function callEmbeddingAPI(text: string, model?: string): Promise<EmbeddingResponse> {
+  const settings = await aiSettingsService.get();
+  let provider: AIProvider = (settings?.provider as AIProvider) || 'openai';
+
+  // Anthropic n'a pas d'API embedding — fallback sur OpenAI si une clé existe
+  if (provider === 'anthropic') provider = 'openai';
+
+  const modelName = model ?? EMBEDDING_MODELS[provider];
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+  if (provider === 'local') {
+    const baseUrl = (settings?.local_server_url || 'http://localhost:11434').replace(/\/$/, '');
+    // Ollama utilise /api/embed
+    const response = await fetch(baseUrl + '/api/embed', {
+      method: 'POST', headers,
+      body: JSON.stringify({ model: modelName, input: text }),
+    });
+    if (!response.ok) throw new Error('Embedding local erreur ' + response.status);
+    const data = await response.json();
+    const emb = data.embeddings?.[0] ?? data.embedding ?? [];
+    return { embedding: emb, model: modelName, tokens: 0 };
+  }
+
+  // OpenAI / Mistral — même format /v1/embeddings
+  const endpoint = provider === 'mistral'
+    ? 'https://api.mistral.ai/v1/embeddings'
+    : 'https://api.openai.com/v1/embeddings';
+  const apiKey = await getApiKey(provider);
+  headers['Authorization'] = 'Bearer ' + apiKey;
+
+  const response = await fetch(endpoint, {
+    method: 'POST', headers,
+    body: JSON.stringify({ model: modelName, input: text }),
+  });
+  if (!response.ok) throw new Error('Embedding API erreur ' + response.status + ': ' + await response.text());
+  const data = await response.json();
+  return {
+    embedding: data.data?.[0]?.embedding ?? [],
+    model: data.model ?? modelName,
+    tokens: data.usage?.total_tokens ?? 0,
+  };
 }

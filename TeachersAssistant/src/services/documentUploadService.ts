@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { assemblePrompt, getApiKey } from './aiService';
-import { workspaceService } from './workspaceService';
+import { workspaceService, toRelativePath, resolveDocPath } from './workspaceService';
 import type { ID } from '../types';
 
 // ── Types ──
@@ -196,8 +196,10 @@ export async function processFiles(
         classification.levelLabel,
         classification.subjectLabel,
       );
-      destPath = uniqueDestPath(docsDir, file.name);
-      await writeFileToDisk(file, destPath);
+      const absoluteDest = uniqueDestPath(docsDir, file.name);
+      await writeFileToDisk(file, absoluteDest);
+      // Stocker en chemin relatif pour portabilité
+      destPath = await toRelativePath(absoluteDest);
     } catch (err) {
       copyError = String(err);
     }
@@ -251,8 +253,9 @@ export function isImageFile(ext: string): boolean {
 
 export async function getFilePreviewUrl(filePath: string): Promise<string | null> {
   try {
+    const resolved = await resolveDocPath(filePath);
     const { convertFileSrc } = await import('@tauri-apps/api/core');
-    return convertFileSrc(filePath);
+    return convertFileSrc(resolved);
   } catch {
     return null;
   }

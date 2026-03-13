@@ -4,7 +4,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Button, Modal, ProgressBar } from '../ui';
-import { submissionService, workspaceService } from '../../services';
+import { submissionService, workspaceService, toRelativePath } from '../../services';
 import { matchFileToStudent, type MatchableStudent } from '../../utils/studentMatcher';
 import { extractTextFromFile } from '../../utils/textExtractor';
 import './BulkCopyImportModal.css';
@@ -78,14 +78,15 @@ export const BulkCopyImportModal: React.FC<Props> = ({ open, onClose, students, 
 
     for (const entry of toProcess) {
       const safeName = entry.file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\-. ]/g, '_').slice(0, 60);
-      const destPath = `${copiesDir}/${safeName}_${Date.now()}.${entry.ext}`;
+      const absoluteDest = `${copiesDir}/${safeName}_${Date.now()}.${entry.ext}`;
       const buffer = await entry.file.arrayBuffer();
-      await writeFile(destPath, new Uint8Array(buffer));
+      await writeFile(absoluteDest, new Uint8Array(buffer));
 
+      const relPath = await toRelativePath(absoluteDest);
       // Find the submission for this student
       const student = students.find((s) => s.id === entry.matchedStudentId);
       if (student) {
-        await submissionService.updateFilePath(student.id, destPath);
+        await submissionService.updateFilePath(student.id, relPath);
 
         const textContent = await extractTextFromFile(entry.file, entry.ext);
         if (textContent) {

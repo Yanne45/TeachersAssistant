@@ -62,7 +62,10 @@ export const TypesEvaluationSettings: React.FC = () => {
   }, [activeYear]);
 
   useEffect(() => {
-    void reload().catch(() => addToast('error', 'Impossible de charger les types'));
+    void reload().catch((err) => {
+      console.error('[TypesEvaluationSettings] reload error:', err);
+      addToast('error', 'Impossible de charger les types d\'évaluation');
+    });
   }, [reload, addToast]);
 
   const resetDraft = () => setDraft({ id: null, label: '', default_max_score: 20, linkedSkillIds: [], linkedCompetencyIds: [] });

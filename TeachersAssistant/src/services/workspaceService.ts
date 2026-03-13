@@ -21,6 +21,79 @@ import {
 const MAX_RECENTS = 10;
 const LS_KEY = 'ta_workspace_config';
 
+// ── Cache appDataDir pour résolution chemins relatifs ──
+
+let _appDataDirCache: string | null = null;
+
+async function getAppDataDirCached(): Promise<string> {
+  if (_appDataDirCache) return _appDataDirCache;
+  const { appDataDir } = await import('@tauri-apps/api/path');
+  _appDataDirCache = await appDataDir();
+  return _appDataDirCache;
+}
+
+/** Normalise un chemin en forward slashes pour comparaison */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+$/, '');
+}
+
+/**
+ * Convertit un chemin absolu en chemin relatif par rapport à appDataDir.
+ * Si le chemin n'est pas sous appDataDir, le retourne tel quel.
+ * Les chemins déjà relatifs sont retournés inchangés.
+ */
+export async function toRelativePath(absolutePath: string): Promise<string> {
+  if (!absolutePath) return absolutePath;
+  const norm = normalizePath(absolutePath);
+  // Déjà relatif (pas de lettre de lecteur ni de /)
+  if (!/^[A-Za-z]:/.test(norm) && !norm.startsWith('/')) return absolutePath;
+  const base = normalizePath(await getAppDataDirCached());
+  if (norm.startsWith(base + '/')) {
+    return norm.slice(base.length + 1);
+  }
+  return absolutePath;
+}
+
+/**
+ * Résout un chemin relatif (stocké en DB) en chemin absolu via appDataDir.
+ * Les chemins déjà absolus sont retournés inchangés.
+ */
+export async function resolveDocPath(relativePath: string): Promise<string> {
+  if (!relativePath) return relativePath;
+  const norm = normalizePath(relativePath);
+  // Déjà absolu
+  if (/^[A-Za-z]:/.test(norm) || norm.startsWith('/')) return relativePath;
+  const { join } = await import('@tauri-apps/api/path');
+  return join(await getAppDataDirCached(), relativePath);
+}
+
+/**
+ * Convertit un chemin fichier (relatif ou absolu) en URL de prévisualisation.
+ * Gère aussi les URLs déjà formées (http, data, blob, file).
+ */
+export async function toPreviewSrc(filePath: string): Promise<string> {
+  const trimmed = filePath.trim();
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:') ||
+    trimmed.startsWith('file://')
+  ) {
+    return trimmed;
+  }
+  // Résoudre les chemins relatifs en absolus
+  const resolved = await resolveDocPath(trimmed);
+  const norm = normalizePath(resolved);
+  if (/^[A-Za-z]:/.test(norm)) {
+    return `file:///${norm}`;
+  }
+  if (norm.startsWith('/')) {
+    return `file://${norm}`;
+  }
+  return norm;
+}
+
 // ── localStorage fallback (fiable même si Tauri FS n'est pas prêt) ──
 
 function readLocalStorage(): WorkspaceConfig {

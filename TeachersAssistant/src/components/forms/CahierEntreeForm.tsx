@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { VoiceInput } from '../ui/VoiceInput';
 import { classService, subjectService, db } from '../../services';
 import type { ClassWithLevel } from '../../types/academic';
 import type { Subject } from '../../types/academic';
@@ -59,6 +60,9 @@ export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initi
 
   const set = (field: keyof CahierFormData, value: string) =>
     setForm(prev => ({ ...prev, [field]: value }));
+
+  const appendVoice = (field: keyof CahierFormData) => (text: string) =>
+    setForm(prev => ({ ...prev, [field]: prev[field] ? prev[field] + ' ' + text : text }));
 
   const validate = (): boolean => {
     const errs: typeof errors = {};
@@ -119,25 +123,25 @@ export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initi
         <hr className="form__separator" style={{ gridColumn: '1 / -1' }} />
 
         <div className="form__field form__field--full">
-          <label className="form__label">Titre / contenu du cours *</label>
+          <label className="form__label">Titre / contenu du cours * <VoiceInput onResult={appendVoice('title')} /></label>
           <input className={`form__input ${errors.title ? 'form__input--error' : ''}`} value={form.title} onChange={e => set('title', e.target.value)} placeholder="Ex : Introduction — Le monde bipolaire" />
           {errors.title && <span className="form__error">{errors.title}</span>}
         </div>
 
         <div className="form__field form__field--full">
-          <label className="form__label">Contenu détaillé</label>
+          <label className="form__label">Contenu détaillé <VoiceInput onResult={appendVoice('content')} /></label>
           <textarea className="form__textarea" rows={3} value={form.content} onChange={e => set('content', e.target.value)} placeholder="Résumé du cours réalisé…" />
         </div>
 
         <div className="form__field form__field--full">
-          <label className="form__label">Activités</label>
+          <label className="form__label">Activités <VoiceInput onResult={appendVoice('activities')} /></label>
           <textarea className="form__textarea" rows={2} value={form.activities} onChange={e => set('activities', e.target.value)} placeholder="Activités réalisées en classe…" />
         </div>
 
         <hr className="form__separator" style={{ gridColumn: '1 / -1' }} />
 
         <div className="form__field form__field--full">
-          <label className="form__label">📌 Devoirs à faire</label>
+          <label className="form__label">Devoirs à faire <VoiceInput onResult={appendVoice('homework')} /></label>
           <textarea className="form__textarea" rows={2} value={form.homework} onChange={e => set('homework', e.target.value)} placeholder="Travail à réaliser pour la prochaine séance…" />
         </div>
         <div className="form__field">

@@ -2,8 +2,9 @@
 // DevoirForm — Créer / Modifier un devoir (Drawer)
 // ============================================================================
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { AITaskButtons } from '../ui/AITaskButtons';
 import { useApp } from '../../stores';
 import {
   assignmentTypeService,
@@ -12,6 +13,8 @@ import {
   sequenceService,
   skillService,
 } from '../../services';
+import { useScreenAITasks, AI_SCREEN } from '../../hooks';
+import type { ScreenAIContext } from '../../hooks';
 import type { AssignmentType } from '../../services';
 import type { ClassWithLevel } from '../../types/academic';
 import type { Subject } from '../../types/academic';
@@ -62,6 +65,52 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [sequences, setSequences] = useState<SequenceWithDetails[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
+
+  // ── Declarative AI tasks for devoir form ──
+  const getDevoirAIContext = useCallback((): ScreenAIContext => {
+    const cls = classes.find(c => String(c.id) === form.class_id);
+    const sub = subjects.find(s => String(s.id) === form.subject_id);
+    const seq = sequences.find(s => String(s.id) === form.sequence_id);
+    const typ = assignmentTypes.find(t => String(t.id) === form.assignment_type_id);
+    const selectedSkills = skills.filter(s => form.skill_ids.includes(String(s.id)));
+    return {
+      variables: {
+        matiere: sub?.label ?? '',
+        niveau: cls?.level_label ?? cls?.name ?? '',
+        theme: seq?.title ?? '',
+        titre_devoir: form.title,
+        type_exercice: typ?.label ?? '',
+        consignes: form.instructions,
+        bareme: form.max_score,
+        competences: selectedSkills.map(s => s.label).join(', '),
+        sujet_texte: form.subject_extracted_text,
+      },
+      subjectId: form.subject_id ? Number(form.subject_id) : undefined,
+    };
+  }, [form, classes, subjects, sequences, assignmentTypes, skills]);
+
+  const { actions: devoirAIActions, generatingCode } = useScreenAITasks(AI_SCREEN.DEVOIR_FORM, getDevoirAIContext);
+
+  /** Handle AI result — page-specific post-processing */
+  const handleDevoirAIResult = useCallback((taskCode: string, result: any) => {
+    if ('queued' in result) return;
+    const content = String(result?.output_content ?? result?.processed_result ?? '').trim();
+    if (!content) return;
+
+    if (taskCode === 'generate_exam_subject') {
+      // Append generated subject to instructions
+      setForm(prev => ({
+        ...prev,
+        instructions: (prev.instructions ? prev.instructions + '\n\n' : '') + content,
+      }));
+    } else if (taskCode === 'generate_exam_answer') {
+      // Append correction to extracted text area
+      setForm(prev => ({
+        ...prev,
+        subject_extracted_text: (prev.subject_extracted_text ? prev.subject_extracted_text + '\n\n--- CORRIGÉ ---\n\n' : '') + content,
+      }));
+    }
+  }, []);
 
   // Load reference data when the drawer opens
   useEffect(() => {
@@ -244,6 +293,15 @@ export const DevoirForm: React.FC<Props> = ({ open, onClose, onSave, initialData
         <div className="form__field form__field--full">
           <label className="form__label">Consignes</label>
           <textarea className="form__textarea" rows={3} value={form.instructions} onChange={e => set('instructions', e.target.value)} placeholder="Consignes et sujet…" />
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <AITaskButtons
+              actions={devoirAIActions}
+              size="S"
+              disabled={generatingCode !== null || !form.assignment_type_id || !form.subject_id}
+              onResult={handleDevoirAIResult}
+              onError={(code, err) => console.error(`[DevoirForm] Erreur ${code}:`, err)}
+            />
+          </div>
         </div>
 
         <div className="form__field form__field--full">

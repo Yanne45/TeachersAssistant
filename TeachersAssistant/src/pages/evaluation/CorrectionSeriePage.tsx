@@ -12,8 +12,11 @@ import {
   smartGenerate,
   submissionService,
   workspaceService,
+  toRelativePath,
+  toPreviewSrc,
 } from '../../services';
-import { useCorrectionShortcuts, usePageLoadTelemetry, trackCacheHit, trackCacheMiss, useUnsavedGuard } from '../../hooks';
+import { useCorrectionShortcuts, usePageLoadTelemetry, trackCacheHit, trackCacheMiss, useUnsavedGuard, useScreenAITasks, AI_SCREEN } from '../../hooks';
+import type { ScreenAIContext } from '../../hooks';
 import { useApp, useData, useRouter } from '../../stores';
 import { SUBMISSION_STATUS_META } from '../../constants/statuses';
 import type { CorrectionAIResult } from '../../services';
@@ -62,29 +65,6 @@ const STATUS_ICONS: Record<StudentSubmission['status'], string> = {
 const VIRTUAL_STUDENT_ROW_HEIGHT = 36;
 const VIRTUAL_STUDENT_OVERSCAN = 8;
 
-function toPreviewSrc(filePath: string): string {
-  const trimmed = filePath.trim();
-  if (
-    trimmed.startsWith('http://') ||
-    trimmed.startsWith('https://') ||
-    trimmed.startsWith('data:') ||
-    trimmed.startsWith('blob:') ||
-    trimmed.startsWith('file://')
-  ) {
-    return trimmed;
-  }
-
-  if (/^[A-Za-z]:\\/.test(trimmed)) {
-    return `file:///${trimmed.replace(/\\/g, '/')}`;
-  }
-
-  if (trimmed.startsWith('/')) {
-    return `file://${trimmed}`;
-  }
-
-  return trimmed;
-}
-
 export const CorrectionSeriePage: React.FC = () => {
   const { addToast } = useApp();
   const { route, navigate } = useRouter();
@@ -130,6 +110,19 @@ export const CorrectionSeriePage: React.FC = () => {
 
   const assignmentIdRaw = Number.parseInt(String(route.entityId ?? ''), 10);
   const assignmentId = Number.isFinite(assignmentIdRaw) ? assignmentIdRaw : null;
+
+  // ── Declarative AI tasks for correction screen ──
+  const getCorrectionAIContext = useCallback((): ScreenAIContext => ({
+    variables: {
+      devoir_titre: assignment?.title ?? '',
+      matiere: assignment?.subject_label ?? '',
+      classe: assignment?.class_name ?? '',
+    },
+    contextEntityType: 'assignment',
+    contextEntityId: assignmentId ?? undefined,
+  }), [assignment, assignmentId]);
+
+  const { tasks: correctionAITasks, execute: executeAITask, generatingCode: aiGenerating } = useScreenAITasks(AI_SCREEN.CORRECTION_SERIE, getCorrectionAIContext);
 
   const clearAllCaches = useCallback(() => {
     assignmentSkillsCacheRef.current.clear();
@@ -221,9 +214,15 @@ export const CorrectionSeriePage: React.FC = () => {
   const skillLabels = useMemo(() => skills.map((s) => s.label), [skills]);
   const selected = useMemo(() => students.find((s) => s.id === selectedId) ?? null, [students, selectedId]);
 
+  const [previewUrl, setPreviewUrl] = useState('');
   useEffect(() => {
     setPreviewError(false);
-  }, [selectedId]);
+    if (selected?.filePath) {
+      void toPreviewSrc(selected.filePath).then(setPreviewUrl);
+    } else {
+      setPreviewUrl('');
+    }
+  }, [selectedId, selected?.filePath]);
 
   const updateSelectedStudent = (updater: (student: StudentSubmission) => StudentSubmission) => {
     if (selectedId === null) return;
@@ -557,11 +556,12 @@ export const CorrectionSeriePage: React.FC = () => {
 
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
         const safeName = file.name.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\-. ]/g, '_').slice(0, 60);
-        const destPath = `${copiesDir}/${safeName}_${Date.now()}.${ext}`;
+        const absoluteDest = `${copiesDir}/${safeName}_${Date.now()}.${ext}`;
         const buffer = await file.arrayBuffer();
-        await writeFile(destPath, new Uint8Array(buffer));
+        await writeFile(absoluteDest, new Uint8Array(buffer));
 
-        await submissionService.updateFilePath(selected.id, destPath);
+        const relPath = await toRelativePath(absoluteDest);
+        await submissionService.updateFilePath(selected.id, relPath);
 
         // Extract text for text-based formats
         const textContent = await extractTextFromFile(file, ext);
@@ -571,7 +571,7 @@ export const CorrectionSeriePage: React.FC = () => {
 
         updateSelectedStudent((s) => ({
           ...s,
-          filePath: destPath,
+          filePath: relPath,
           textContent,
           status: s.status === 'pending' ? 'to_confirm' : s.status,
         }));
@@ -613,6 +613,36 @@ export const CorrectionSeriePage: React.FC = () => {
       addToast('error', 'Échec génération feedback IA');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  /** Gère le résultat d'une tâche IA contextuelle (découverte via hook) */
+  const handleCorrectionAITask = async (taskCode: string) => {
+    if (!assignmentId || !assignment) return;
+    // Build task-specific extra variables
+    const extraVars: Record<string, string> = {};
+    if (taskCode === 'generate_class_report') {
+      const corrected = students.filter(s => s.score != null);
+      if (corrected.length < 3) {
+        addToast('warn', 'Au moins 3 copies corrigées requises pour un bilan classe');
+        return;
+      }
+      const statsBlock = corrected.map(s => `${s.name}: ${s.score}/${assignment.max_score ?? 20}`).join('\n');
+      const avg = (corrected.reduce((sum, s) => sum + (s.score ?? 0), 0) / corrected.length).toFixed(1);
+      extraVars.moyenne = `${avg}/${assignment.max_score ?? 20}`;
+      extraVars.nombre_copies = String(corrected.length);
+      extraVars.resultats_detailles = statsBlock;
+    }
+    try {
+      addToast('info', 'Génération IA en cours…');
+      const result = await executeAITask(taskCode, extraVars);
+      if ('queued' in result) {
+        addToast('info', 'Ajouté à la file d\'attente');
+        return;
+      }
+      addToast('success', `${taskCode} — voir Historique IA`);
+    } catch {
+      addToast('error', `Échec ${taskCode}`);
     }
   };
 
@@ -785,7 +815,7 @@ export const CorrectionSeriePage: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="S"
-                    onClick={() => window.open(toPreviewSrc(selected.filePath ?? ''), '_blank', 'noopener,noreferrer')}
+                    onClick={() => previewUrl && window.open(previewUrl, '_blank', 'noopener,noreferrer')}
                   >
                     Ouvrir
                   </Button>
@@ -800,7 +830,7 @@ export const CorrectionSeriePage: React.FC = () => {
                     key={previewKey}
                     className="correction-page__preview-frame"
                     title={`Copie ${selected.name}`}
-                    src={toPreviewSrc(selected.filePath)}
+                    src={previewUrl}
                     onError={() => {
                       console.error('[CorrectionSeriePage] Preview iframe error:', selected.filePath);
                       setPreviewError(true);
@@ -860,6 +890,15 @@ export const CorrectionSeriePage: React.FC = () => {
             { id: 'import-correction', label: 'Importer correction', icon: '📝', onClick: handleImportCorrection },
             { id: 'grille', label: 'Grille descriptive', icon: '📊', onClick: () => setGrilleModalOpen(true), disabled: !assignmentId, separator: true },
             { id: 'template', label: 'Template correction', icon: '📋', onClick: () => setTemplateModalOpen(true), disabled: !selected },
+            ...correctionAITasks
+              .filter(t => t.code !== 'analyze_submission') // already has dedicated button
+              .map((t, i) => ({
+                id: `ai-${t.code}`,
+                label: `${t.icon} ${t.label}`,
+                onClick: () => void handleCorrectionAITask(t.code),
+                disabled: aiGenerating !== null,
+                separator: i === 0,
+              })),
           ] as ActionMenuItem[]} />
           <Button variant="secondary" size="S" onClick={handleSave}>Sauvegarder</Button>
           <Button variant="primary" size="S" onClick={handleFinalize}>Finaliser</Button>

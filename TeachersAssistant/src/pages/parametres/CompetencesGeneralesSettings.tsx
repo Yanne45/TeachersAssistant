@@ -21,6 +21,12 @@ interface Draft {
   linkedSkillIds: number[];
 }
 
+interface CtxMenu {
+  x: number;
+  y: number;
+  competency: CompetencyWithSkills;
+}
+
 const DEFAULT_COLOR = '#6366f1';
 
 export const CompetencesGeneralesSettings: React.FC = () => {
@@ -30,6 +36,7 @@ export const CompetencesGeneralesSettings: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CompetencyWithSkills | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<CtxMenu | null>(null);
   const [draft, setDraft] = useState<Draft>({
     id: null,
     label: '',
@@ -96,6 +103,28 @@ export const CompetencesGeneralesSettings: React.FC = () => {
           : [...prev.linkedSkillIds, skillId],
       };
     });
+  };
+
+  // Context menu: close on outside click
+  useEffect(() => {
+    if (!ctxMenu) return;
+    const handler = () => setCtxMenu(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [ctxMenu]);
+
+  const handleCtxAddSkill = async (skillId: number) => {
+    if (!ctxMenu) return;
+    const comp = ctxMenu.competency;
+    const newIds = comp.linkedSkillIds.includes(skillId)
+      ? comp.linkedSkillIds
+      : [...comp.linkedSkillIds, skillId];
+    try {
+      await generalCompetencyService.setSkills(comp.id, newIds);
+      addToast('success', `Capacité ajoutée à « ${comp.label} »`);
+      await reload();
+    } catch { addToast('error', 'Échec'); }
+    setCtxMenu(null);
   };
 
   const handleSave = async () => {
@@ -210,7 +239,7 @@ export const CompetencesGeneralesSettings: React.FC = () => {
         ) : (
           <div className="capacites-grid">
             {competencies.map((comp) => (
-              <div key={comp.id} className="capacite-item">
+              <div key={comp.id} className="capacite-item" onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, competency: comp }); }}>
                 <div className="capacite-item__header">
                   <span
                     style={{
@@ -261,6 +290,36 @@ export const CompetencesGeneralesSettings: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {ctxMenu && (
+        <div className="settings-context-menu" style={{ top: ctxMenu.y, left: ctxMenu.x }} onClick={(e) => e.stopPropagation()}>
+          <button className="settings-context-menu__item" onClick={() => { void startEdit(ctxMenu.competency); setCtxMenu(null); }}>
+            Modifier
+          </button>
+          <div className="settings-context-menu__separator" />
+          {skills.filter(s => !ctxMenu.competency.linkedSkillIds.includes(s.id)).length > 0 ? (
+            <>
+              <div style={{ padding: '4px 12px', fontSize: 10, fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>
+                Ajouter une capacité
+              </div>
+              {skills.filter(s => !ctxMenu.competency.linkedSkillIds.includes(s.id)).slice(0, 10).map(s => (
+                <button key={s.id} className="settings-context-menu__item" onClick={() => void handleCtxAddSkill(s.id)}>
+                  + {s.label}
+                </button>
+              ))}
+              {skills.filter(s => !ctxMenu.competency.linkedSkillIds.includes(s.id)).length > 10 && (
+                <div style={{ padding: '4px 12px', fontSize: 10, color: 'var(--color-text-muted)' }}>
+                  … et {skills.filter(s => !ctxMenu.competency.linkedSkillIds.includes(s.id)).length - 10} autres (utiliser Modifier)
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ padding: '4px 12px', fontSize: 11, color: 'var(--color-text-muted)' }}>
+              Toutes les capacités sont déjà liées
+            </div>
+          )}
+        </div>
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}

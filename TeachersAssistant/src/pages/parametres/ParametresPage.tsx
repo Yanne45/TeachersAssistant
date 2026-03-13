@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Card, Button } from '../../components/ui';
-import { backupService2, downloadBlob, preferenceService } from '../../services';
+import { backupService2, syncService, downloadBlob, preferenceService } from '../../services';
 import { useApp, useRouter } from '../../stores';
 import { AITemplateEditorPage } from './AITemplateEditorPage';
 import { AnneeSettings, MatieresSettings, ExportPDFSettings, CapacitesSettings, PeriodesNotationSettings, TypesEvaluationSettings, CompetencesGeneralesSettings } from './SettingsSubPages';
@@ -132,7 +132,8 @@ export const ParametresPage: React.FC = () => {
       setImporting(true);
       try {
         const result = await backupService2.importZip(file);
-        addToast('success', 'Restauration : ' + result.tables + ' tables, ' + result.rows + ' lignes');
+        const msg = `Restauration : ${result.tables} tables, ${result.rows} lignes` + (result.files ? `, ${result.files} fichiers` : '');
+        addToast('success', msg);
       } catch (err) {
         addToast('error', 'Erreur lors de la restauration');
         console.error(err);
@@ -342,30 +343,165 @@ const CalendrierRedirect: React.FC<{ onBack: () => void; onGo: () => void }> = (
   );
 };
 
-/** Sauvegardes — export/import ZIP */
+/** Sauvegardes & Synchronisation */
 const SauvegardesSettings: React.FC<{
   onExportZip: () => void;
   onImportZip: () => void;
   exporting: boolean;
   importing: boolean;
-}> = ({ onExportZip, onImportZip, exporting, importing }) => (
-  <div className="settings-sub">
-    <Card className="settings-sub__card">
-      <h3 className="settings-sub__title">Sauvegardes</h3>
-      <p className="settings-sub__desc">
-        Exportez ou restaurez l'ensemble de vos données (base SQLite, paramètres, documents liés).
-      </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Button variant="primary" size="M" onClick={onExportZip} loading={exporting}>
-          {exporting ? 'Export en cours…' : 'Exporter sauvegarde ZIP'}
-        </Button>
-        <Button variant="secondary" size="M" onClick={onImportZip} loading={importing}>
-          {importing ? 'Restauration en cours…' : 'Restaurer depuis ZIP'}
-        </Button>
-      </div>
-    </Card>
-  </div>
-);
+}> = ({ onExportZip, onImportZip, exporting, importing }) => {
+  const { addToast } = useApp();
+  const [cloudFolder, setCloudFolder] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncStep, setSyncStep] = useState('');
+  const [newerAvailable, setNewerAvailable] = useState<{ filename: string | null; date: string | null } | null>(null);
+
+  // Charger la config sync
+  useEffect(() => {
+    void syncService.getCloudFolder().then(setCloudFolder);
+  }, []);
+
+  // Vérifier s'il y a un sync plus récent
+  useEffect(() => {
+    if (!cloudFolder) { setNewerAvailable(null); return; }
+    void syncService.checkForNewer().then(result => {
+      if (result.available) setNewerAvailable({ filename: result.filename, date: result.date });
+      else setNewerAvailable(null);
+    });
+  }, [cloudFolder]);
+
+  const handlePickFolder = async () => {
+    const folder = await syncService.pickCloudFolder();
+    if (folder) {
+      await syncService.setCloudFolder(folder);
+      setCloudFolder(folder);
+      addToast('success', 'Dossier de synchronisation configuré');
+    }
+  };
+
+  const handleClearFolder = async () => {
+    await syncService.setCloudFolder(null);
+    setCloudFolder(null);
+    setNewerAvailable(null);
+    addToast('info', 'Synchronisation désactivée');
+  };
+
+  const handlePush = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncService.pushToCloud((step) => setSyncStep(step));
+      const sizeMB = (result.size / 1024 / 1024).toFixed(1);
+      await syncService.cleanOldSnapshots(3);
+      addToast('success', `Sync envoyé (${sizeMB} Mo)`);
+      setNewerAvailable(null);
+    } catch (e) {
+      addToast('error', 'Erreur sync : ' + String(e));
+      console.error(e);
+    } finally {
+      setSyncing(false);
+      setSyncStep('');
+    }
+  };
+
+  const handlePull = async () => {
+    setSyncing(true);
+    try {
+      const result = await syncService.pullFromCloud((step) => setSyncStep(step));
+      addToast('success', `Sync restauré : ${result.tables} tables, ${result.rows} lignes, ${result.files} fichiers`);
+      setNewerAvailable(null);
+    } catch (e) {
+      addToast('error', 'Erreur sync : ' + String(e));
+      console.error(e);
+    } finally {
+      setSyncing(false);
+      setSyncStep('');
+    }
+  };
+
+  return (
+    <div className="settings-sub">
+      <Card className="settings-sub__card">
+        <h3 className="settings-sub__title">Sauvegardes</h3>
+        <p className="settings-sub__desc">
+          Exportez ou restaurez l'ensemble de vos données (base, paramètres, documents liés).
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button variant="primary" size="M" onClick={onExportZip} loading={exporting}>
+            {exporting ? 'Export en cours…' : 'Exporter sauvegarde ZIP'}
+          </Button>
+          <Button variant="secondary" size="M" onClick={onImportZip} loading={importing}>
+            {importing ? 'Restauration en cours…' : 'Restaurer depuis ZIP'}
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="settings-sub__card" style={{ marginTop: 16 }}>
+        <h3 className="settings-sub__title">Synchronisation multi-postes</h3>
+        <p className="settings-sub__desc">
+          Synchronisez vos données entre vos ordinateurs via un dossier cloud
+          (OneDrive, Google Drive, Dropbox, ou dossier réseau).
+        </p>
+
+        <div className="settings-sub__field" style={{ marginBottom: 12 }}>
+          <label className="settings-sub__label">Dossier cloud</label>
+          {cloudFolder ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <code style={{
+                fontSize: '0.82rem',
+                padding: '4px 8px',
+                background: 'var(--color-bg-secondary, #f3f4f6)',
+                borderRadius: 4,
+                wordBreak: 'break-all',
+                flex: 1,
+              }}>
+                {cloudFolder}
+              </code>
+              <Button variant="ghost" size="S" onClick={handlePickFolder}>Changer</Button>
+              <Button variant="ghost" size="S" onClick={handleClearFolder}>Retirer</Button>
+            </div>
+          ) : (
+            <div>
+              <Button variant="secondary" size="M" onClick={handlePickFolder}>
+                Choisir un dossier cloud…
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {cloudFolder && (
+          <>
+            {newerAvailable && (
+              <div style={{
+                padding: '8px 12px',
+                borderRadius: 6,
+                background: 'var(--color-warning-bg, #fef3c7)',
+                border: '1px solid var(--color-warning-border, #f59e0b)',
+                fontSize: '0.85rem',
+                marginBottom: 12,
+              }}>
+                Un snapshot plus récent est disponible : <strong>{newerAvailable.filename}</strong>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Button variant="primary" size="M" onClick={handlePush} loading={syncing} disabled={syncing}>
+                {syncing ? syncStep || 'Sync…' : 'Envoyer vers le cloud'}
+              </Button>
+              <Button variant="secondary" size="M" onClick={handlePull} loading={syncing} disabled={syncing}>
+                {syncing ? syncStep || 'Sync…' : 'Restaurer depuis le cloud'}
+              </Button>
+            </div>
+
+            <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted, #6b7280)', marginTop: 8 }}>
+              L'envoi crée un snapshot complet (base + documents). La restauration remplace toutes les données locales.
+              Les 3 derniers snapshots sont conservés, les plus anciens sont supprimés automatiquement.
+            </p>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+};
 
 /** Année + Calendrier + Périodes — vue combinée en colonnes */
 const AnneeCalendrierSettings: React.FC = () => (

@@ -37,6 +37,7 @@ import { RubricBankPage } from './pages/evaluation/RubricBankPage';
 import { FeedbackVocalStudioPage } from './pages/evaluation/FeedbackVocalStudioPage';
 import { ListeDevoirsPage } from './pages/evaluation/ListeDevoirsPage';
 import { ListeElevesPage } from './pages/evaluation/ListeElevesPage';
+import { GrandOralPage } from './pages/evaluation/GrandOralPage';
 import { ClassesPage } from './pages/classes/ClassesPage';
 
 // ── Pages lazy-loaded (lourdes, accès secondaire) ──
@@ -112,6 +113,7 @@ function PageResolver() {
       case 'bilan':             return <BilanDevoirPage />;
       case 'rubrics':           return <RubricBankPage />;
       case 'feedback-vocal':    return <FeedbackVocalStudioPage />;
+      case 'grand-oral':        return <GrandOralPage />;
       case 'eleves':            return <ListeElevesPage />;
       case 'fiche-eleve':       return <FicheElevePage />;
       case 'bulletins':         return <BulletinsPage />;

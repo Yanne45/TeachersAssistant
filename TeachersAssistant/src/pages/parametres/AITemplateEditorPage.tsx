@@ -7,7 +7,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, Badge } from '../../components/ui';
 import { PromptVariablePicker } from '../../components/ui/PromptVariablePicker';
-import { aiTaskService, aiSettingsService, getApiKey, setApiKey, ollamaService, PROVIDER_LABELS, PROVIDER_MODELS } from '../../services';
+import { aiTaskService, aiSettingsService, getApiKey, setApiKey, ollamaService, PROVIDER_LABELS, PROVIDER_MODELS, embeddingService } from '../../services';
 import type { AIProvider } from '../../services';
 import { useApp } from '../../stores';
 import type { AITask, AITaskVariable, AITaskParam, AIUserTemplate } from '../../services';
@@ -82,6 +82,11 @@ export const AITemplateEditorPage: React.FC = () => {
   const [ollamaStatus, setOllamaStatus] = useState<'idle' | 'online' | 'offline'>('idle');
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaRefreshing, setOllamaRefreshing] = useState(false);
+
+  // Embedding indexation
+  const [indexing, setIndexing] = useState(false);
+  const [indexProgress, setIndexProgress] = useState('');
+  const [embeddingStats, setEmbeddingStats] = useState<Record<string, number>>({});
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -300,6 +305,31 @@ export const AITemplateEditorPage: React.FC = () => {
       addToast('success', 'Paramètres IA sauvegardés');
     } catch (e: any) {
       addToast('error', 'Erreur : ' + e.message);
+    }
+  };
+
+  // Embedding indexation
+  const loadEmbeddingStats = useCallback(async () => {
+    try { setEmbeddingStats(await embeddingService.stats()); } catch { /* */ }
+  }, []);
+
+  useEffect(() => { loadEmbeddingStats(); }, [loadEmbeddingStats]);
+
+  const handleIndexAll = async () => {
+    setIndexing(true);
+    setIndexProgress('Démarrage…');
+    try {
+      const stats = await embeddingService.indexAll((type, current, total) => {
+        setIndexProgress(`${type} : ${current}/${total}`);
+      });
+      const total = Object.values(stats).reduce((a, b) => a + b, 0);
+      addToast('success', `Indexation terminée : ${total} entités indexées`);
+      await loadEmbeddingStats();
+    } catch (e: any) {
+      addToast('error', 'Erreur indexation : ' + e.message);
+    } finally {
+      setIndexing(false);
+      setIndexProgress('');
     }
   };
 
@@ -570,6 +600,31 @@ export const AITemplateEditorPage: React.FC = () => {
 
           <button className="ai-tpl-page__save-settings" onClick={handleSaveSettings}>
             Sauvegarder
+          </button>
+        </div>
+
+        {/* Embedding indexation */}
+        <div className="ai-tpl-page__settings-section">
+          <div className="ai-tpl-page__group-label">Recherche vectorielle</div>
+          <p style={{ fontSize: 11, color: 'var(--color-text-muted)', margin: '0 0 8px' }}>
+            Indexe vos contenus pour la recherche par similarité sémantique (mode 🔮).
+          </p>
+          {Object.keys(embeddingStats).length > 0 && (
+            <div style={{ fontSize: 11, marginBottom: 8, color: 'var(--color-text-muted)' }}>
+              {Object.entries(embeddingStats).map(([type, count]) => (
+                <span key={type} style={{ marginRight: 10 }}>{type}: <strong>{count}</strong></span>
+              ))}
+            </div>
+          )}
+          {indexProgress && (
+            <div style={{ fontSize: 11, marginBottom: 8, color: 'var(--color-primary)' }}>{indexProgress}</div>
+          )}
+          <button
+            className="ai-tpl-page__save-settings"
+            onClick={handleIndexAll}
+            disabled={indexing}
+          >
+            {indexing ? 'Indexation en cours…' : 'Indexer tous les contenus'}
           </button>
         </div>
       </div>

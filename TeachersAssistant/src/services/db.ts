@@ -100,22 +100,26 @@ export function splitSqlStatements(sql: string): string[] {
   let current = '';
   let i = 0;
   const len = sql.length;
+  let beginDepth = 0; // Track BEGIN...END nesting (triggers, etc.)
 
   while (i < len) {
     const ch = sql[i];
 
+    // Skip single-line comments
     if (ch === '-' && i + 1 < len && sql[i + 1] === '-') {
       const eol = sql.indexOf('\n', i);
       i = eol === -1 ? len : eol + 1;
       continue;
     }
 
+    // Skip block comments
     if (ch === '/' && i + 1 < len && sql[i + 1] === '*') {
       const end = sql.indexOf('*/', i + 2);
       i = end === -1 ? len : end + 2;
       continue;
     }
 
+    // Handle quoted strings (skip ; inside quotes)
     if (ch === "'") {
       current += ch;
       i++;
@@ -135,7 +139,27 @@ export function splitSqlStatements(sql: string): string[] {
       continue;
     }
 
-    if (ch === ';') {
+    // Detect BEGIN keyword (for triggers, CASE, etc.)
+    if (/[^a-zA-Z_]/i.test(current.slice(-1) || ' ') || current.length === 0) {
+      const rest = sql.slice(i);
+      const beginMatch = rest.match(/^BEGIN\b/i);
+      if (beginMatch) {
+        current += beginMatch[0];
+        i += beginMatch[0].length;
+        beginDepth++;
+        continue;
+      }
+      const endMatch = rest.match(/^END\s*;/i);
+      if (endMatch && beginDepth > 0) {
+        current += endMatch[0].replace(/;$/, '');
+        i += endMatch[0].length - 1; // leave the ; for the main handler
+        beginDepth--;
+        continue;
+      }
+    }
+
+    // Only split on ; when not inside a BEGIN...END block
+    if (ch === ';' && beginDepth === 0) {
       const trimmed = current.trim();
       if (trimmed.length > 0) results.push(trimmed + ';');
       current = '';

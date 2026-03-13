@@ -1,8 +1,7 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Badge, Button, Tabs, EmptyState, ErrorBoundary, PanelError } from '../../components/ui';
+import { Card, Badge, Button, Tabs, EmptyState, ErrorBoundary, PanelError, AITaskButtons } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
 import {
-  aiGenerationService,
   bulletinService,
   orientationService,
   pdfExportService,
@@ -12,7 +11,8 @@ import {
   submissionService,
 } from '../../services';
 import { useApp, useData, useRouter } from '../../stores';
-import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
+import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss, useScreenAITasks, AI_SCREEN } from '../../hooks';
+import type { ScreenAIContext } from '../../hooks';
 import {
   OverviewTabPanel,
   SkillsTabPanel,
@@ -109,6 +109,17 @@ export const FicheElevePage: React.FC = () => {
 
   const studentIdRaw = Number.parseInt(String(route.entityId ?? ''), 10);
   const studentId = Number.isFinite(studentIdRaw) ? studentIdRaw : null;
+
+  // ── Declarative AI tasks for fiche eleve ──
+  // Context is built lazily (via callback) so it reads latest state at execution time
+  const getFicheAIContext = useCallback((): ScreenAIContext => ({
+    variables: {},  // filled per-task via extraVars in result handler
+    contextEntityType: 'student',
+    contextEntityId: studentId ?? undefined,
+  }), [studentId]);
+
+  const { actions: ficheAIActions, generatingCode: ficheAIGenerating } = useScreenAITasks(AI_SCREEN.FICHE_ELEVE, getFicheAIContext);
+
   const gradeCacheKey = (id: number, limit: number) => `${id}:${limit}`;
   const profileCacheKey = (id: number, periodId: number) => `${id}:${periodId}`;
   const bulletinCacheKey = (id: number, periodId: number) => `${id}:${periodId}`;
@@ -538,12 +549,8 @@ export const FicheElevePage: React.FC = () => {
     }
   };
 
-  const handleGenerateAppreciation = async () => {
-    if (!studentId || !selectedPeriodId) {
-      addToast('warn', 'Sélectionnez un élève et une période');
-      return;
-    }
-
+  /** Build shared student variables for AI tasks */
+  const getStudentAIVars = useCallback((): Record<string, string> => {
     const notesBlock = grades
       .slice(0, 8)
       .map((g) => `${g.assignment_title}: ${g.score?.toFixed(1) ?? '-'} / ${g.max_score}`)
@@ -551,45 +558,44 @@ export const FicheElevePage: React.FC = () => {
     const skillsBlock = displayedSkillLevels
       .map((s) => `${s.name}: ${s.level}/4`)
       .join(', ');
+    return {
+      prenom_eleve: displayedStudent.firstName,
+      nom_eleve: displayedStudent.lastName,
+      matiere: student?.class_name ?? 'Classe',
+      classe: student?.class_name ?? '',
+      comportement: profile?.behavior ? `${profile.behavior}/5` : 'non renseigné',
+      travail: profile?.work_ethic ? `${profile.work_ethic}/5` : 'non renseigné',
+      participation: profile?.participation ? `${profile.participation}/5` : 'non renseigné',
+      competences_recentes: skillsBlock || 'pas de données',
+      notes_recentes: notesBlock || 'pas de données',
+    };
+  }, [grades, displayedSkillLevels, displayedStudent, student, profile]);
 
-    try {
-      const gen = await aiGenerationService.generate({
-        taskCode: 'generate_appreciation',
-        variables: {
-          prenom_eleve: displayedStudent.firstName,
-          nom_eleve: displayedStudent.lastName,
-          matiere: student?.class_name ?? 'Classe',
-          comportement: profile?.behavior ? `${profile.behavior}/5` : 'non renseigne',
-          travail: profile?.work_ethic ? `${profile.work_ethic}/5` : 'non renseigne',
-          participation: profile?.participation ? `${profile.participation}/5` : 'non renseigne',
-          competences_recentes: skillsBlock || 'pas de donnees',
-          notes_recentes: notesBlock || 'pas de donnees',
-        },
-        contextEntityType: 'student',
-        contextEntityId: studentId,
-      });
+  /** Handle AI result — page-specific post-processing */
+  const handleFicheAIResult = useCallback(async (taskCode: string, result: any) => {
+    if ('queued' in result) { addToast('info', 'Ajouté à la file d\'attente'); return; }
+    const content = String(result?.output_content ?? result?.processed_result ?? '').trim();
 
-      const content = String(gen?.output_content ?? gen?.processed_result ?? '').trim();
-      if (!content) {
-        addToast('error', 'Génération vide');
+    if (taskCode === 'generate_appreciation' || taskCode === 'generate_pp_appreciation') {
+      if (!content || !studentId || !selectedPeriodId) {
+        addToast('warn', 'Génération vide');
         return;
       }
-
-      const existing = bulletins.find((b) => b.entry_type === 'class_teacher');
+      const entryType = taskCode === 'generate_pp_appreciation' ? 'class_teacher' : 'class_teacher';
+      const existing = bulletins.find((b) => b.entry_type === entryType);
       if (existing?.id) {
         await bulletinService.update(existing.id, content, 'ai');
       } else {
         await bulletinService.create({
           student_id: studentId,
           report_period_id: selectedPeriodId,
-          entry_type: 'class_teacher',
+          entry_type: entryType,
           subject_id: null,
           content,
           status: 'draft',
           source: 'ai',
         });
       }
-
       const bulletinKey = bulletinCacheKey(studentId, selectedPeriodId);
       bulletinsCacheRef.current.delete(bulletinKey);
       bulletinsInflightRef.current.delete(bulletinKey);
@@ -597,11 +603,14 @@ export const FicheElevePage: React.FC = () => {
       setBulletins(refreshed);
       setActiveTab('bulletins');
       addToast('success', 'Appréciation générée et enregistrée');
-    } catch (error) {
-      console.error('[FicheElevePage] Erreur generation appreciation:', error);
-      addToast('error', "Échec génération appréciation");
+    } else {
+      if (content) {
+        addToast('success', `${taskCode} — voir Historique IA`);
+      } else {
+        addToast('warn', 'Génération vide');
+      }
     }
-  };
+  }, [studentId, selectedPeriodId, bulletins, addToast, getBulletinsCached]);
 
   const handleShowBulletinT2 = useCallback(() => {
     const t2 = periods.find(
@@ -750,7 +759,14 @@ export const FicheElevePage: React.FC = () => {
       </ErrorBoundary>
 
       <div className="fiche-eleve__actions">
-        <Button variant="primary" size="M" onClick={handleGenerateAppreciation}>Générer appréciation</Button>
+        <AITaskButtons
+          actions={ficheAIActions}
+          size="M"
+          extraVars={getStudentAIVars()}
+          disabled={ficheAIGenerating !== null || !studentId || !selectedPeriodId}
+          onResult={(code, result) => void handleFicheAIResult(code, result)}
+          onError={(code) => addToast('error', `Échec ${code}`)}
+        />
         <Button variant="secondary" size="M" onClick={handleShowBulletinT2}>Voir bulletin T2</Button>
       </div>
 

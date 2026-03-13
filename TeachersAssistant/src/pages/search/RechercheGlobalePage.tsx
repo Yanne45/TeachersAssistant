@@ -22,6 +22,8 @@ const TYPE_FILTERS = [
 ];
 type TypeFilter = typeof TYPE_FILTERS[number]['key'];
 
+type SearchMode = 'standard' | 'intelligent' | 'vector';
+
 export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: () => void }> = ({
   initialQuery = '',
   onClose,
@@ -30,7 +32,7 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
   const [query, setQuery] = useState(initialQuery);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [semantic, setSemantic] = useState(false);
+  const [searchMode, setSearchMode] = useState<SearchMode>('standard');
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,25 +54,28 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
     const version = ++searchVersionRef.current;
     setLoading(true);
     try {
-      const res = semantic
-        ? await searchService.semanticSearch(q)
-        : await searchService.search(q);
+      const res = searchMode === 'vector'
+        ? await searchService.vectorSearch(q)
+        : searchMode === 'intelligent'
+          ? await searchService.semanticSearch(q)
+          : await searchService.search(q);
       if (version !== searchVersionRef.current) return; // stale response
       setResults(res);
       setSearched(true);
-    } catch {
+    } catch (err) {
       if (version !== searchVersionRef.current) return;
       setResults([]);
+      console.warn('[Search] Erreur:', err);
     } finally {
       if (version === searchVersionRef.current) setLoading(false);
     }
-  }, [semantic]);
+  }, [searchMode]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doSearch(query), 300);
     return () => clearTimeout(debounceRef.current);
-  }, [query, semantic, doSearch]);
+  }, [query, searchMode, doSearch]);
 
   // Filter by type
   const filtered = typeFilter === 'all'
@@ -108,20 +113,40 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
           ref={inputRef}
           className="search-page__input"
           type="text"
-          placeholder={semantic ? "Ex: 'séquences histoire guerre froide avec éval orale'" : "Rechercher partout…"}
+          placeholder={
+            searchMode === 'vector' ? "Recherche sémantique par similarité…"
+            : searchMode === 'intelligent' ? "Ex: 'séquences histoire guerre froide avec éval orale'"
+            : "Rechercher partout…"
+          }
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
         {query && (
           <button className="search-page__clear" onClick={() => { setQuery(''); inputRef.current?.focus(); }}>✕</button>
         )}
-        <button
-          className={`search-page__semantic-toggle ${semantic ? 'search-page__semantic-toggle--active' : ''}`}
-          onClick={() => setSemantic(s => !s)}
-          title="Recherche intelligente : comprend vos intentions (ex: 'mes séquences sur la guerre froide avec éval orale')"
-        >
-          {semantic ? '🧠 Intelligent' : '🔤 Standard'}
-        </button>
+        <div className="search-page__mode-group">
+          <button
+            className={`search-page__semantic-toggle ${searchMode === 'standard' ? 'search-page__semantic-toggle--active' : ''}`}
+            onClick={() => setSearchMode('standard')}
+            title="Recherche par mots-clés"
+          >
+            🔤
+          </button>
+          <button
+            className={`search-page__semantic-toggle ${searchMode === 'intelligent' ? 'search-page__semantic-toggle--active' : ''}`}
+            onClick={() => setSearchMode('intelligent')}
+            title="Recherche intelligente : comprend vos intentions"
+          >
+            🧠
+          </button>
+          <button
+            className={`search-page__semantic-toggle ${searchMode === 'vector' ? 'search-page__semantic-toggle--active' : ''}`}
+            onClick={() => setSearchMode('vector')}
+            title="Recherche vectorielle : trouve les contenus sémantiquement proches (nécessite indexation)"
+          >
+            🔮
+          </button>
+        </div>
         {onClose && (
           <button className="search-page__close" onClick={onClose}>Fermer</button>
         )}
@@ -189,7 +214,7 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
                 dangerouslySetInnerHTML={{ __html: r.matchExcerpt }}
               />
             </div>
-            <span className="search-page__result-score" title="Score de pertinence">{r.score}</span>
+            <span className="search-page__result-score" title="Score de pertinence">{searchMode === 'vector' ? r.score + '%' : r.score}</span>
             <button className="search-page__result-open" onClick={(e) => { e.stopPropagation(); handleOpen(r); }}>
               Ouvrir →
             </button>

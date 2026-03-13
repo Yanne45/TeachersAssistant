@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Card, Badge, Button, StatusBadge, ConfirmDialog, EmptyState } from '../../components/ui';
+import { Card, Badge, Button, StatusBadge, ConfirmDialog, EmptyState, AITaskButtons } from '../../components/ui';
 import { SortableList } from '../../components/dnd';
 import { useApp, useData, useRouter } from '../../stores';
 import {
@@ -10,6 +10,8 @@ import {
   sessionService,
   templateExportService,
 } from '../../services';
+import { useScreenAITasks, AI_SCREEN } from '../../hooks';
+import type { ScreenAIContext } from '../../hooks';
 import { SEQUENCE_STATUS_META, SESSION_STATUS_META } from '../../constants/statuses';
 import { SequenceForm, SeanceForm } from '../../components/forms';
 import type { SequenceFormResult } from '../../components/forms/SequenceForm';
@@ -120,6 +122,77 @@ export const SequenceDetailPage: React.FC = () => {
 
   const activeSeq = visibleSequences.find((s) => s.id === activeSeqId) ?? null;
 
+  // ── Declarative AI tasks for this screen ──
+  const getAIContext = useCallback((): ScreenAIContext => ({
+    variables: {
+      matiere: activeSeq?.subject_label ?? '',
+      niveau: activeSeq?.level_label ?? '',
+      theme: activeSeq?.title ?? '',
+      objectifs_sequence: activeSeq?.description ?? '',
+      duree_totale: `${activeSeq?.total_hours ?? 0}h`,
+      seances_prevues: String(sessions.length),
+    },
+    subjectId: activeSeq?.subject_id,
+    levelId: activeSeq?.level_id,
+    sequenceId: activeSeqId ?? undefined,
+  }), [activeSeq, activeSeqId, sessions.length]);
+
+  const { actions: sessionAIActions, generatingCode } = useScreenAITasks(AI_SCREEN.SEQUENCE_DETAIL, getAIContext);
+
+  /** Build per-session extra variables */
+  const sessionExtraVars = useCallback((sess: any): Record<string, string> => ({
+    chapitre: sess.title ?? '',
+    seance_titre: sess.title ?? '',
+    objectifs: sess.objectives ?? '',
+    objectifs_seance: sess.objectives ?? '',
+    duree: `${Math.round((sess.duration_minutes ?? 120) / 60)}h`,
+    duree_seance: `${Math.round((sess.duration_minutes ?? 120) / 60)}h`,
+    deroule: sess.lesson_plan ?? '',
+    activites: sess.activities ?? '',
+    sequence_titre: activeSeq?.title ?? 'Séquence',
+  }), [activeSeq]);
+
+  /** Handle AI result per task code — page-specific post-processing */
+  const handleSessionAIResult = useCallback(async (taskCode: string, result: any, sess: any) => {
+    if ('queued' in result) { addToast('info', 'Mis en file d\'attente (hors-ligne)'); return; }
+    const content = String(result?.output_content ?? result?.processed_result ?? '').trim();
+
+    switch (taskCode) {
+      case 'generate_session_outline': {
+        if (!content) { addToast('warn', 'Déroulé IA vide'); return; }
+        await sessionService.update(sess.id, { lesson_plan: content });
+        if (activeSeqId) {
+          const updated = await loadSessions(activeSeqId);
+          setSessions(updated);
+        }
+        addToast('success', `Déroulé IA généré pour la séance ${sess.session_number}`);
+        break;
+      }
+      case 'generate_lesson_log': {
+        if (!content || !activeSeqId || !activeSeq) break;
+        const classes = await sequenceService.getClasses(activeSeqId);
+        for (const cls of classes) {
+          await lessonLogService.create({
+            session_id: sess.id,
+            class_id: cls.class_id,
+            subject_id: activeSeq.subject_id,
+            log_date: sess.session_date || new Date().toISOString().slice(0, 10),
+            title: sess.title ?? 'Séance',
+            content,
+            activities: '',
+            homework: '',
+            homework_due_date: null,
+            source: 'ai',
+          });
+        }
+        addToast('success', 'Entrée cahier créée via IA');
+        break;
+      }
+      default:
+        addToast('success', `${taskCode} — voir Historique IA`);
+    }
+  }, [activeSeqId, activeSeq, loadSessions, addToast]);
+
   const toggleSession = (id: number) => {
     setExpandedSessions((prev) => {
       const next = new Set(prev);
@@ -208,13 +281,18 @@ export const SequenceDetailPage: React.FC = () => {
   const handleSaveSeance = useCallback(async (data: any) => {
     if (!activeSeqId) return;
     try {
-      await sessionService.create({
-        ...data,
+      const { skill_ids, ...sessionData } = data;
+      const sessionId = await sessionService.create({
+        ...sessionData,
         sequence_id: activeSeqId,
         sort_order: sessions.length,
         session_number: sessions.length + 1,
         source: 'manual',
       });
+      // Save linked skills
+      if (skill_ids?.length > 0) {
+        await sessionService.setSkills(sessionId, skill_ids.map(Number));
+      }
       const updated = await loadSessions(activeSeqId);
       setSessions(updated);
       addToast('success', 'Séance ajoutée');
@@ -253,40 +331,6 @@ export const SequenceDetailPage: React.FC = () => {
       addToast('error', 'Échec génération plan IA');
     }
   }, [activeSeqId, activeSeq, sessions.length, reload, addToast]);
-
-  const handleGenerateSessionPlan = useCallback(async (session: any) => {
-    if (!activeSeqId || !activeSeq) return;
-    try {
-      const gen = await aiGenerationService.generate({
-        taskCode: 'generate_session_outline',
-        variables: {
-          sequence_titre: activeSeq.title ?? 'Séquence',
-          seance_titre: session.title ?? 'Séance',
-          objectifs_sequence: activeSeq.description ?? '',
-          duree_seance: `${Math.round((session.duration_minutes ?? 120) / 60)}h`,
-          objectifs_seance: session.objectives ?? '',
-        },
-        contextEntityType: 'session',
-        contextEntityId: session.id,
-        subjectId: activeSeq.subject_id,
-        levelId: activeSeq.level_id,
-        sequenceId: activeSeqId,
-        sessionId: session.id,
-      });
-      const content = String(gen?.output_content ?? gen?.processed_result ?? '').trim();
-      if (!content) {
-        addToast('warn', 'Déroulé IA vide');
-        return;
-      }
-      await sessionService.update(session.id, { lesson_plan: content });
-      const updated = await loadSessions(activeSeqId);
-      setSessions(updated);
-      addToast('success', `Déroulé IA généré pour la séance ${session.session_number}`);
-    } catch (error) {
-      console.error('[SequenceDetailPage] Erreur déroulé IA:', error);
-      addToast('error', 'Échec génération déroulé IA');
-    }
-  }, [activeSeqId, activeSeq, loadSessions, addToast]);
 
   const handlePushSessionToLessonLog = useCallback(async (session: any) => {
     if (!activeSeqId || !activeSeq) return;
@@ -416,8 +460,14 @@ export const SequenceDetailPage: React.FC = () => {
                           </div>
                         )}
                         <div className="seq-detail__session-actions">
-                          <Button variant="secondary" size="S" onClick={() => void handleGenerateSessionPlan(sess)}>Générer déroulé IA</Button>
-                          <Button variant="secondary" size="S" onClick={() => void handlePushSessionToLessonLog(sess)}>Cahier de textes</Button>
+                          <AITaskButtons
+                            actions={sessionAIActions}
+                            extraVars={sessionExtraVars(sess)}
+                            disabled={generatingCode !== null}
+                            onResult={(code, result) => void handleSessionAIResult(code, result, sess)}
+                            onError={(code) => addToast('error', `Échec ${code}`)}
+                          />
+                          <Button variant="secondary" size="S" onClick={() => void handlePushSessionToLessonLog(sess)}>Cahier manuel</Button>
                         </div>
                       </div>
                     )}
@@ -460,6 +510,8 @@ export const SequenceDetailPage: React.FC = () => {
         onClose={() => setSeanceFormOpen(false)}
         onSave={handleSaveSeance}
         sequenceTitle={activeSeq?.title}
+        yearId={yearId ?? undefined}
+        subjectId={activeSeq?.subject_id}
       />
 
       <ConfirmDialog

@@ -8,10 +8,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, Badge, VoiceInput } from '../../components/ui';
 import {
-  aiTaskService, aiGenerationService, assemblePrompt, smartGenerate,
+  aiTaskService, aiGenerationService, aiSettingsService, assemblePrompt, smartGenerate,
   subjectService, levelService, sequenceService,
-  aiQueueService, documentService,
+  aiQueueService, documentService, aiExportService, markdownToHTML,
+  PROVIDER_MODELS,
 } from '../../services';
+import type { AIProvider } from '../../services';
+import { PDFPreviewModal } from '../../components/forms/PDFPreviewModal';
 import { useApp, useRouter } from '../../stores';
 import { AI_TASK_STATUS_META } from '../../constants/statuses';
 import type { AITask, AITaskVariable, AITaskParam } from '../../services';
@@ -66,10 +69,22 @@ export const GenerateurIAPage: React.FC = () => {
   const [result, setResult] = useState<any | null>(null);
   const [resultContent, setResultContent] = useState<string | null>(null);
 
-  // Aperçu du prompt
+  // Aperçu du prompt (éditable en mode autonome)
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [promptPreview, setPromptPreview] = useState<{ system: string; user: string } | null>(null);
   const [promptPreviewLoading, setPromptPreviewLoading] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState<{ system: string; user: string } | null>(null);
+  const [promptEdited, setPromptEdited] = useState(false);
+
+  // Sélecteur modèle par génération
+  const [modelOverride, setModelOverride] = useState('');
+  const [availableModels, setAvailableModels] = useState<{ value: string; label: string }[]>([]);
+  const [currentProvider, setCurrentProvider] = useState<AIProvider>('openai');
+
+  // Mode prompt libre (tâche ad hoc)
+  const [freePromptMode, setFreePromptMode] = useState(false);
+  const [freeSystemPrompt, setFreeSystemPrompt] = useState('Tu es un assistant pédagogique expert en histoire-géographie pour le lycée français.');
+  const [freeUserPrompt, setFreeUserPrompt] = useState('');
 
   // History
   const [history, setHistory] = useState<any[]>([]);
@@ -78,6 +93,17 @@ export const GenerateurIAPage: React.FC = () => {
   const [queueItems, setQueueItems] = useState<any[]>([]);
   const [queueCount, setQueueCount] = useState(0);
   const [processingQueue, setProcessingQueue] = useState(false);
+
+  // Export PDF
+  const [exportHtml, setExportHtml] = useState('');
+  const [showExportModal, setShowExportModal] = useState(false);
+
+  // Rendu markdown vs brut
+  const [renderMode, setRenderMode] = useState<'rendered' | 'raw'>('rendered');
+  const renderedHtml = useMemo(() => {
+    if (!resultContent) return '';
+    return markdownToHTML(resultContent);
+  }, [resultContent]);
 
   // Document attachment
   const [docSearch, setDocSearch] = useState('');
@@ -95,6 +121,12 @@ export const GenerateurIAPage: React.FC = () => {
     sequenceService.getByYear(yearId).then(setDbSequences).catch(() => setDbSequences([]));
     // Load queue count
     aiQueueService.pendingCount().then(setQueueCount).catch(() => {});
+    // Load provider/model info for model selector
+    aiSettingsService.get().then(settings => {
+      const provider = (settings?.provider as AIProvider) || 'openai';
+      setCurrentProvider(provider);
+      setAvailableModels(PROVIDER_MODELS[provider] || []);
+    }).catch(() => {});
   }, [activeYear?.id]);
 
   // ---- Load history ----
@@ -275,21 +307,29 @@ export const GenerateurIAPage: React.FC = () => {
 
   // ---- Generate ----
   const handleGenerate = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask && !freePromptMode) return;
     setGenerating(true);
     setResultContent(null);
     setResult(null);
 
     try {
+      // Déterminer si le prompt a été édité manuellement
+      const customSystem = promptEdited && editedPrompt ? editedPrompt.system : undefined;
+      const customUser = promptEdited && editedPrompt ? editedPrompt.user : undefined;
+
+      const taskCode = freePromptMode ? 'generate_course' : selectedTask!.code;
       const res = await smartGenerate({
-        taskCode: selectedTask.code,
-        variables: variableValues,
-        params: paramValues,
-        userInstructions: userInstructions || undefined,
+        taskCode,
+        variables: freePromptMode ? {} : variableValues,
+        params: freePromptMode ? {} : paramValues,
+        userInstructions: freePromptMode ? undefined : (userInstructions || undefined),
         subjectId: undefined,
         levelId: undefined,
         documentIds: selectedDocIds.length ? selectedDocIds : undefined,
         rawDocumentContexts: adHocFiles.length ? adHocFiles.map(f => f.text) : undefined,
+        modelOverride: modelOverride || undefined,
+        customSystemPrompt: freePromptMode ? freeSystemPrompt : customSystem,
+        customUserPrompt: freePromptMode ? freeUserPrompt : customUser,
       });
 
       if ('queued' in res && res.queued) {
@@ -332,32 +372,66 @@ export const GenerateurIAPage: React.FC = () => {
     addToast('success', 'Note enregistrée');
   };
 
+  // ---- Export PDF / HTML ----
+  const handleExportPDF = async () => {
+    if (!resultContent || !selectedTask) return;
+    try {
+      // Build human-readable variable labels
+      const varLabels: Record<string, string> = {};
+      for (const v of taskVariables) {
+        const val = variableValues[v.variable_code];
+        if (val?.trim()) varLabels[v.variable_label] = val;
+      }
+      const html = await aiExportService.buildGenerationHTML(
+        resultContent,
+        selectedTask.label,
+        { date: new Date().toLocaleDateString('fr-FR'), variables: varLabels },
+      );
+      setExportHtml(html);
+      setShowExportModal(true);
+    } catch (e: any) {
+      addToast('error', 'Erreur export : ' + e.message);
+    }
+  };
+
   // ---- Aperçu du prompt assemblé ----
   const handlePreviewPrompt = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask && !freePromptMode) return;
     setPromptPreviewLoading(true);
     setShowPromptPreview(true);
+    setPromptEdited(false);
     try {
-      const assembled = await assemblePrompt({
-        taskCode: selectedTask.code,
-        variables: variableValues,
-        params: paramValues,
-        userInstructions: userInstructions || undefined,
-        documentIds: selectedDocIds.length ? selectedDocIds : undefined,
-        rawDocumentContexts: adHocFiles.length ? adHocFiles.map(f => f.text) : undefined,
-      });
-      setPromptPreview({ system: assembled.systemMessage, user: assembled.userMessage });
+      if (freePromptMode) {
+        const preview = { system: freeSystemPrompt, user: freeUserPrompt };
+        setPromptPreview(preview);
+        setEditedPrompt(preview);
+      } else {
+        const assembled = await assemblePrompt({
+          taskCode: selectedTask!.code,
+          variables: variableValues,
+          params: paramValues,
+          userInstructions: userInstructions || undefined,
+          documentIds: selectedDocIds.length ? selectedDocIds : undefined,
+          rawDocumentContexts: adHocFiles.length ? adHocFiles.map(f => f.text) : undefined,
+        });
+        const preview = { system: assembled.systemMessage, user: assembled.userMessage };
+        setPromptPreview(preview);
+        setEditedPrompt(preview);
+      }
     } catch (err: any) {
       setPromptPreview({ system: '', user: 'Erreur : ' + err.message });
+      setEditedPrompt(null);
     } finally {
       setPromptPreviewLoading(false);
     }
   };
 
   // ---- Check if can generate ----
-  const requiredVarsMissing = taskVariables
-    .filter(v => v.is_required)
-    .some(v => !variableValues[v.variable_code]?.trim());
+  const requiredVarsMissing = freePromptMode
+    ? !freeUserPrompt.trim()
+    : taskVariables
+        .filter(v => v.is_required)
+        .some(v => !variableValues[v.variable_code]?.trim());
 
   return (
     <div className="ia-gen">
@@ -388,8 +462,21 @@ export const GenerateurIAPage: React.FC = () => {
         <div className="ia-gen__content">
           {/* Task selection grid */}
           <section className="ia-gen__section">
-            <h2 className="ia-gen__section-title">Type de génération</h2>
-            {groupedTasks.map(group => (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <h2 className="ia-gen__section-title" style={{ margin: 0 }}>Type de génération</h2>
+              <button
+                className={'ia-gen__task-card' + (freePromptMode ? ' ia-gen__task-card--active' : '')}
+                style={{ margin: 0, minWidth: 'auto', padding: '6px 14px' }}
+                onClick={() => {
+                  setFreePromptMode(!freePromptMode);
+                  if (!freePromptMode) { setSelectedTask(null); setTaskVariables([]); setTaskParams([]); }
+                }}
+              >
+                <span className="ia-gen__task-icon">✏️</span>
+                <span className="ia-gen__task-label">Prompt libre</span>
+              </button>
+            </div>
+            {!freePromptMode && groupedTasks.map(group => (
               <div key={group.category} className="ia-gen__task-group">
                 <span className="ia-gen__task-group-label">{group.label}</span>
                 <div className="ia-gen__task-grid">
@@ -397,7 +484,7 @@ export const GenerateurIAPage: React.FC = () => {
                     <button
                       key={task.id}
                       className={'ia-gen__task-card' + (selectedTask?.id === task.id ? ' ia-gen__task-card--active' : '')}
-                      onClick={() => selectTask(task)}
+                      onClick={() => { setFreePromptMode(false); selectTask(task); }}
                     >
                       <span className="ia-gen__task-icon">{task.icon}</span>
                       <span className="ia-gen__task-label">{task.label}</span>
@@ -408,8 +495,79 @@ export const GenerateurIAPage: React.FC = () => {
             ))}
           </section>
 
+          {/* Mode prompt libre */}
+          {freePromptMode && (
+            <>
+              <section className="ia-gen__section">
+                <h2 className="ia-gen__section-title">Prompt libre</h2>
+                <p className="ia-gen__section-desc">
+                  Écrivez votre propre prompt sans passer par un template prédéfini.
+                </p>
+                <div className="ia-gen__var-field" style={{ marginBottom: 12 }}>
+                  <label className="ia-gen__var-label">Prompt système (rôle de l'IA)</label>
+                  <textarea
+                    className="ia-gen__instructions"
+                    value={freeSystemPrompt}
+                    onChange={e => setFreeSystemPrompt(e.target.value)}
+                    rows={3}
+                    placeholder="Tu es un assistant pédagogique expert…"
+                  />
+                </div>
+                <div className="ia-gen__var-field">
+                  <label className="ia-gen__var-label">Prompt utilisateur *</label>
+                  <textarea
+                    className="ia-gen__instructions"
+                    value={freeUserPrompt}
+                    onChange={e => setFreeUserPrompt(e.target.value)}
+                    rows={6}
+                    placeholder="Génère un cours sur la guerre froide pour des Terminales HGGSP, en 2h, avec une chronologie…"
+                  />
+                </div>
+              </section>
+
+              {/* Modèle pour cette génération */}
+              <section className="ia-gen__section">
+                <h2 className="ia-gen__section-title">Modèle IA</h2>
+                <div className="ia-gen__param-field">
+                  <select
+                    className="ia-gen__param-select"
+                    value={modelOverride}
+                    onChange={e => setModelOverride(e.target.value)}
+                  >
+                    <option value="">Par défaut ({currentProvider})</option>
+                    {availableModels.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </section>
+
+              {/* Generate button for free mode */}
+              <div className="ia-gen__generate-bar">
+                <button
+                  className="ia-gen__generate-btn"
+                  onClick={handleGenerate}
+                  disabled={generating || !freeUserPrompt.trim()}
+                >
+                  {generating ? 'Génération en cours…' : 'Générer'}
+                </button>
+                <button
+                  className="ia-gen__preview-btn"
+                  onClick={handlePreviewPrompt}
+                  disabled={generating || !freeUserPrompt.trim()}
+                  title="Voir le prompt qui sera envoyé à l'IA"
+                >
+                  Aperçu du prompt
+                </button>
+                {!freeUserPrompt.trim() && (
+                  <span className="ia-gen__missing-warning">Écrivez votre prompt utilisateur</span>
+                )}
+              </div>
+            </>
+          )}
+
           {/* Variables + Params + Instructions */}
-          {selectedTask && (
+          {selectedTask && !freePromptMode && (
             <>
               <section className="ia-gen__section">
                 <h2 className="ia-gen__section-title">Contexte pédagogique</h2>
@@ -592,6 +750,23 @@ export const GenerateurIAPage: React.FC = () => {
                 )}
               </section>
 
+              {/* Modèle IA (optionnel) */}
+              <section className="ia-gen__section">
+                <h2 className="ia-gen__section-title">Modèle IA</h2>
+                <div className="ia-gen__param-field">
+                  <select
+                    className="ia-gen__param-select"
+                    value={modelOverride}
+                    onChange={e => setModelOverride(e.target.value)}
+                  >
+                    <option value="">Par défaut ({currentProvider})</option>
+                    {availableModels.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </section>
+
               {/* Generate button */}
               <div className="ia-gen__generate-bar">
                 <button
@@ -614,35 +789,66 @@ export const GenerateurIAPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Prompt preview panel */}
-              {showPromptPreview && (
-                <div className="ia-gen__prompt-preview">
-                  <div className="ia-gen__prompt-preview-header">
-                    <span className="ia-gen__prompt-preview-title">Prompt assemblé (aperçu)</span>
-                    <button className="ia-gen__prompt-preview-close" onClick={() => setShowPromptPreview(false)}>✕</button>
-                  </div>
-                  {promptPreviewLoading ? (
-                    <div className="ia-gen__loading" style={{ padding: '14px' }}>
-                      <div className="ia-gen__spinner" />
-                      <span>Assemblage du prompt...</span>
+            </>
+          )}
+
+          {/* Prompt preview panel — EDITABLE (shared by template + free mode) */}
+          {showPromptPreview && (
+            <div className="ia-gen__prompt-preview">
+              <div className="ia-gen__prompt-preview-header">
+                <span className="ia-gen__prompt-preview-title">
+                  Prompt assemblé {promptEdited ? '(modifié)' : '(aperçu)'}
+                </span>
+                <button className="ia-gen__prompt-preview-close" onClick={() => setShowPromptPreview(false)}>✕</button>
+              </div>
+              {promptPreviewLoading ? (
+                <div className="ia-gen__loading" style={{ padding: '14px' }}>
+                  <div className="ia-gen__spinner" />
+                  <span>Assemblage du prompt...</span>
+                </div>
+              ) : editedPrompt && (
+                <div className="ia-gen__prompt-preview-body">
+                  {editedPrompt.system && (
+                    <div className="ia-gen__prompt-layer">
+                      <span className="ia-gen__prompt-layer-label">Couche 1 — Système</span>
+                      <textarea
+                        className="ia-gen__prompt-layer-text ia-gen__prompt-layer-text--system"
+                        value={editedPrompt.system}
+                        onChange={e => { setEditedPrompt(prev => prev ? { ...prev, system: e.target.value } : prev); setPromptEdited(true); }}
+                        rows={6}
+                      />
                     </div>
-                  ) : promptPreview && (
-                    <div className="ia-gen__prompt-preview-body">
-                      {promptPreview.system && (
-                        <div className="ia-gen__prompt-layer">
-                          <span className="ia-gen__prompt-layer-label">Couche 1 — Système</span>
-                          <pre className="ia-gen__prompt-layer-text ia-gen__prompt-layer-text--system">{promptPreview.system}</pre>
-                        </div>
-                      )}
-                      <div className="ia-gen__prompt-layer">
-                        <span className="ia-gen__prompt-layer-label">Couche 2+3 — Prompt utilisateur</span>
-                        <pre className="ia-gen__prompt-layer-text">{promptPreview.user}</pre>
-                      </div>
+                  )}
+                  <div className="ia-gen__prompt-layer">
+                    <span className="ia-gen__prompt-layer-label">Couche 2+3 — Prompt utilisateur</span>
+                    <textarea
+                      className="ia-gen__prompt-layer-text"
+                      value={editedPrompt.user}
+                      onChange={e => { setEditedPrompt(prev => prev ? { ...prev, user: e.target.value } : prev); setPromptEdited(true); }}
+                      rows={10}
+                    />
+                  </div>
+                  {promptEdited && (
+                    <div style={{ display: 'flex', gap: 8, padding: '8px 0' }}>
+                      <button
+                        className="ia-gen__generate-btn"
+                        style={{ fontSize: '0.85rem', padding: '6px 16px' }}
+                        onClick={() => { setShowPromptPreview(false); void handleGenerate(); }}
+                        disabled={generating}
+                      >
+                        Générer avec le prompt modifié
+                      </button>
+                      <button
+                        className="ia-gen__preview-btn"
+                        onClick={() => { setEditedPrompt(promptPreview); setPromptEdited(false); }}
+                      >
+                        Réinitialiser
+                      </button>
                     </div>
                   )}
                 </div>
               )}
-            </>
+            </div>
           )}
 
           {/* Result */}
@@ -659,11 +865,31 @@ export const GenerateurIAPage: React.FC = () => {
 
               {resultContent && !generating && (
                 <Card className="ia-gen__result-card">
-                  <pre className="ia-gen__result-text">{resultContent}</pre>
+                  <div className="ia-gen__result-toolbar">
+                    <button
+                      className={'ia-gen__render-toggle' + (renderMode === 'rendered' ? ' ia-gen__render-toggle--active' : '')}
+                      onClick={() => setRenderMode('rendered')}
+                    >Rendu</button>
+                    <button
+                      className={'ia-gen__render-toggle' + (renderMode === 'raw' ? ' ia-gen__render-toggle--active' : '')}
+                      onClick={() => setRenderMode('raw')}
+                    >Brut</button>
+                  </div>
+                  {renderMode === 'raw' ? (
+                    <pre className="ia-gen__result-text">{resultContent}</pre>
+                  ) : (
+                    <div
+                      className="ia-gen__result-rendered"
+                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                    />
+                  )}
 
                   <div className="ia-gen__result-actions">
                     <button className="ia-gen__result-btn ia-gen__result-btn--primary" onClick={handleSaveToLibrary}>
                       Sauvegarder en bibliothèque
+                    </button>
+                    <button className="ia-gen__result-btn" onClick={handleExportPDF}>
+                      Exporter PDF
                     </button>
                     <button className="ia-gen__result-btn" onClick={handleCopy}>
                       Copier
@@ -814,6 +1040,14 @@ export const GenerateurIAPage: React.FC = () => {
           </section>
         </div>
       )}
+      {/* Export PDF modal */}
+      <PDFPreviewModal
+        html={exportHtml}
+        title={selectedTask?.label ?? 'Génération IA'}
+        filename={`generation-ia-${selectedTask?.code ?? 'export'}-${new Date().toISOString().slice(0, 10)}.html`}
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+      />
     </div>
   );
 };

@@ -68,3 +68,5 @@ export type { CommandPaletteProps } from './CommandPalette';
 
 export { ActionMenu } from './ActionMenu';
 export type { ActionMenuProps, ActionMenuItem } from './ActionMenu';
+
+export { AITaskButtons } from './AITaskButtons';
