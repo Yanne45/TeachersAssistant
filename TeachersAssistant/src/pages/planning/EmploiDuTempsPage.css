@@ -16,7 +16,7 @@
 }
 
 .edt-page__title {
-  font-size: 16px;
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
 }
 
@@ -119,4 +119,25 @@
   display: block;
   font-size: 10px;
   color: var(--color-text-muted);
+}
+
+/* ── Drag & drop states ── */
+
+.edt-slot--ghost {
+  opacity: 0.25;
+}
+
+.edt-slot--dragging {
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  border-left: 3px solid;
+  border-radius: 4px;
+  padding: 4px 6px;
+  overflow: hidden;
+}
+
+.edt-grid__cell--drop-over {
+  background: rgba(61, 180, 198, 0.12);
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
 }

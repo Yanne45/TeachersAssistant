@@ -79,6 +79,7 @@ export const ProgressionAnnuellePage: React.FC = () => {
   const [sequences, setSequences] = useState<SequenceBar[]>([]);
   const [loading, setLoading] = useState(true);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [seqFormOpen, setSeqFormOpen] = useState(false);
 
   const mode = route.filter === 'liste' ? 'liste' : route.filter === 'classe' ? 'classe' : 'timeline';
@@ -152,6 +153,7 @@ export const ProgressionAnnuellePage: React.FC = () => {
       addToast('warn', 'Aucune année active');
       return;
     }
+    setExportingPdf(true);
     try {
       const html = await pdfExportService.buildProgressionHTML(activeYear.id);
       if (!html.trim()) {
@@ -162,6 +164,8 @@ export const ProgressionAnnuellePage: React.FC = () => {
     } catch (error) {
       console.error('[ProgressionAnnuellePage] Erreur export PDF:', error);
       addToast('error', 'Erreur export PDF');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -257,7 +261,7 @@ export const ProgressionAnnuellePage: React.FC = () => {
           <Button variant="secondary" size="S" fullWidth onClick={() => setSeqFormOpen(true)}>
             + Nouvelle séquence
           </Button>
-          <Button variant="secondary" size="S" fullWidth onClick={handleExportPDF} style={{ marginTop: 8 }}>
+          <Button variant="secondary" size="S" fullWidth onClick={handleExportPDF} loading={exportingPdf} style={{ marginTop: 8 }}>
             Export PDF
           </Button>
         </div>

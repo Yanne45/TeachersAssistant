@@ -241,6 +241,12 @@
   border-radius: var(--radius-xs);
   cursor: pointer;
   transition: background 0.15s ease;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
 }
 
 .welcome__recent-item:hover {

@@ -61,7 +61,7 @@
 
 .seq-detail__context { font-size: 11px; color: var(--color-text-muted); }
 
-.seq-detail__title { font-size: 16px; font-weight: 600; margin: 2px 0 0; }
+.seq-detail__title { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); margin: 2px 0 0; }
 
 .seq-detail__badges { display: flex; gap: var(--space-1); align-items: center; }
 

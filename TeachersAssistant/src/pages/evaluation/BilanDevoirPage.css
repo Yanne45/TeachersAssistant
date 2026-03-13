@@ -5,10 +5,10 @@
 .bilan-page { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .bilan-page__header {}
-.bilan-page__title { font-size: 16px; font-weight: var(--font-weight-bold); }
-.bilan-page__subtitle { font-size: 12px; color: var(--color-text-muted); }
+.bilan-page__title { font-size: var(--font-size-md); font-weight: var(--font-weight-bold); }
+.bilan-page__subtitle { font-size: var(--font-size-xs); color: var(--color-text-muted); }
 
-.bilan-page__card-title { font-size: 13px; font-weight: var(--font-weight-bold); margin-bottom: var(--space-3); }
+.bilan-page__card-title { font-size: var(--font-size-sm); font-weight: var(--font-weight-bold); margin-bottom: var(--space-3); }
 .bilan-page__card-title--success { color: var(--color-success); }
 .bilan-page__card-title--danger { color: var(--color-danger); }
 

@@ -30,40 +30,47 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
   const [query, setQuery] = useState(initialQuery);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [semantic, setSemantic] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchVersionRef = useRef(0);
 
   // Focus input on mount
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
 
-  // Debounced search
+  // Debounced search with version guard to ignore stale responses
   const doSearch = useCallback(async (q: string) => {
     if (q.trim().length < 2) {
       setResults([]);
       setSearched(false);
       return;
     }
+    const version = ++searchVersionRef.current;
     setLoading(true);
     try {
-      const res = await searchService.search(q);
+      const res = semantic
+        ? await searchService.semanticSearch(q)
+        : await searchService.search(q);
+      if (version !== searchVersionRef.current) return; // stale response
       setResults(res);
       setSearched(true);
     } catch {
+      if (version !== searchVersionRef.current) return;
       setResults([]);
     } finally {
-      setLoading(false);
+      if (version === searchVersionRef.current) setLoading(false);
     }
-  }, []);
+  }, [semantic]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doSearch(query), 300);
     return () => clearTimeout(debounceRef.current);
-  }, [query, doSearch]);
+  }, [query, semantic, doSearch]);
 
   // Filter by type
   const filtered = typeFilter === 'all'
@@ -101,13 +108,20 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
           ref={inputRef}
           className="search-page__input"
           type="text"
-          placeholder="Rechercher partout…"
+          placeholder={semantic ? "Ex: 'séquences histoire guerre froide avec éval orale'" : "Rechercher partout…"}
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
         {query && (
           <button className="search-page__clear" onClick={() => { setQuery(''); inputRef.current?.focus(); }}>✕</button>
         )}
+        <button
+          className={`search-page__semantic-toggle ${semantic ? 'search-page__semantic-toggle--active' : ''}`}
+          onClick={() => setSemantic(s => !s)}
+          title="Recherche intelligente : comprend vos intentions (ex: 'mes séquences sur la guerre froide avec éval orale')"
+        >
+          {semantic ? '🧠 Intelligent' : '🔤 Standard'}
+        </button>
         {onClose && (
           <button className="search-page__close" onClick={onClose}>Fermer</button>
         )}

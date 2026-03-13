@@ -4,9 +4,9 @@
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button, ProgressBar } from '../../components/ui';
+import { Card, Badge, Button, ProgressBar, Modal } from '../../components/ui';
 import { useData, useRouter } from '../../stores';
-import type { DashboardIndicators, WeekSlot, CoverageItem, AlertItem } from '../../stores';
+import type { DashboardIndicators, WeekSlot, CoverageItem, AlertItem, WeeklyPrepData, PrepTask } from '../../stores';
 import './DashboardPage.css';
 
 // ── Helpers ──
@@ -69,38 +69,164 @@ const TodaySlot: React.FC<{ slot: WeekSlot }> = ({ slot }) => (
 );
 
 const AlertRow: React.FC<{ alert: AlertItem; onClick: () => void }> = ({ alert, onClick }) => (
-  <div className={`dashboard-alert dashboard-alert--${alert.level}`} onClick={onClick} role="button" tabIndex={0}>
+  <button
+    className={`dashboard-alert dashboard-alert--${alert.level}`}
+    onClick={onClick}
+    type="button"
+    aria-label={alert.message}
+  >
     <span className="dashboard-alert__icon">{alert.level === 'danger' ? '🔴' : '🟡'}</span>
     <span className="dashboard-alert__message">{alert.message}</span>
-  </div>
+  </button>
 );
+
+// ── Copilote hebdo ──
+
+function groupPrepByDay(tasks: PrepTask[]): Map<number, PrepTask[]> {
+  const map = new Map<number, PrepTask[]>();
+  for (let d = 1; d <= 5; d++) map.set(d, []);
+  for (const t of tasks) {
+    const arr = map.get(t.dayOfWeek);
+    if (arr) arr.push(t);
+  }
+  return map;
+}
+
+const WeeklyPrepCopilot: React.FC<{
+  data: WeeklyPrepData;
+  onNavigate: (path: string) => void;
+}> = ({ data, onNavigate }) => {
+  const currentDow = todayDow();
+  const dayTasks = groupPrepByDay(data.tasks);
+
+  // Count slots needing prep (no session or session not ready/done)
+  const needsPrep = data.tasks.filter(
+    t => !t.sessionStatus || t.sessionStatus === 'planned'
+  ).length;
+  const ready = data.tasks.filter(t => t.sessionStatus === 'ready' || t.sessionStatus === 'done').length;
+
+  return (
+    <Card className="dashboard__copilot" noHover>
+      <div className="copilot__header">
+        <h3 className="dashboard__section-title">Copilote de la semaine</h3>
+        <div className="copilot__summary">
+          {ready > 0 && <Badge variant="success">{ready} prête{ready > 1 ? 's' : ''}</Badge>}
+          {needsPrep > 0 && <Badge variant="warn">{needsPrep} à préparer</Badge>}
+          {data.upcomingAssignments.length > 0 && (
+            <Badge variant="info">{data.upcomingAssignments.length} devoir{data.upcomingAssignments.length > 1 ? 's' : ''}</Badge>
+          )}
+          {data.missingCahier > 0 && (
+            <Badge variant="warn">{data.missingCahier} cahier manquant{data.missingCahier > 1 ? 's' : ''}</Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="copilot__grid">
+        {[1, 2, 3, 4, 5].map(dow => {
+          const tasks = dayTasks.get(dow) ?? [];
+          const isPast = dow < currentDow;
+          const isToday = dow === currentDow;
+          return (
+            <div
+              key={dow}
+              className={`copilot__day ${isToday ? 'copilot__day--today' : ''} ${isPast ? 'copilot__day--past' : ''}`}
+            >
+              <span className="copilot__day-label">{DAYS[dow - 1]}</span>
+              {tasks.length === 0 && <span className="copilot__empty">—</span>}
+              {tasks.map((t, i) => {
+                const status = t.sessionStatus;
+                const isDone = status === 'done' || status === 'ready';
+                return (
+                  <div
+                    key={i}
+                    className={`copilot__task ${isDone ? 'copilot__task--done' : 'copilot__task--todo'}`}
+                    style={{ borderLeftColor: t.subjectColor }}
+                  >
+                    <span className="copilot__task-time">{t.startTime}</span>
+                    <span className="copilot__task-label">
+                      {t.subjectLabel} — {t.classLabel}
+                    </span>
+                    {t.sessionTitle && (
+                      <span className="copilot__task-session">{t.sessionTitle}</span>
+                    )}
+                    {!t.sessionTitle && !isDone && (
+                      <span className="copilot__task-action">Aucune séance liée</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Devoirs de la semaine */}
+      {data.upcomingAssignments.length > 0 && (
+        <div className="copilot__assignments">
+          <h4 className="copilot__sub-title">Devoirs de la semaine</h4>
+          {data.upcomingAssignments.map((a, i) => (
+            <button
+              key={i}
+              type="button"
+              className="copilot__assignment"
+              style={{ borderLeftColor: a.subjectColor }}
+              onClick={() => onNavigate('/evaluation/devoirs')}
+            >
+              <span className="copilot__assignment-title">{a.title}</span>
+              <span className="copilot__assignment-meta">{a.classLabel} — {a.dueDate}</span>
+              <Badge variant={a.status === 'corrected' || a.status === 'returned' ? 'success' : 'warn'}>
+                {a.status}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Actions rapides */}
+      <div className="copilot__actions">
+        <Button variant="primary" size="S" onClick={() => onNavigate('/preparation/sequences')}>
+          Préparer une séance
+        </Button>
+        {data.missingCahier > 0 && (
+          <Button variant="secondary" size="S" onClick={() => onNavigate('/cahier-de-textes')}>
+            Compléter le cahier ({data.missingCahier})
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+};
 
 // ── Page ──
 
 export const DashboardPage: React.FC = () => {
-  const { loadDashboard, loadWeekSlots, loadCoverage, loadAlerts } = useData();
+  const { loadDashboard, loadWeekSlots, loadCoverage, loadAlerts, loadWeeklyPrep } = useData();
 
   const [indicators, setIndicators] = useState<DashboardIndicators | null>(null);
   const [weekSlots, setWeekSlots] = useState<WeekSlot[]>([]);
   const [coverage, setCoverage] = useState<CoverageItem[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [prepData, setPrepData] = useState<WeeklyPrepData | null>(null);
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAllAlerts, setShowAllAlerts] = useState(false);
+  const [showAllCoverage, setShowAllCoverage] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    Promise.all([loadDashboard(), loadWeekSlots(), loadCoverage(), loadAlerts()])
-      .then(([ind, slots, cov, al]) => {
+    Promise.all([loadDashboard(), loadWeekSlots(), loadCoverage(), loadAlerts(), loadWeeklyPrep()])
+      .then(([ind, slots, cov, al, prep]) => {
         if (cancelled) return;
         setIndicators(ind);
         setWeekSlots(slots);
         setCoverage(cov);
         setAlerts(al);
+        setPrepData(prep);
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [loadDashboard, loadWeekSlots, loadCoverage, loadAlerts]);
+  }, [loadDashboard, loadWeekSlots, loadCoverage, loadAlerts, loadWeeklyPrep]);
 
   const dayMap = groupByDay(weekSlots);
   const currentDow = todayDow();
@@ -111,7 +237,7 @@ export const DashboardPage: React.FC = () => {
 
   const navigate = (path: string) => {
     // Parse path to Route
-    const routeMap: Record<string, { tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'evaluation'; page: string }> = {
+    const routeMap: Record<string, { tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'evaluation' | 'bibliotheque' | 'parametres'; page: string }> = {
       '/preparation/sequences': { tab: 'preparation', page: 'sequences' },
       '/planning/edt': { tab: 'planning', page: 'edt' },
       '/programme/progression': { tab: 'programme', page: 'progression' },
@@ -151,22 +277,26 @@ export const DashboardPage: React.FC = () => {
             dayDate.setDate(dayDate.getDate() - (currentDow - dow));
             const label = `${DAYS[dow - 1]} ${dayDate.getDate()}`;
             return (
-              <div
+              <button
                 key={dow}
+                type="button"
                 className={`mini-timeline__day ${dow === currentDow ? 'mini-timeline__day--today' : ''} ${selectedDow === dow ? 'mini-timeline__day--selected' : ''}`}
                 onClick={() => setSelectedDow(dow === selectedDow ? null : dow)}
-                role="button" tabIndex={0}
+                aria-label={`${label} — ${daySlots.length} séance${daySlots.length !== 1 ? 's' : ''}`}
               >
                 <span className="mini-timeline__header">{label}</span>
                 <div className="mini-timeline__slots">
                   {daySlots.map(s => <MiniTimelineSlot key={s.id} slot={s} />)}
                   {daySlots.length === 0 && <span className="mini-timeline__empty">—</span>}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </Card>
+
+      {/* Copilote préparation hebdo */}
+      {prepData && <WeeklyPrepCopilot data={prepData} onNavigate={navigate} />}
 
       {/* Aujourd'hui + Alertes / Couverture */}
       <section className="dashboard__middle">
@@ -186,16 +316,64 @@ export const DashboardPage: React.FC = () => {
 
         <div className="dashboard__right-col">
           <Card className="dashboard__alerts" noHover>
-            <h3 className="dashboard__section-title">⚠️ Alertes</h3>
+            <h3 className="dashboard__section-title">
+              ⚠️ Alertes
+              {alerts.length > 0 && <span className="dashboard__alerts-count">{alerts.length}</span>}
+            </h3>
             <div className="alerts-list">
-              {alerts.map(a => <AlertRow key={a.id} alert={a} onClick={() => navigate(a.navigateTo)} />)}
+              {alerts.slice(0, 5).map(a => <AlertRow key={a.id} alert={a} onClick={() => navigate(a.navigateTo)} />)}
               {alerts.length === 0 && <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>Aucune alerte</p>}
             </div>
+            {alerts.length > 5 && (
+              <button
+                className="dashboard__alerts-more"
+                onClick={() => setShowAllAlerts(true)}
+                type="button"
+              >
+                Voir les {alerts.length} alertes
+              </button>
+            )}
           </Card>
 
+          {/* Modal toutes les alertes */}
+          <Modal open={showAllAlerts} onClose={() => setShowAllAlerts(false)} title={`Toutes les alertes (${alerts.length})`}>
+            <div className="alerts-list alerts-list--modal">
+              {alerts.map(a => (
+                <AlertRow key={a.id} alert={a} onClick={() => { navigate(a.navigateTo); setShowAllAlerts(false); }} />
+              ))}
+            </div>
+          </Modal>
+
           <Card className="dashboard__coverage" noHover>
-            <h3 className="dashboard__section-title">📊 Couverture programme</h3>
+            <h3 className="dashboard__section-title">
+              📊 Couverture programme
+              {coverage.length > 0 && <span className="dashboard__coverage-count">{coverage.length}</span>}
+            </h3>
             <div className="coverage-list">
+              {coverage.slice(0, 5).map((item, i) => (
+                <div key={i} className="coverage-item">
+                  <div className="coverage-item__header">
+                    <span className="coverage-item__label">{item.label}</span>
+                    <span className="coverage-item__pct" style={{ color: item.color }}>{item.percentage}%</span>
+                  </div>
+                  <ProgressBar value={item.percentage} color={item.color} height={6} />
+                </div>
+              ))}
+            </div>
+            {coverage.length > 5 && (
+              <button
+                className="dashboard__alerts-more"
+                onClick={() => setShowAllCoverage(true)}
+                type="button"
+              >
+                Voir les {coverage.length} entrées
+              </button>
+            )}
+          </Card>
+
+          {/* Modal couverture complète */}
+          <Modal open={showAllCoverage} onClose={() => setShowAllCoverage(false)} title={`Couverture programme (${coverage.length})`}>
+            <div className="coverage-list coverage-list--modal">
               {coverage.map((item, i) => (
                 <div key={i} className="coverage-item">
                   <div className="coverage-item__header">
@@ -206,7 +384,7 @@ export const DashboardPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          </Card>
+          </Modal>
         </div>
       </section>
 

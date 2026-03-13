@@ -62,3 +62,9 @@ export { VoiceInput } from './VoiceInput';
 
 export { Stepper } from './Stepper';
 export type { StepDef } from './Stepper';
+
+export { CommandPalette } from './CommandPalette';
+export type { CommandPaletteProps } from './CommandPalette';
+
+export { ActionMenu } from './ActionMenu';
+export type { ActionMenuProps, ActionMenuItem } from './ActionMenu';

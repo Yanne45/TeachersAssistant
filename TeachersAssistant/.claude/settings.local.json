@@ -3,7 +3,21 @@
     "allow": [
       "Bash(netstat -ano)",
       "Read(//d/VSProjets/TeachersAssistant/**)",
-      "Bash(taskkill //PID 24796 //F)"
+      "Bash(taskkill //PID 24796 //F)",
+      "Bash(ls *.md)",
+      "Bash(npm run:*)",
+      "Bash(grep -n \"DocumentSource\\\\|source.*:\" src/types/*.ts)",
+      "Bash(echo \"export * from ''./navigation'';\")",
+      "Bash(\"d:\\\\VSProjets\\\\TeachersAssistant\\\\src\\\\constants\\\\index.ts\")",
+      "Bash(printf \"\\\\nexport { PanelError } from ''./PanelError'';\\\\nexport type { PanelErrorProps } from ''./PanelError'';\\\\n\")",
+      "Bash(\"d:/VSProjets/TeachersAssistant/src/components/ui/index.ts\")",
+      "Bash(printf '\\\\n.ia-gen__section-title-row {\\\\n  display: flex;\\\\n  align-items: center;\\\\n  gap: 10px;\\\\n  margin-bottom: 4px;\\\\n}\\\\n\\\\n.ia-gen__section-title-row .ia-gen__section-title {\\\\n  margin: 0;\\\\n}\\\\n')",
+      "Bash(\"d:/VSProjets/TeachersAssistant/src/pages/preparation/GenerateurIAPage.css\")",
+      "Bash(find /d/VSProjets/TeachersAssistant/src-tauri -name *.rs -type f)",
+      "Bash(grep -i \"\\\\.ts$\")",
+      "Bash(sed -n '93,105p' src/services/evaluationService.ts)",
+      "Bash(sed -n '280,315p' src/services/evaluationService.ts)",
+      "Bash(ls D:/VSProjets/TeachersAssistant/db/018* D:/VSProjets/TeachersAssistant/public/db/018* D:/VSProjets/TeachersAssistant/src/pages/evaluation/GrilleDescriptiveModal.tsx D:/VSProjets/TeachersAssistant/src/components/evaluation/CorrectionTemplateModal.tsx)"
     ]
   }
 }

@@ -12,7 +12,7 @@ import { generateNotifications } from '../services';
 
 // ── Types ──
 
-export type TabId = 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation';
+export type TabId = 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation' | 'bibliotheque' | 'parametres';
 
 interface AppState {
   // Année

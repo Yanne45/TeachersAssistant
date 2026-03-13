@@ -85,10 +85,12 @@ export const WelcomePage: React.FC = () => {
                 <h2 className="welcome__recents-title">Autres bases récentes</h2>
                 <div className="welcome__recents-list">
                   {recents.slice(3).map(entry => (
-                    <div
+                    <button
                       key={entry.path}
                       className="welcome__recent-item"
+                      type="button"
                       onClick={() => openFile(entry.path, entry.label)}
+                      aria-label={`Ouvrir ${entry.label}`}
                     >
                       <span className="welcome__recent-icon">📄</span>
                       <div className="welcome__recent-info">
@@ -100,14 +102,17 @@ export const WelcomePage: React.FC = () => {
                           })}
                         </span>
                       </div>
-                      <button
+                      <span
                         className="welcome__recent-remove"
+                        role="button"
+                        tabIndex={0}
                         title="Retirer des récents"
                         onClick={(e) => { e.stopPropagation(); removeRecent(entry.path); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); removeRecent(entry.path); } }}
                       >
                         ✕
-                      </button>
-                    </div>
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>

@@ -13,7 +13,6 @@ import type { Subject, Level, DocumentType } from '../../types';
 
 interface ImportModalProps {
   files: File[];
-  dbPath: string;
   onClose: () => void;
   onSaved: (count: number) => void;
 }
@@ -37,7 +36,7 @@ function fileIcon(ext: string): string {
   return FILE_ICONS[ext.toLowerCase()] ?? FILE_ICONS.default ?? '📎';
 }
 
-export const ImportModal: React.FC<ImportModalProps> = ({ files, dbPath, onClose, onSaved }) => {
+export const ImportModal: React.FC<ImportModalProps> = ({ files, onClose, onSaved }) => {
   const [phase, setPhase] = useState<Phase>('processing');
   const [progressMsg, setProgressMsg] = useState('Préparation…');
   const [progressIdx, setProgressIdx] = useState(0);
@@ -68,7 +67,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ files, dbPath, onClose
       setPhase('processing');
       setProgressIdx(0);
 
-      const results = await processFiles(files, dbPath, (idx, total, step, name) => {
+      const results = await processFiles(files, (idx, total, step, name) => {
         if (!cancelled) {
           setProgressIdx(idx + 1);
           setProgressMsg(

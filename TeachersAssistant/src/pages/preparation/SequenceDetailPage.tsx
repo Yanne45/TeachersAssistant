@@ -1,5 +1,5 @@
 ﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Card, Badge, Button, StatusBadge, ConfirmDialog } from '../../components/ui';
+import { Card, Badge, Button, StatusBadge, ConfirmDialog, EmptyState } from '../../components/ui';
 import { SortableList } from '../../components/dnd';
 import { useApp, useData, useRouter } from '../../stores';
 import {
@@ -332,9 +332,13 @@ export const SequenceDetailPage: React.FC = () => {
         </div>
 
         {visibleSequences.length === 0 && (
-          <div style={{ padding: '16px 8px', fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center' }}>
-            Aucune séquence.<br />Créez-en une avec le bouton +.
-          </div>
+          <EmptyState
+            icon="📚"
+            title="Aucune séquence"
+            description="Créez votre première séquence pour commencer la préparation."
+            actionLabel="+ Nouvelle séquence"
+            onAction={() => { setEditingSeq(null); setSeqFormOpen(true); }}
+          />
         )}
 
         {visibleSequences.map((seq) => (

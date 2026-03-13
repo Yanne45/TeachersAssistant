@@ -87,6 +87,13 @@
   gap: 4px;
 }
 
+.tag-manager__list--inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--space-3);
+}
+
 .tag-manager__empty {
   font-size: 11px;
   color: var(--color-text-muted);

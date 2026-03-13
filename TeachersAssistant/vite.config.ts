@@ -41,9 +41,11 @@ export default defineConfig({
           if (!id.includes('node_modules')) return undefined;
           if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react';
           if (id.includes('@dnd-kit')) return 'vendor-dnd';
-          if (id.includes('recharts')) return 'vendor-charts';
+          if (id.includes('recharts') || id.includes('d3-')) return 'vendor-charts';
           if (id.includes('jszip')) return 'vendor-jszip';
           if (id.includes('pdfjs-dist')) return 'vendor-pdf';
+          if (id.includes('mammoth')) return 'vendor-mammoth';
+          if (id.includes('@tauri-apps')) return 'vendor-tauri';
           return 'vendor-misc';
         },
       },

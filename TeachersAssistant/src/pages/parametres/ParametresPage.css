@@ -75,7 +75,7 @@
 }
 
 .parametres-page__title {
-  font-size: 16px;
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
 }
 
@@ -918,4 +918,25 @@
   gap: 6px;
   padding: 3px 0;
   font-size: 13px;
+}
+
+/* ── Combined settings layout (2 columns side-by-side) ── */
+
+.settings-combined {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.settings-combined__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Nested .settings-sub inside combined columns: remove max-width constraint */
+.settings-combined .settings-sub {
+  max-width: none;
 }

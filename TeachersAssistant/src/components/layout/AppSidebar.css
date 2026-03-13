@@ -27,6 +27,26 @@
   margin-top: 0;
 }
 
+.app-sidebar__section--collapsible {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: var(--radius-xs);
+  transition: background 0.12s;
+}
+
+.app-sidebar__section--collapsible:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.app-sidebar__chevron {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+  padding-right: 4px;
+}
+
 /* ── Item ── */
 
 .app-sidebar__item {
@@ -75,4 +95,17 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ── Collapsible item (non-section) ── */
+
+.app-sidebar__item--collapsible .app-sidebar__chevron {
+  margin-left: auto;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.app-sidebar__item--collapsible .app-sidebar__chevron:hover {
+  background: rgba(0, 0, 0, 0.06);
 }

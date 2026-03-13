@@ -261,7 +261,7 @@ export const workspaceService = {
    * Retourne un sous-dossier de données applicatives, organisé selon le type
    * et des composants optionnels (classe, matière, niveau…).
    *
-   * Structure : <exeDir>/<type>[/<part1>/<part2>…]
+   * Structure : <appDataDir>/<type>[/<part1>/<part2>…]
    *
    * Types disponibles :
    *   'copies'        → copies d'élèves, organisées par classe/devoir
@@ -277,12 +277,12 @@ export const workspaceService = {
     type: 'copies' | 'documents' | 'exports' | 'generations_ia' | 'backups',
     ...parts: (string | null | undefined)[]
   ): Promise<string> {
-    const { executableDir, join } = await import('@tauri-apps/api/path');
+    const { appDataDir, join } = await import('@tauri-apps/api/path');
     const { mkdir, exists } = await import('@tauri-apps/plugin-fs');
     const sanitize = (s: string) =>
       s.trim().replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/\s+/g, '_').slice(0, 40);
     const validParts = parts.filter((p): p is string => !!p?.trim()).map(sanitize);
-    const dir = await join(await executableDir(), type, ...validParts);
+    const dir = await join(await appDataDir(), type, ...validParts);
     if (!(await exists(dir))) await mkdir(dir, { recursive: true });
     return dir;
   },

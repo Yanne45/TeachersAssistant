@@ -9,7 +9,7 @@
   margin-bottom: var(--space-4);
 }
 
-.devoirs-page__title { font-size: 16px; font-weight: 600; margin: 0; }
+.devoirs-page__title { font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); margin: 0; }
 
 .devoirs-page__header-actions {
   display: flex; gap: var(--space-2); align-items: center;

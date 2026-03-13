@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../../../components/ui';
+import { Card, EmptyState } from '../../../components/ui';
 import type { GradeRow } from './types';
 import '../FicheElevePage.css';
 
@@ -18,7 +18,7 @@ export const GradesTabPanel: React.FC<GradesTabPanelProps> = ({
             Moyenne récente: <strong>{gradesAverage !== null ? gradesAverage.toFixed(1) : '-'}</strong>
           </div>
           {grades.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune note disponible.</span>
+            <EmptyState icon="📊" title="Aucune note disponible" description="Les notes apparaîtront après la correction des devoirs." />
           ) : (
             <div className="fiche-eleve__item-list">
               {grades.map((g) => (

@@ -23,7 +23,7 @@ export interface AppHeaderProps {
 export const AppHeader: React.FC<AppHeaderProps> = ({
   notificationCount = 0,
   isOnline = true,
-  userInitials = 'YD',
+  userInitials = 'TA',
   workspaceLabel,
   onSearchClick,
   onAIClick,
@@ -33,19 +33,20 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onSwitchDatabase,
 }) => (
   <header className="app-header">
-    {/* Logo — cliquable pour retour accueil */}
-    <div
+    {/* Logo — cliquable pour retour dashboard */}
+    <button
       className="app-header__brand"
       onClick={onLogoClick}
-      style={{ cursor: onLogoClick ? 'pointer' : undefined }}
-      title={onLogoClick ? 'Retour à l\'accueil' : undefined}
+      type="button"
+      title="Retour au tableau de bord"
+      aria-label="Retour au tableau de bord"
     >
       <span className="app-header__logo">🎓</span>
       <span className="app-header__title">Teacher Assistant</span>
       {workspaceLabel && (
         <span className="app-header__workspace-label">— {workspaceLabel}</span>
       )}
-    </div>
+    </button>
 
     {/* Recherche */}
     <button className="app-header__search" onClick={onSearchClick} type="button">

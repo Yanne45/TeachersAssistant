@@ -296,11 +296,15 @@ export const newYearService = {
   ): Promise<{ newYearId: number; copied: Record<string, number> }> {
     const copied: Record<string, number> = {};
 
-    // 1. Create new academic year
+    // 1. Create new academic year (inherit timezone from source)
+    const sourceYear = await db.selectOne<{ timezone: string }>(
+      'SELECT timezone FROM academic_years WHERE id = ?', [sourceYearId]
+    );
+    const tz = sourceYear?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     const newYearId = await db.insert(
       `INSERT INTO academic_years (label, start_date, end_date, timezone, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, 'Europe/Paris', 0, datetime('now'), datetime('now'))`,
-      [newLabel, newStartDate, newEndDate]
+       VALUES (?, ?, ?, ?, 0, datetime('now'), datetime('now'))`,
+      [newLabel, newStartDate, newEndDate, tz]
     );
 
     // 2. Copy school_day_settings

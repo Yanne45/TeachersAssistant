@@ -14,6 +14,36 @@ export interface DashboardData {
   pendingCorrections: number;
 }
 
+// ── Types pour le copilote hebdo ──
+
+export interface PrepTask {
+  dayOfWeek: number;          // 1=lun..5=ven
+  startTime: string;          // "HH:MM"
+  endTime: string;
+  subjectLabel: string;
+  subjectColor: string;
+  classLabel: string;
+  /** Session liée à ce créneau */
+  sessionTitle: string | null;
+  sessionStatus: 'planned' | 'ready' | 'done' | 'cancelled' | null;
+  sequenceTitle: string | null;
+}
+
+export interface WeeklyPrepData {
+  weekLabel: string;
+  tasks: PrepTask[];
+  /** Devoirs à rendre cette semaine */
+  upcomingAssignments: {
+    title: string;
+    classLabel: string;
+    dueDate: string;
+    status: string;
+    subjectColor: string;
+  }[];
+  /** Séances faites sans entrée cahier */
+  missingCahier: number;
+}
+
 export const dashboardService = {
   /** Récupère les compteurs pour les indicateurs rapides */
   async getIndicators(yearId: ID): Promise<DashboardData> {
@@ -82,5 +112,82 @@ export const dashboardService = {
        ORDER BY sub.sort_order, pt.sort_order`,
       [yearId]
     );
+  },
+
+  /** Copilote hebdo : croise EDT × sessions × devoirs */
+  async getWeeklyPrep(yearId: ID): Promise<WeeklyPrepData> {
+    // Compute Monday and Friday ISO dates for current week
+    const now = new Date();
+    const dow = now.getDay() === 0 ? 7 : now.getDay(); // 1=lun
+    const mon = new Date(now);
+    mon.setDate(now.getDate() - (dow - 1));
+    const fri = new Date(mon);
+    fri.setDate(mon.getDate() + 4);
+    const monISO = mon.toISOString().slice(0, 10);
+    const friISO = fri.toISOString().slice(0, 10);
+    const weekLabel = `Semaine du ${mon.getDate()} ${mon.toLocaleDateString('fr-FR', { month: 'long' })}`;
+
+    const [tasks, assignments, cahier] = await Promise.all([
+      // 1. Timetable slots + linked session status
+      db.select<any>(
+        `SELECT
+           ts.day_of_week as dayOfWeek,
+           ts.start_time as startTime,
+           ts.end_time as endTime,
+           COALESCE(sub.short_label, sub.label, '') as subjectLabel,
+           COALESCE(sub.color, '#888') as subjectColor,
+           COALESCE(c.short_name, c.name, '') as classLabel,
+           se.title as sessionTitle,
+           se.status as sessionStatus,
+           seq.title as sequenceTitle
+         FROM timetable_slots ts
+         LEFT JOIN subjects sub ON ts.subject_id = sub.id
+         LEFT JOIN classes c ON ts.class_id = c.id
+         LEFT JOIN sessions se ON se.timetable_slot_id = ts.id
+           AND se.id = (SELECT se2.id FROM sessions se2
+                        WHERE se2.timetable_slot_id = ts.id
+                        AND se2.status != 'cancelled'
+                        ORDER BY se2.sort_order DESC LIMIT 1)
+         LEFT JOIN sequences seq ON se.sequence_id = seq.id
+         WHERE ts.academic_year_id = ?
+           AND ts.day_of_week BETWEEN 1 AND 5
+         ORDER BY ts.day_of_week, ts.start_time`,
+        [yearId]
+      ),
+
+      // 2. Assignments due this week
+      db.select<any>(
+        `SELECT
+           a.title,
+           COALESCE(c.short_name, c.name, '') as classLabel,
+           a.due_date as dueDate,
+           a.status,
+           COALESCE(sub.color, '#888') as subjectColor
+         FROM assignments a
+         LEFT JOIN classes c ON a.class_id = c.id
+         LEFT JOIN subjects sub ON a.subject_id = sub.id
+         WHERE a.academic_year_id = ?
+           AND a.due_date BETWEEN ? AND ?
+         ORDER BY a.due_date`,
+        [yearId, monISO, friISO]
+      ),
+
+      // 3. Missing cahier count
+      db.selectOne<{ c: number }>(
+        `SELECT COUNT(*) as c FROM sessions s
+         JOIN sequences seq ON s.sequence_id = seq.id
+         WHERE seq.academic_year_id = ?
+           AND s.status = 'done'
+           AND s.id NOT IN (SELECT session_id FROM lesson_log WHERE session_id IS NOT NULL)`,
+        [yearId]
+      ),
+    ]);
+
+    return {
+      weekLabel,
+      tasks: tasks as PrepTask[],
+      upcomingAssignments: assignments,
+      missingCahier: cahier?.c ?? 0,
+    };
   },
 };

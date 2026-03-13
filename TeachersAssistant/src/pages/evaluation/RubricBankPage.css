@@ -1,0 +1,255 @@
+/* ============================================================================
+   RubricBankPage — Banque de grilles d'évaluation
+   ============================================================================ */
+
+.rubric-bank {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rubric-bank__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rubric-bank__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.rubric-bank__filters {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+/* ── Layout list + detail ── */
+
+.rubric-bank__layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--space-3);
+  min-height: 400px;
+}
+
+.rubric-bank__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* ── Cards ── */
+
+.rubric-bank__card {
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.rubric-bank__card--active {
+  border-color: var(--color-primary) !important;
+}
+
+.rubric-bank__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--space-1);
+}
+
+.rubric-bank__card-title {
+  font-size: var(--font-size-sm);
+}
+
+.rubric-bank__card-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.rubric-bank__card-desc {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 0 0 var(--space-1);
+}
+
+.rubric-bank__card-tags {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.rubric-bank__card-score {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+.rubric-bank__card-actions {
+  display: flex;
+  gap: var(--space-1);
+  border-top: var(--border-default);
+  padding-top: var(--space-1);
+}
+
+/* ── Detail panel ── */
+
+.rubric-bank__detail {
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.rubric-bank__detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.rubric-bank__detail-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.rubric-bank__detail-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+/* ── Criteria ── */
+
+.rubric-bank__criteria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rubric-bank__criterion-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.rubric-bank__criterion-label {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-2);
+}
+
+.rubric-bank__criterion-weight {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rubric-bank__criterion-weight input {
+  width: 50px;
+  font-size: 12px;
+  padding: 2px 4px;
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Levels table ── */
+
+.rubric-bank__levels-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: var(--space-2);
+}
+
+.rubric-bank__levels-table th {
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  padding: var(--space-1);
+  border-bottom: var(--border-default);
+  color: var(--color-text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.rubric-bank__levels-table td {
+  padding: var(--space-1);
+  vertical-align: top;
+  border-bottom: 1px solid var(--color-border-light, #f0f0f0);
+}
+
+.rubric-bank__level-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  color: #1a1a1a;
+}
+
+.rubric-bank__desc-input {
+  width: 100%;
+  font-size: 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+.rubric-bank__desc-textarea {
+  width: 100%;
+  font-size: 12px;
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.rubric-bank__criterion-actions {
+  display: flex;
+  gap: var(--space-1);
+  justify-content: flex-end;
+}
+
+/* ── Form ── */
+
+.rubric-bank__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rubric-bank__form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.rubric-bank__form input,
+.rubric-bank__form textarea,
+.rubric-bank__form select {
+  font-size: var(--font-size-sm);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-default);
+  border-radius: var(--radius-md);
+}
+
+.rubric-bank__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-default);
+}

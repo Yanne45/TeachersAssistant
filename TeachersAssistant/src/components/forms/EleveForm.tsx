@@ -4,6 +4,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { classService } from '../../services';
+import type { ClassWithLevel } from '../../types/academic';
 import './forms.css';
 
 interface EleveFormData {
@@ -18,10 +20,6 @@ const EMPTY: EleveFormData = {
   last_name: '', first_name: '', birth_year: '', gender: '', class_ids: [],
 };
 
-const MOCK_CLASSES = [
-  { id: '1', label: 'Tle 2' }, { id: '2', label: 'Tle 4' }, { id: '3', label: '1ère 3' },
-];
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -32,12 +30,13 @@ interface Props {
 export const EleveForm: React.FC<Props> = ({ open, onClose, onSave, initialData }) => {
   const [form, setForm] = useState<EleveFormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof EleveFormData, string>>>({});
+  const [classes, setClasses] = useState<ClassWithLevel[]>([]);
 
   useEffect(() => {
-    if (open) {
-      setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
-      setErrors({});
-    }
+    if (!open) return;
+    setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
+    setErrors({});
+    classService.getAll().then(setClasses).catch(() => {});
   }, [open, initialData]);
 
   const set = (field: keyof EleveFormData, value: string | string[]) =>
@@ -116,14 +115,14 @@ export const EleveForm: React.FC<Props> = ({ open, onClose, onSave, initialData 
         <div className="form__field form__field--full">
           <label className="form__label">Inscription aux classes *</label>
           <div className="form__badge-select">
-            {MOCK_CLASSES.map(c => (
+            {classes.map(c => (
               <button
                 key={c.id}
                 type="button"
-                className={`form__badge-option ${form.class_ids.includes(c.id) ? 'form__badge-option--selected' : ''}`}
-                onClick={() => toggleClass(c.id)}
+                className={`form__badge-option ${form.class_ids.includes(String(c.id)) ? 'form__badge-option--selected' : ''}`}
+                onClick={() => toggleClass(String(c.id))}
               >
-                {c.label}
+                {c.name}
               </button>
             ))}
           </div>

@@ -1,5 +1,6 @@
 ﻿import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Button, SkillLevelSelector, EmptyState, ErrorBoundary, PanelError, Stepper } from '../../components/ui';
+import { Card, Button, SkillLevelSelector, EmptyState, ErrorBoundary, PanelError, Stepper, ActionMenu } from '../../components/ui';
+import type { ActionMenuItem } from '../../components/ui';
 import type { StepDef } from '../../components/ui';
 import {
   assignmentService,
@@ -12,7 +13,7 @@ import {
   submissionService,
   workspaceService,
 } from '../../services';
-import { useCorrectionShortcuts, usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
+import { useCorrectionShortcuts, usePageLoadTelemetry, trackCacheHit, trackCacheMiss, useUnsavedGuard } from '../../hooks';
 import { useApp, useData, useRouter } from '../../stores';
 import { SUBMISSION_STATUS_META } from '../../constants/statuses';
 import type { CorrectionAIResult } from '../../services';
@@ -88,6 +89,7 @@ export const CorrectionSeriePage: React.FC = () => {
   const { addToast } = useApp();
   const { route, navigate } = useRouter();
   const { loadSubmissions } = useData();
+  const { isDirty, setDirty, markClean } = useUnsavedGuard();
 
   const [skills, setSkills] = useState<SkillDef[]>(DEFAULT_SKILLS);
   const [students, setStudents] = useState<StudentSubmission[]>([]);
@@ -226,6 +228,7 @@ export const CorrectionSeriePage: React.FC = () => {
   const updateSelectedStudent = (updater: (student: StudentSubmission) => StudentSubmission) => {
     if (selectedId === null) return;
     setStudents((prev) => prev.map((s) => (s.id === selectedId ? updater(s) : s)));
+    setDirty(true);
   };
 
   useEffect(() => {
@@ -417,6 +420,7 @@ export const CorrectionSeriePage: React.FC = () => {
     if (!selected) return;
     try {
       await persistCurrentSubmission(true);
+      markClean();
       addToast('success', `${selected.name} - copie finalisée`);
       goNext();
     } catch (error) {
@@ -429,6 +433,7 @@ export const CorrectionSeriePage: React.FC = () => {
     if (!selected) return;
     try {
       await persistCurrentSubmission(false);
+      markClean();
       addToast('success', 'Sauvegarde effectuée');
     } catch (error) {
       console.error('[CorrectionSeriePage] Erreur sauvegarde:', error);
@@ -714,6 +719,7 @@ export const CorrectionSeriePage: React.FC = () => {
         <div className="correction-page__main-header">
           <div className="correction-page__header-left">
             <span className="correction-page__student-name">{selected.name}</span>
+            {isDirty && <span className="correction-page__unsaved-badge">Non enregistré</span>}
             <span className="correction-page__student-score">
               Note:
               <input
@@ -847,16 +853,14 @@ export const CorrectionSeriePage: React.FC = () => {
           <Button variant="secondary" size="S" onClick={handleAnalyzeIA} disabled={analyzing}>
             {analyzing ? 'Analyse…' : 'Analyser (IA)'}
           </Button>
-          <Button variant="secondary" size="S" onClick={handleImportCopy}>Importer copie</Button>
-          <Button variant="secondary" size="S" onClick={() => setBulkImportOpen(true)}>Importer lot</Button>
-          <Button variant="secondary" size="S" onClick={() => setPronoteImportOpen(true)}>Import Pronote</Button>
-          <Button variant="secondary" size="S" onClick={() => setGrilleModalOpen(true)} disabled={!assignmentId}>
-            Grille descriptive
-          </Button>
-          <Button variant="secondary" size="S" onClick={() => setTemplateModalOpen(true)} disabled={!selected}>
-            Template correction
-          </Button>
-          <Button variant="secondary" size="S" onClick={handleImportCorrection}>Importer correction</Button>
+          <ActionMenu label="Import & outils ▾" items={[
+            { id: 'import-copy', label: 'Importer copie', icon: '📄', onClick: handleImportCopy },
+            { id: 'import-bulk', label: 'Importer lot', icon: '📦', onClick: () => setBulkImportOpen(true) },
+            { id: 'import-pronote', label: 'Import Pronote', icon: '🔗', onClick: () => setPronoteImportOpen(true) },
+            { id: 'import-correction', label: 'Importer correction', icon: '📝', onClick: handleImportCorrection },
+            { id: 'grille', label: 'Grille descriptive', icon: '📊', onClick: () => setGrilleModalOpen(true), disabled: !assignmentId, separator: true },
+            { id: 'template', label: 'Template correction', icon: '📋', onClick: () => setTemplateModalOpen(true), disabled: !selected },
+          ] as ActionMenuItem[]} />
           <Button variant="secondary" size="S" onClick={handleSave}>Sauvegarder</Button>
           <Button variant="primary" size="S" onClick={handleFinalize}>Finaliser</Button>
         </div>

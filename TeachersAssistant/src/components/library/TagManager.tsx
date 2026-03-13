@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { documentTagService } from '../../services';
+import './TagManager.css';
 
 interface TagManagerProps {
   activeTagId: number | null;
@@ -18,19 +19,13 @@ export const TagManager: React.FC<TagManagerProps> = ({ activeTagId, onTagClick 
   if (tags.length === 0) return null;
 
   return (
-    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div className="tag-manager__list tag-manager__list--inline">
       {tags.map((tag) => (
         <button
           key={tag.id}
           type="button"
+          className={`tag-chip ${activeTagId === tag.id ? 'tag-chip--active' : ''}`}
           onClick={() => onTagClick(tag.id, tag.label)}
-          style={{
-            padding: '4px 8px',
-            borderRadius: 999,
-            border: 'var(--border-default)',
-            background: activeTagId === tag.id ? 'var(--color-primary-light)' : 'transparent',
-            fontSize: 12,
-          }}
         >
           #{tag.label}
         </button>

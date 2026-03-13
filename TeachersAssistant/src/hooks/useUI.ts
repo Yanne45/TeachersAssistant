@@ -2,8 +2,9 @@
 // Teacher Assistant — Hooks UI (toast, thème, raccourcis clavier)
 // ============================================================================
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { ThemeValue, UIDensity } from '../types';
+import { useRouter } from '../stores';
 
 // ── Toast ──
 
@@ -170,6 +171,39 @@ export interface CorrectionShortcutHandlers {
   onFinalize: () => void;
   onAnalyzeAI: () => void;
   onSave: () => void;
+}
+
+// ── Unsaved changes guard ──
+
+/**
+ * Hook that warns the user when navigating away with unsaved changes.
+ * Returns `{ isDirty, setDirty, markClean }`.
+ * When `isDirty` is true, navigating (tab/page change) triggers a confirm dialog.
+ */
+export function useUnsavedGuard(message = 'Modifications non enregistrées. Quitter sans sauvegarder ?') {
+  const { registerGuard } = useRouter();
+  const [dirty, setDirtyState] = useState(false);
+  const dirtyRef = useRef(false);
+
+  const setDirty = useCallback((v: boolean) => {
+    dirtyRef.current = v;
+    setDirtyState(v);
+  }, []);
+
+  const markClean = useCallback(() => {
+    dirtyRef.current = false;
+    setDirtyState(false);
+  }, []);
+
+  useEffect(() => {
+    const unregister = registerGuard(() => {
+      if (!dirtyRef.current) return true;
+      return window.confirm(message);
+    });
+    return unregister;
+  }, [registerGuard, message]);
+
+  return useMemo(() => ({ isDirty: dirty, setDirty, markClean }), [dirty, setDirty, markClean]);
 }
 
 /** Wrapper spécialisé pour la correction en série. J/K/1-4/Tab/F/A/Ctrl+S */

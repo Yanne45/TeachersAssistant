@@ -38,11 +38,19 @@ function dateLabel(month: number): string {
   return labels[month] ?? '';
 }
 
-function generateSchoolYear(): MonthData[] {
+function generateSchoolYear(startDate?: string, endDate?: string): MonthData[] {
+  // Parse start/end from activeYear or fall back to current academic year
+  const now = new Date();
+  const defaultStartYear = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  const start = startDate ? new Date(startDate) : new Date(defaultStartYear, 8, 1);
+  const end = endDate ? new Date(endDate) : new Date(defaultStartYear + 1, 6, 4);
+
   const months: MonthData[] = [];
-  for (let i = 0; i < 10; i++) {
-    const month = (8 + i) % 12;
-    const year = month >= 8 ? 2025 : 2026;
+  let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+
+  while (cursor <= end) {
+    const year = cursor.getFullYear();
+    const month = cursor.getMonth();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const days: DayData[] = [];
 
@@ -53,6 +61,7 @@ function generateSchoolYear(): MonthData[] {
     }
 
     months.push({ label: dateLabel(month), year, month, days });
+    cursor = new Date(year, month + 1, 1);
   }
   return months;
 }
@@ -73,7 +82,7 @@ export const CalendrierScolairePage: React.FC = () => {
   const [periods, setPeriods] = useState<CalendarPeriod[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingPeriod, setEditingPeriod] = useState<CalendarPeriod | null>(null);
-  const months = generateSchoolYear();
+  const months = generateSchoolYear(activeYear?.start_date, activeYear?.end_date);
 
   const refreshPeriods = useCallback(async () => {
     const data = await loadCalendarPeriods();
@@ -152,8 +161,8 @@ export const CalendrierScolairePage: React.FC = () => {
           <Card noHover>
             <h3 className="calendrier-page__param-title">Année scolaire</h3>
             <div className="calendrier-page__field-row">
-              <Input label="Début" type="date" defaultValue="2025-09-01" />
-              <Input label="Fin" type="date" defaultValue="2026-07-04" />
+              <Input label="Début" type="date" defaultValue={activeYear?.start_date ?? ''} readOnly />
+              <Input label="Fin" type="date" defaultValue={activeYear?.end_date ?? ''} readOnly />
             </div>
           </Card>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Button, StatusBadge } from '../../../components/ui';
+import { Card, Button, StatusBadge, EmptyState } from '../../../components/ui';
 import { SUBMISSION_STATUS_META } from '../../../constants/statuses';
 import type { CorrectionRow } from './types';
 import '../FicheElevePage.css';
@@ -16,7 +16,7 @@ export const CorrectionsTabPanel: React.FC<CorrectionsTabPanelProps> = ({
         <Card noHover className="fiche-eleve__placeholder">
           <h3 className="fiche-eleve__section-title">Corrections</h3>
           {corrections.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune copie pour cet élève.</span>
+            <EmptyState icon="📝" title="Aucune copie pour cet élève" description="Les copies apparaîtront après l'import ou la saisie en correction série." />
           ) : (
             <div className="fiche-eleve__item-list">
               {corrections.map((c) => (

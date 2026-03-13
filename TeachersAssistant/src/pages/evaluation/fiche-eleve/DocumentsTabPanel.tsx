@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Badge, Button } from '../../../components/ui';
+import { Card, Badge, Button, EmptyState } from '../../../components/ui';
 import type { StudentDocumentRow } from './types';
 import '../FicheElevePage.css';
 
@@ -56,7 +56,7 @@ export const DocumentsTabPanel: React.FC<DocumentsTabPanelProps> = ({
             </div>
           )}
           {studentDocuments.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucun document lié à cet élève.</span>
+            <EmptyState icon="📁" title="Aucun document lié à cet élève" description="Les documents seront rattachés automatiquement ou via l'onglet Documents." />
           ) : (
             <div className="fiche-eleve__item-list">
               {studentDocuments.map((doc) => (

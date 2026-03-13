@@ -1,0 +1,165 @@
+/* ============================================================================
+   FeedbackVocalStudioPage — Dictée vocale + structuration
+   ============================================================================ */
+
+.feedback-studio { max-width: 900px; }
+
+.feedback-studio__header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4);
+}
+
+.feedback-studio__title {
+  font-size: var(--font-size-h2); font-weight: 700; margin: 0;
+}
+
+.feedback-studio__mode {
+  display: flex; gap: var(--space-1); background: var(--color-bg);
+  border-radius: var(--radius-s); padding: 2px;
+}
+
+.feedback-studio__mode-btn {
+  padding: 5px 12px; border-radius: var(--radius-xs); border: none;
+  background: none; font-size: 12px; font-weight: 600; cursor: pointer;
+  color: var(--color-text-muted); transition: all 0.15s ease;
+}
+.feedback-studio__mode-btn--active {
+  background: var(--color-surface); color: var(--color-text);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ── Input zone ── */
+
+.feedback-studio__input-zone {
+  padding: var(--space-3) !important;
+  margin-bottom: var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+
+.feedback-studio__input-row {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+}
+
+.feedback-studio__student-input {
+  flex: 0 0 200px; padding: 6px 10px; border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border); font-size: 13px;
+  background: var(--color-bg); color: var(--color-text); font-family: inherit;
+}
+.feedback-studio__student-input:focus {
+  border-color: var(--color-primary); outline: none;
+}
+
+.feedback-studio__hint {
+  font-size: 11px; color: var(--color-text-muted); font-style: italic;
+}
+
+.feedback-studio__section-selector {
+  display: flex; gap: var(--space-1); flex-wrap: wrap;
+}
+
+.feedback-studio__section-btn {
+  padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  border: 2px solid var(--color-border); cursor: pointer;
+  background: var(--color-bg); color: var(--color-text-muted);
+  transition: all 0.15s ease;
+}
+.feedback-studio__section-btn--active {
+  background: var(--color-surface); color: var(--color-text);
+}
+
+.feedback-studio__textarea {
+  width: 100%; padding: 8px 10px; border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border); font-size: 13px;
+  background: var(--color-bg); color: var(--color-text); font-family: inherit;
+  resize: vertical;
+}
+.feedback-studio__textarea:focus {
+  border-color: var(--color-primary); outline: none;
+}
+
+/* ── Sections grid ── */
+
+.feedback-studio__sections {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3); margin-bottom: var(--space-4);
+}
+
+@media (max-width: 700px) {
+  .feedback-studio__sections { grid-template-columns: 1fr; }
+}
+
+.feedback-studio__section-card {
+  padding: var(--space-2) !important;
+}
+
+.feedback-studio__section-header {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding-bottom: var(--space-1); margin-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  border-left: 3px solid; padding-left: var(--space-2);
+}
+
+.feedback-studio__section-icon { font-size: 14px; }
+.feedback-studio__section-label { font-weight: 600; font-size: 13px; flex: 1; }
+
+.feedback-studio__section-empty {
+  font-size: 12px; color: var(--color-text-muted); font-style: italic;
+  padding: var(--space-2) 0;
+}
+
+/* ── Lines ── */
+
+.feedback-studio__line-list {
+  list-style: none; padding: 0; margin: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.feedback-studio__line {
+  display: flex; align-items: center; gap: var(--space-1);
+}
+
+.feedback-studio__line-input {
+  flex: 1; padding: 3px 6px; border-radius: var(--radius-xs);
+  border: 1px solid transparent; font-size: 12px;
+  background: none; color: var(--color-text); font-family: inherit;
+}
+.feedback-studio__line-input:hover,
+.feedback-studio__line-input:focus {
+  border-color: var(--color-border); background: var(--color-bg); outline: none;
+}
+
+.feedback-studio__line-actions {
+  display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s;
+}
+.feedback-studio__line:hover .feedback-studio__line-actions { opacity: 1; }
+
+.feedback-studio__move-btn,
+.feedback-studio__delete-btn {
+  width: 22px; height: 22px; border: none; background: var(--color-bg);
+  border-radius: var(--radius-xs); font-size: 10px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-muted);
+}
+.feedback-studio__move-btn:hover { background: var(--color-surface); }
+.feedback-studio__delete-btn:hover { background: var(--color-danger); color: white; }
+
+/* ── Output ── */
+
+.feedback-studio__output {
+  padding: var(--space-3) !important;
+}
+
+.feedback-studio__output-title {
+  font-size: 14px; font-weight: 700; margin: 0 0 var(--space-2);
+}
+
+.feedback-studio__output-text {
+  font-family: inherit; font-size: 13px; line-height: 1.5;
+  white-space: pre-wrap; background: var(--color-bg);
+  padding: var(--space-3); border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border); margin-bottom: var(--space-2);
+}
+
+.feedback-studio__output-actions {
+  display: flex; gap: var(--space-2);
+}

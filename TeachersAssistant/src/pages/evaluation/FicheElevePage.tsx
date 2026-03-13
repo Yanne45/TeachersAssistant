@@ -75,6 +75,7 @@ export const FicheElevePage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState('skills');
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadKey, setLoadKey] = useState(0);
@@ -521,6 +522,7 @@ export const FicheElevePage: React.FC = () => {
       addToast('warn', 'Aucun élève sélectionné');
       return;
     }
+    setExportingPdf(true);
     try {
       const html = await pdfExportService.buildFicheEleveHTML(studentId);
       if (!html.trim()) {
@@ -531,6 +533,8 @@ export const FicheElevePage: React.FC = () => {
     } catch (error) {
       console.error('[FicheElevePage] Erreur export PDF:', error);
       addToast('error', 'Erreur génération PDF');
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -654,7 +658,7 @@ export const FicheElevePage: React.FC = () => {
         <div className="fiche-eleve__badges">
           <Badge variant="success">T1 OK</Badge>
           <Badge variant="warn">Cahier</Badge>
-          <Button variant="secondary" size="S" onClick={handleExportPDF}>Export PDF</Button>
+          <Button variant="secondary" size="S" onClick={handleExportPDF} loading={exportingPdf}>Export PDF</Button>
         </div>
       </div>
 

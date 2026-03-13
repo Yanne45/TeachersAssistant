@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Card, Button } from '../../components/ui';
 import { backupService2, downloadBlob, preferenceService } from '../../services';
 import { useApp, useRouter } from '../../stores';
@@ -8,7 +8,7 @@ import { EmploiDuTempsSettings } from './EmploiDuTempsSettings';
 import { ProgrammeSettings } from './ProgrammeSettings';
 import './ParametresPage.css';
 
-type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme' | 'types-evaluation' | 'competences';
+type SubPage = 'hub' | 'ia-templates' | 'interface' | 'annee' | 'matieres' | 'calendrier' | 'export-pdf' | 'capacites' | 'periodes-notation' | 'emploi-du-temps' | 'programme' | 'types-evaluation' | 'competences' | 'sauvegardes' | 'annee-calendrier' | 'competences-capacites';
 
 type ThemeValue = 'light' | 'dark';
 type UIDensity = 'compact' | 'standard' | 'comfortable';
@@ -52,6 +52,7 @@ const SETTINGS_CARDS = [
   {
     icon: '💾', key: 'backup', title: 'Sauvegardes', description: "Dernière : aujourd'hui 08:00",
     details: ['Auto : quotidienne', 'Emplacement : Documents/TA-Backup'],
+    navigateTo: 'sauvegardes' as SubPage,
   },
   {
     icon: '🎨', key: 'interface', title: 'Interface', description: 'Thème clair - Standard',
@@ -82,13 +83,33 @@ const SETTINGS_CARDS = [
 
 export const ParametresPage: React.FC = () => {
   const { addToast, theme, setTheme } = useApp();
-  const { navigate } = useRouter();
-  const [subPage, setSubPage] = useState<SubPage>('hub');
+  const { navigate, route, setPage } = useRouter();
+
+  // Sync subPage with router page when accessed as a tab
+  const routePage = route.tab === 'parametres' ? route.page : null;
+  const [subPage, setSubPageState] = useState<SubPage>('hub');
+
+  const setSubPage = useCallback((page: SubPage) => {
+    setSubPageState(page);
+    if (route.tab === 'parametres') {
+      setPage(page);
+    }
+  }, [route.tab, setPage]);
+
+  // Sync from router to local state
+  useEffect(() => {
+    if (routePage && routePage !== 'hub') {
+      setSubPageState(routePage as SubPage);
+    }
+  }, [routePage]);
   const [uiDensity, setUiDensity] = useState<UIDensity>(
     () => (document.documentElement.getAttribute('data-ui') as UIDensity) || 'standard'
   );
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const handleExportZip = async () => {
+    setExporting(true);
     try {
       const blob = await backupService2.exportZip();
       downloadBlob(blob, 'teacher-assistant-backup-' + new Date().toISOString().slice(0, 10) + '.zip');
@@ -96,6 +117,8 @@ export const ParametresPage: React.FC = () => {
     } catch (e) {
       addToast('error', "Erreur lors de l'export");
       console.error(e);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -106,12 +129,15 @@ export const ParametresPage: React.FC = () => {
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
+      setImporting(true);
       try {
         const result = await backupService2.importZip(file);
         addToast('success', 'Restauration : ' + result.tables + ' tables, ' + result.rows + ' lignes');
       } catch (err) {
         addToast('error', 'Erreur lors de la restauration');
         console.error(err);
+      } finally {
+        setImporting(false);
       }
     };
     input.click();
@@ -130,7 +156,7 @@ export const ParametresPage: React.FC = () => {
   };
 
   const SUB_PAGE_MAP: Record<string, React.ReactNode> = {
-    hub: <SettingsHub cards={SETTINGS_CARDS} onNavigate={setSubPage} onExportZip={handleExportZip} onImportZip={handleImportZip} />,
+    hub: <SettingsHub cards={SETTINGS_CARDS} onNavigate={setSubPage} onExportZip={handleExportZip} onImportZip={handleImportZip} exporting={exporting} importing={importing} />,
     annee: <AnneeSettings />,
     matieres: <MatieresSettings />,
     calendrier: (
@@ -150,6 +176,16 @@ export const ParametresPage: React.FC = () => {
     'periodes-notation': <PeriodesNotationSettings />,
     'types-evaluation': <TypesEvaluationSettings />,
     competences: <CompetencesGeneralesSettings />,
+    sauvegardes: (
+      <SauvegardesSettings
+        onExportZip={handleExportZip}
+        onImportZip={handleImportZip}
+        exporting={exporting}
+        importing={importing}
+      />
+    ),
+    'annee-calendrier': <AnneeCalendrierSettings />,
+    'competences-capacites': <CompetencesCapacitesSettings />,
     interface: (
       <InterfaceSettings
         theme={theme}
@@ -160,6 +196,18 @@ export const ParametresPage: React.FC = () => {
     ),
   };
 
+  const isTab = route.tab === 'parametres';
+
+  // When accessed as a tab, AppSidebar handles navigation — no internal sidebar
+  if (isTab) {
+    return (
+      <div className="parametres-page__content" style={{ height: '100%' }}>
+        {SUB_PAGE_MAP[subPage] ?? SUB_PAGE_MAP.hub}
+      </div>
+    );
+  }
+
+  // When accessed via settings gear (overlay), show internal sidebar
   return (
     <div className="parametres-page">
       <nav className="parametres-page__sidebar">
@@ -188,7 +236,9 @@ const SettingsHub: React.FC<{
   onNavigate: (page: SubPage) => void;
   onExportZip: () => void;
   onImportZip: () => void;
-}> = ({ cards, onNavigate, onExportZip, onImportZip }) => (
+  exporting?: boolean;
+  importing?: boolean;
+}> = ({ cards, onNavigate, onExportZip, onImportZip, exporting, importing }) => (
   <>
     <h1 className="parametres-page__title">Paramètres</h1>
     <div className="parametres-page__grid">
@@ -214,8 +264,12 @@ const SettingsHub: React.FC<{
       ))}
     </div>
     <div className="parametres-page__actions">
-      <button className="parametres-page__action-btn" onClick={onExportZip}>📦 Exporter sauvegarde ZIP</button>
-      <button className="parametres-page__action-btn" onClick={onImportZip}>📥 Restaurer depuis ZIP</button>
+      <button className="parametres-page__action-btn" onClick={onExportZip} disabled={exporting || importing}>
+        {exporting ? '⏳ Export en cours…' : '📦 Exporter sauvegarde ZIP'}
+      </button>
+      <button className="parametres-page__action-btn" onClick={onImportZip} disabled={exporting || importing}>
+        {importing ? '⏳ Restauration en cours…' : '📥 Restaurer depuis ZIP'}
+      </button>
     </div>
   </>
 );
@@ -287,3 +341,52 @@ const CalendrierRedirect: React.FC<{ onBack: () => void; onGo: () => void }> = (
     </div>
   );
 };
+
+/** Sauvegardes — export/import ZIP */
+const SauvegardesSettings: React.FC<{
+  onExportZip: () => void;
+  onImportZip: () => void;
+  exporting: boolean;
+  importing: boolean;
+}> = ({ onExportZip, onImportZip, exporting, importing }) => (
+  <div className="settings-sub">
+    <Card className="settings-sub__card">
+      <h3 className="settings-sub__title">Sauvegardes</h3>
+      <p className="settings-sub__desc">
+        Exportez ou restaurez l'ensemble de vos données (base SQLite, paramètres, documents liés).
+      </p>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <Button variant="primary" size="M" onClick={onExportZip} loading={exporting}>
+          {exporting ? 'Export en cours…' : 'Exporter sauvegarde ZIP'}
+        </Button>
+        <Button variant="secondary" size="M" onClick={onImportZip} loading={importing}>
+          {importing ? 'Restauration en cours…' : 'Restaurer depuis ZIP'}
+        </Button>
+      </div>
+    </Card>
+  </div>
+);
+
+/** Année + Calendrier + Périodes — vue combinée en colonnes */
+const AnneeCalendrierSettings: React.FC = () => (
+  <div className="settings-combined">
+    <div className="settings-combined__col">
+      <AnneeSettings />
+    </div>
+    <div className="settings-combined__col">
+      <PeriodesNotationSettings />
+    </div>
+  </div>
+);
+
+/** Compétences + Capacités — vue combinée en colonnes */
+const CompetencesCapacitesSettings: React.FC = () => (
+  <div className="settings-combined">
+    <div className="settings-combined__col">
+      <CompetencesGeneralesSettings />
+    </div>
+    <div className="settings-combined__col">
+      <CapacitesSettings />
+    </div>
+  </div>
+);

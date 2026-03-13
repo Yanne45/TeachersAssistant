@@ -7,10 +7,9 @@ import { Card, Badge, Button, Input, EmptyState } from '../../components/ui';
 import { DropZone } from '../../components/dnd';
 import { ImportModal } from '../../components/library/ImportModal';
 import { TagManager } from '../../components/library/TagManager';
-import { db, documentService, subjectService } from '../../services';
-import { useWorkspace } from '../../stores';
-import { useRouter } from '../../stores';
-import type { DocumentWithDetails } from '../../types';
+import { db, documentService, subjectService, programTopicService } from '../../services';
+import { useRouter, useApp } from '../../stores';
+import type { DocumentWithDetails, ProgramTopic } from '../../types';
 import './BibliothequePage.css';
 
 // ── Helpers ──
@@ -36,9 +35,40 @@ type ViewMode = 'gallery' | 'list';
 
 // ── Composant ──
 
+// ── Filter parsing helpers ──
+
+function parseSubjectFilter(f: string): { subjectId: number; levelId?: number } | null {
+  // "s-3" or "s-3-l-1"
+  const m = f.match(/^s-(\d+)(?:-l-(\d+))?$/);
+  if (!m) return null;
+  return { subjectId: Number(m[1]), levelId: m[2] ? Number(m[2]) : undefined };
+}
+
+function parseTypeFilter(f: string): number | null {
+  const m = f.match(/^t-(\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+
+function parseTopicFilter(f: string): number | null {
+  const m = f.match(/^topic-(\d+)$/);
+  return m ? Number(m[1]) : null;
+}
+
+/** Collect all descendant IDs of a given topic (children, grandchildren, etc.) */
+function collectDescendants(flat: ProgramTopic[], parentId: number): number[] {
+  const ids: number[] = [];
+  for (const t of flat) {
+    if (t.parent_id === parentId) {
+      ids.push(t.id as number);
+      ids.push(...collectDescendants(flat, t.id as number));
+    }
+  }
+  return ids;
+}
+
 export const BibliothequePage: React.FC = () => {
-  const { currentPath } = useWorkspace();
   const { route } = useRouter();
+  const { activeYear } = useApp();
 
   const page   = route.page   ?? 'recents';
   const filter = route.filter ?? null;
@@ -46,79 +76,148 @@ export const BibliothequePage: React.FC = () => {
   const [docs, setDocs] = useState<DocumentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('gallery');
   const [filesToImport, setFilesToImport] = useState<File[] | null>(null);
   const [activeTagId, setActiveTagId] = useState<number | null>(null);
   const [activeTagLabel, setActiveTagLabel] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const activeKey = filter ?? page;
+  // Debounce search input (300ms)
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
+  const ENRICHED_SELECT = `
+    SELECT d.*,
+      dt.label as document_type_label,
+      sub.label as subject_label, sub.color as subject_color,
+      l.label as level_label,
+      CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
+    FROM documents d
+    LEFT JOIN document_types dt ON d.document_type_id = dt.id
+    LEFT JOIN subjects sub ON d.subject_id = sub.id
+    LEFT JOIN levels l ON d.level_id = l.id`;
 
   const loadDocs = useCallback(async () => {
     setLoading(true);
     try {
+      // Tag filter takes priority
       if (activeTagId !== null) {
         setDocs(await documentService.getByTag(activeTagId));
-      } else if (search.trim()) {
-        setDocs(await documentService.search(search.trim()));
-      } else if (activeKey === 'hggsp') {
-        const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'HGGSP'));
-        setDocs(sub ? await documentService.getBySubject(sub.id) : []);
-      } else if (activeKey === 'histoire') {
-        const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'HIST'));
-        setDocs(sub ? await documentService.getBySubject(sub.id) : []);
-      } else if (activeKey === 'geo') {
-        const sub = await subjectService.getAll().then(s => s.find(x => x.code === 'GEO'));
-        setDocs(sub ? await documentService.getBySubject(sub.id) : []);
-      } else if (activeKey === 'matiere') {
-        const results = await db.select<DocumentWithDetails[]>(
-          `SELECT d.*,
-             dt.label as document_type_label,
-             sub.label as subject_label, sub.color as subject_color,
-             l.label as level_label,
-             CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
-           FROM documents d
-           LEFT JOIN document_types dt ON d.document_type_id = dt.id
-           LEFT JOIN subjects sub ON d.subject_id = sub.id
-           LEFT JOIN levels l ON d.level_id = l.id
-           WHERE d.subject_id IS NOT NULL
-           ORDER BY d.updated_at DESC`,
-          []
+      } else if (debouncedSearch.trim()) {
+        setDocs(await documentService.search(debouncedSearch.trim()));
+
+      // ── Par matière (structured filters: s-{id} or s-{id}-l-{id}) ──
+      } else if (page === 'par-matiere' && filter) {
+        const parsed = parseSubjectFilter(filter);
+        if (parsed) {
+          if (parsed.levelId) {
+            setDocs(await db.select<any[]>(
+              `${ENRICHED_SELECT} WHERE d.subject_id = ? AND d.level_id = ? ORDER BY d.updated_at DESC`,
+              [parsed.subjectId, parsed.levelId]
+            ));
+          } else {
+            setDocs(await documentService.getBySubject(parsed.subjectId));
+          }
+        } else {
+          setDocs(await documentService.getRecent(50));
+        }
+
+      // ── Par type (structured filter: t-{id}) ──
+      } else if (page === 'par-type' && filter) {
+        const typeId = parseTypeFilter(filter);
+        if (typeId) {
+          setDocs(await db.select<any[]>(
+            `${ENRICHED_SELECT} WHERE d.document_type_id = ? ORDER BY d.updated_at DESC`,
+            [typeId]
+          ));
+        } else {
+          setDocs(await documentService.getRecent(50));
+        }
+
+      // ── Par programme (topic-{id} or s-{id}-l-{id}) ──
+      } else if (page === 'par-programme' && filter) {
+        const topicId = parseTopicFilter(filter);
+        if (topicId && activeYear) {
+          // Get the topic to find its subject_id + level_id, then get all children
+          const topic = await programTopicService.getById(topicId);
+          if (topic) {
+            // Get all descendant topic IDs (for keyword search)
+            const flat = await programTopicService.getBySubjectLevel(
+              activeYear.id, topic.subject_id, topic.level_id
+            );
+            const descendantIds = collectDescendants(flat, topicId);
+            descendantIds.push(topicId);
+
+            // Collect keywords from topic titles for search
+            const keywords = descendantIds
+              .map(id => flat.find(t => t.id === id)?.title)
+              .filter(Boolean)
+              .flatMap(t => t!.split(/\s+/).filter(w => w.length > 3))
+              .slice(0, 10);
+
+            if (keywords.length > 0) {
+              // Search documents matching subject+level with keyword relevance
+              const conditions = keywords.map(() => `(LOWER(d.title) LIKE LOWER(?) OR LOWER(d.extracted_text) LIKE LOWER(?))`);
+              const params: any[] = [topic.subject_id, topic.level_id];
+              for (const kw of keywords) {
+                params.push(`%${kw}%`, `%${kw}%`);
+              }
+              setDocs(await db.select<any[]>(
+                `${ENRICHED_SELECT}
+                 WHERE d.subject_id = ? AND d.level_id = ?
+                   AND (${conditions.join(' OR ')})
+                 ORDER BY d.updated_at DESC`,
+                params
+              ));
+            } else {
+              // Fallback: all docs of same subject+level
+              setDocs(await db.select<any[]>(
+                `${ENRICHED_SELECT} WHERE d.subject_id = ? AND d.level_id = ? ORDER BY d.updated_at DESC`,
+                [topic.subject_id, topic.level_id]
+              ));
+            }
+          } else {
+            setDocs([]);
+          }
+        } else {
+          // s-{id}-l-{id} filter for programme section header
+          const parsed = parseSubjectFilter(filter);
+          if (parsed && parsed.levelId) {
+            setDocs(await db.select<any[]>(
+              `${ENRICHED_SELECT} WHERE d.subject_id = ? AND d.level_id = ? ORDER BY d.updated_at DESC`,
+              [parsed.subjectId, parsed.levelId]
+            ));
+          } else {
+            setDocs(await documentService.getRecent(50));
+          }
+        }
+
+      // ── Tous ──
+      } else if (page === 'tous') {
+        setDocs(await db.select<any[]>(
+          `${ENRICHED_SELECT} ORDER BY d.updated_at DESC`
+        ));
+
+      // ── Legacy: match subject/level by name ──
+      } else if (filter && filter !== 'recents') {
+        const allSubjects = await subjectService.getAll();
+        const matchedSubject = allSubjects.find(
+          s => s.code?.toLowerCase() === filter.toLowerCase()
+            || s.label?.toLowerCase() === filter.toLowerCase()
         );
-        setDocs(results);
-      } else if (activeKey === 'terminale') {
-        const results = await db.select<DocumentWithDetails[]>(
-          `SELECT d.*,
-             dt.label as document_type_label,
-             sub.label as subject_label, sub.color as subject_color,
-             l.label as level_label,
-             CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
-           FROM documents d
-           LEFT JOIN document_types dt ON d.document_type_id = dt.id
-           LEFT JOIN subjects sub ON d.subject_id = sub.id
-           LEFT JOIN levels l ON d.level_id = l.id
-           WHERE l.code = 'TLE'
-           ORDER BY d.updated_at DESC`,
-          []
-        );
-        setDocs(results);
-      } else if (activeKey === 'premiere') {
-        const results = await db.select<DocumentWithDetails[]>(
-          `SELECT d.*,
-             dt.label as document_type_label,
-             sub.label as subject_label, sub.color as subject_color,
-             l.label as level_label,
-             CASE WHEN d.generated_from_ai_generation_id IS NOT NULL THEN 1 ELSE 0 END as is_ai_generated
-           FROM documents d
-           LEFT JOIN document_types dt ON d.document_type_id = dt.id
-           LEFT JOIN subjects sub ON d.subject_id = sub.id
-           LEFT JOIN levels l ON d.level_id = l.id
-           WHERE l.code = 'PRE'
-           ORDER BY d.updated_at DESC`,
-          []
-        );
-        setDocs(results);
+        if (matchedSubject) {
+          setDocs(await documentService.getBySubject(matchedSubject.id));
+        } else {
+          setDocs(await documentService.getRecent(50));
+        }
+
+      // ── Default: récents ──
       } else {
         setDocs(await documentService.getRecent(50));
       }
@@ -127,7 +226,7 @@ export const BibliothequePage: React.FC = () => {
       setDocs([]);
     }
     setLoading(false);
-  }, [activeKey, search, activeTagId]);
+  }, [page, filter, debouncedSearch, activeTagId, activeYear]);
 
   useEffect(() => { loadDocs(); }, [loadDocs]);
 
@@ -157,15 +256,13 @@ export const BibliothequePage: React.FC = () => {
 
   // Titre de la vue
   const viewTitle =
-    activeTagId !== null     ? `Tag : ${activeTagLabel}` :
-    activeKey === 'recents'  ? 'Récents'                 :
-    activeKey === 'tous'     ? 'Tous les documents'       :
-    activeKey === 'hggsp'    ? 'HGGSP'                   :
-    activeKey === 'histoire' ? 'Histoire'                 :
-    activeKey === 'geo'      ? 'Géographie'               :
-    activeKey === 'matiere'  ? 'Par matière'              :
-    activeKey === 'terminale'? 'Terminale'                :
-    activeKey === 'premiere' ? 'Première'                 : 'Bibliothèque';
+    activeTagId !== null           ? `Tag : ${activeTagLabel}` :
+    page === 'recents'             ? 'Récents' :
+    page === 'tous'                ? 'Tous les documents' :
+    page === 'par-matiere'         ? 'Par matière' :
+    page === 'par-type'            ? 'Par type' :
+    page === 'par-programme'       ? 'Programme' :
+    'Bibliothèque';
 
   // ── Vue import ──
   if (page === 'importer') {
@@ -180,10 +277,9 @@ export const BibliothequePage: React.FC = () => {
           onDrop={files => { if (files.length > 0) setFilesToImport(files); }}
           label="Glissez vos documents ici pour les importer"
         />
-        {filesToImport && filesToImport.length > 0 && currentPath && (
+        {filesToImport && filesToImport.length > 0 && (
           <ImportModal
             files={filesToImport}
-            dbPath={currentPath}
             onClose={() => setFilesToImport(null)}
             onSaved={handleImportSaved}
           />
@@ -352,19 +448,19 @@ export const BibliothequePage: React.FC = () => {
         )
       ) : (
         <EmptyState
-          icon={search ? '🔍' : activeTagId !== null || activeKey !== 'recents' && activeKey !== 'tous' ? '🗂' : '📁'}
+          icon={search ? '🔍' : activeTagId !== null || page !== 'recents' && page !== 'tous' ? '🗂' : '📁'}
           title={search ? 'Aucun résultat' : 'Aucun document'}
           description={
             search
               ? `Aucun résultat pour « ${search} ».`
               : activeTagId !== null
                 ? `Aucun document avec le tag « ${activeTagLabel} ».`
-                : activeKey !== 'recents' && activeKey !== 'tous'
+                : page !== 'recents' && page !== 'tous'
                   ? `Aucun document pour ce filtre. Importez des documents et associez-les à la bonne matière ou au bon niveau.`
                   : 'La bibliothèque est vide — importez vos premiers documents pédagogiques.'
           }
-          actionLabel={!search && (activeKey === 'recents' || activeKey === 'tous') ? 'Importer un document' : undefined}
-          onAction={!search && (activeKey === 'recents' || activeKey === 'tous') ? openFilePicker : undefined}
+          actionLabel={!search && (page === 'recents' || page === 'tous') ? 'Importer un document' : undefined}
+          onAction={!search && (page === 'recents' || page === 'tous') ? openFilePicker : undefined}
         />
       )}
 
@@ -372,10 +468,9 @@ export const BibliothequePage: React.FC = () => {
       <TagManager onTagClick={handleTagClick} activeTagId={activeTagId} />
 
       {/* Modal import */}
-      {filesToImport !== null && filesToImport.length > 0 && currentPath && (
+      {filesToImport !== null && filesToImport.length > 0 && (
         <ImportModal
           files={filesToImport}
-          dbPath={currentPath}
           onClose={() => setFilesToImport(null)}
           onSaved={handleImportSaved}
         />

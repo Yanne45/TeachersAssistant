@@ -5,7 +5,7 @@
 .bib-page { display: flex; flex-direction: column; gap: var(--space-4); }
 
 .bib-page__toolbar { display: flex; justify-content: space-between; align-items: center; }
-.bib-page__title { font-size: 16px; font-weight: var(--font-weight-bold); }
+.bib-page__title { font-size: var(--font-size-md); font-weight: var(--font-weight-bold); }
 .bib-page__actions { display: flex; gap: var(--space-2); align-items: center; }
 .bib-page__filters { display: flex; gap: var(--space-2); }
 

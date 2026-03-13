@@ -92,29 +92,8 @@ export async function createDatabase(filePath: string): Promise<boolean> {
 }
 
 /**
- * @deprecated Remplacé par migrationRunner.runMigrations().
- */
-export async function applySchema(schemaSql: string): Promise<void> {
-  if (!_db) throw new Error('[DB] Aucune base ouverte');
-  const statements = splitSqlStatements(schemaSql);
-  for (const stmt of statements) {
-    try {
-      await _db.execute(stmt, []);
-    } catch (err) {
-      const msg = String(err);
-      if (!msg.includes('already exists')) {
-        console.error('[DB] Erreur migration:', stmt.substring(0, 80), err);
-      }
-    }
-  }
-}
-
-/**
- * Split a SQL script into individual statements, correctly handling:
- * - String literals ('...') including escaped quotes ('')
- * - Line comments (-- ...)
- * - Block comments (/* ... *​/)
- * - Semicolons inside strings are NOT treated as delimiters
+ * Split a SQL script into individual statements, correctly handling
+ * string literals, line comments, and block comments.
  */
 export function splitSqlStatements(sql: string): string[] {
   const results: string[] = [];
@@ -125,31 +104,26 @@ export function splitSqlStatements(sql: string): string[] {
   while (i < len) {
     const ch = sql[i];
 
-    // Line comment: skip to end of line
     if (ch === '-' && i + 1 < len && sql[i + 1] === '-') {
       const eol = sql.indexOf('\n', i);
       i = eol === -1 ? len : eol + 1;
       continue;
     }
 
-    // Block comment: skip to */
     if (ch === '/' && i + 1 < len && sql[i + 1] === '*') {
       const end = sql.indexOf('*/', i + 2);
       i = end === -1 ? len : end + 2;
       continue;
     }
 
-    // String literal: consume until closing quote (handle '' escape)
     if (ch === "'") {
       current += ch;
       i++;
       while (i < len) {
         if (sql[i] === "'" && i + 1 < len && sql[i + 1] === "'") {
-          // Escaped quote ''
           current += "''";
           i += 2;
         } else if (sql[i] === "'") {
-          // End of string
           current += "'";
           i++;
           break;
@@ -161,12 +135,9 @@ export function splitSqlStatements(sql: string): string[] {
       continue;
     }
 
-    // Semicolon outside strings = statement delimiter
     if (ch === ';') {
       const trimmed = current.trim();
-      if (trimmed.length > 0) {
-        results.push(trimmed + ';');
-      }
+      if (trimmed.length > 0) results.push(trimmed + ';');
       current = '';
       i++;
       continue;
@@ -176,12 +147,8 @@ export function splitSqlStatements(sql: string): string[] {
     i++;
   }
 
-  // Trailing statement without semicolon
   const trimmed = current.trim();
-  if (trimmed.length > 0) {
-    results.push(trimmed + ';');
-  }
-
+  if (trimmed.length > 0) results.push(trimmed + ';');
   return results;
 }
 
@@ -209,16 +176,6 @@ export function getCurrentPath(): string | null {
  */
 export function isOpen(): boolean {
   return _db !== null;
-}
-
-// ── Rétrocompatibilité ──
-
-/**
- * @deprecated Utiliser openDatabase(path) à la place.
- */
-export async function initDatabase(): Promise<void> {
-  if (_db) return;
-  await openDatabase('teacher-assistant.db');
 }
 
 // ── Accès à la connexion active ──

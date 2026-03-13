@@ -4,24 +4,52 @@ import { useApp } from '../../stores';
 import { db, newYearService } from '../../services';
 import './ParametresPage.css';
 
+// Compute default academic year dates from current date
+function defaultAcademicYear() {
+  const now = new Date();
+  const y = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return {
+    label: `${y}-${y + 1}`,
+    start: `${y}-09-01`,
+    end: `${y + 1}-07-04`,
+  };
+}
+
+function nextAcademicYear(currentLabel: string, currentEnd: string) {
+  const match = currentLabel.match(/(\d{4})-(\d{4})/);
+  if (match?.[2]) {
+    const y2 = parseInt(match[2], 10);
+    return { label: `${y2}-${y2 + 1}`, start: `${y2}-09-01`, end: `${y2 + 1}-07-04` };
+  }
+  const endYear = new Date(currentEnd).getFullYear();
+  return { label: `${endYear}-${endYear + 1}`, start: `${endYear}-09-01`, end: `${endYear + 1}-07-04` };
+}
+
 export const AnneeSettings: React.FC = () => {
   const { addToast } = useApp();
-  const [label, setLabel] = useState('2025-2026');
-  const [startDate, setStartDate] = useState('2025-09-01');
-  const [endDate, setEndDate] = useState('2026-07-04');
+  const defaults = defaultAcademicYear();
+  const [label, setLabel] = useState(defaults.label);
+  const [startDate, setStartDate] = useState(defaults.start);
+  const [endDate, setEndDate] = useState(defaults.end);
 
   const [showNewYear, setShowNewYear] = useState(false);
-  const [newYearLabel, setNewYearLabel] = useState('2026-2027');
-  const [newYearStart, setNewYearStart] = useState('2026-09-01');
-  const [newYearEnd, setNewYearEnd] = useState('2027-07-04');
+  const nextDefaults = nextAcademicYear(label, endDate);
+  const [newYearLabel, setNewYearLabel] = useState(nextDefaults.label);
+  const [newYearStart, setNewYearStart] = useState(nextDefaults.start);
+  const [newYearEnd, setNewYearEnd] = useState(nextDefaults.end);
   const [creatingYear, setCreatingYear] = useState(false);
 
   useEffect(() => {
     db.selectOne<any>('SELECT * FROM academic_years WHERE is_active = 1').then((year) => {
       if (!year) return;
       setLabel(year.label);
-      setStartDate(year.start_date ?? '2025-09-01');
-      setEndDate(year.end_date ?? '2026-07-04');
+      setStartDate(year.start_date ?? defaults.start);
+      setEndDate(year.end_date ?? defaults.end);
+      // Update new year defaults based on loaded active year
+      const next = nextAcademicYear(year.label, year.end_date ?? defaults.end);
+      setNewYearLabel(next.label);
+      setNewYearStart(next.start);
+      setNewYearEnd(next.end);
     }).catch(() => {});
   }, []);
 

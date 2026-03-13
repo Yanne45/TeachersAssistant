@@ -27,6 +27,7 @@ import {
 } from '../services';
 import { MOCK_DASHBOARD, MOCK_WEEK_SLOTS, MOCK_COVERAGE, MOCK_ALERTS } from './mockData';
 import type { ID } from '../types';
+import type { WeeklyPrepData } from '../services/dashboardService';
 
 // ── Types résultats dashboard ──
 
@@ -73,6 +74,7 @@ interface DataContextType {
   loadWeekSlots: () => Promise<WeekSlot[]>;
   loadCoverage: () => Promise<CoverageItem[]>;
   loadAlerts: () => Promise<AlertItem[]>;
+  loadWeeklyPrep: () => Promise<WeeklyPrepData | null>;
 
   // Sequences
   loadSequences: () => Promise<any[]>;
@@ -168,6 +170,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return MOCK_ALERTS;
   }, [dbMode]);
 
+  const loadWeeklyPrep = useCallback(async (): Promise<WeeklyPrepData | null> => {
+    if (dbMode && yearId) {
+      try { return await dashboardService.getWeeklyPrep(yearId); } catch { /* fallback */ }
+    }
+    return null;
+  }, [dbMode, yearId]);
+
   // ── Sequences ──
 
   const loadSequences = useCallback(async () => {
@@ -201,11 +210,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ── Students ──
 
   const loadStudents = useCallback(async (classId: ID) => {
+    if (dbMode && yearId) {
+      try { return await studentService.getWithRiskSignals(classId, yearId); } catch { /* */ }
+    }
     if (dbMode) {
       try { return await studentService.getByClass(classId); } catch { /* */ }
     }
     return [];
-  }, [dbMode]);
+  }, [dbMode, yearId]);
 
   const loadStudent = useCallback(async (id: ID) => {
     if (dbMode) {
@@ -304,7 +316,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value: DataContextType = {
     isDbMode: dbMode,
-    loadDashboard, loadWeekSlots, loadCoverage, loadAlerts,
+    loadDashboard, loadWeekSlots, loadCoverage, loadAlerts, loadWeeklyPrep,
     loadSequences, loadSessions, saveSequence, saveSession,
     loadStudents, loadStudent,
     loadAssignments, loadSubmissions, loadBilanStats,

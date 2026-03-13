@@ -16,7 +16,7 @@ import {
   subjectService,
 } from '../../services';
 import { useApp } from '../../stores';
-import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from '../../hooks';
+import { usePageLoadTelemetry, trackCacheHit, trackCacheMiss, useUnsavedGuard } from '../../hooks';
 import { BULLETIN_STATUS_META } from '../../constants/statuses';
 import './BulletinsPage.css';
 
@@ -49,6 +49,7 @@ function computeStatus(entries: Array<{ status: 'draft' | 'review' | 'final' }>)
 
 export const BulletinsPage: React.FC = () => {
   const { activeYear, addToast } = useApp();
+  const { isDirty, setDirty, markClean } = useUnsavedGuard();
 
   const [classes, setClasses] = useState<Array<{ id: number; name: string; short_name: string }>>([]);
   const [periods, setPeriods] = useState<PeriodInfo[]>([]);
@@ -70,6 +71,7 @@ export const BulletinsPage: React.FC = () => {
   const [loadKey, setLoadKey] = useState(0);
   const [generatingOne, setGeneratingOne] = useState(false);
   const [generatingBatch, setGeneratingBatch] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [listScrollTop, setListScrollTop] = useState(0);
@@ -450,6 +452,7 @@ export const BulletinsPage: React.FC = () => {
     }
     try {
       await upsertCurrentEntry(editorText.trim(), status, 'manual');
+      markClean();
       await refreshRowsForCurrentClass();
       addToast('success', status === 'final' ? 'Bulletin finalisé' : 'Bulletin passé en relecture');
     } catch (error) {
@@ -494,7 +497,10 @@ export const BulletinsPage: React.FC = () => {
   return (
     <div className="bulletins-page">
       <div className="bulletins-page__header">
-        <h1 className="bulletins-page__title">Bulletins</h1>
+        <h1 className="bulletins-page__title">
+          Bulletins
+          {isDirty && <span className="bulletins-page__unsaved-badge">Non enregistré</span>}
+        </h1>
         <div className="bulletins-page__header-actions">
           <button className="bulletins-page__btn" onClick={() => void handleGenerateBatch()} disabled={generatingBatch || rows.length === 0}>
             {generatingBatch ? `Génération ${batchProgress?.current ?? 0}/${batchProgress?.total ?? '?'}...` : 'Générer batch (IA)'}
@@ -503,6 +509,7 @@ export const BulletinsPage: React.FC = () => {
             className="bulletins-page__btn bulletins-page__btn--primary"
             onClick={async () => {
               if (!selectedStudentId || !activePeriodId) return;
+              setExportingPdf(true);
               try {
                 const html = await pdfExportService.buildBulletinHTML(selectedStudentId, activePeriodId);
                 if (!html.trim()) {
@@ -513,11 +520,13 @@ export const BulletinsPage: React.FC = () => {
               } catch (error) {
                 console.error('[BulletinsPage] Erreur export PDF:', error);
                 addToast('error', 'Erreur génération PDF');
+              } finally {
+                setExportingPdf(false);
               }
             }}
-            disabled={!selectedStudentId || !activePeriodId}
+            disabled={!selectedStudentId || !activePeriodId || exportingPdf}
           >
-            Exporter PDF
+            {exportingPdf ? '⏳ Export…' : 'Exporter PDF'}
           </button>
         </div>
       </div>
@@ -616,7 +625,7 @@ export const BulletinsPage: React.FC = () => {
                 className="bulletins-page__editor-textarea"
                 rows={6}
                 value={editorText}
-                onChange={(e) => setEditorText(e.target.value)}
+                onChange={(e) => { setEditorText(e.target.value); setDirty(true); }}
                 placeholder="Rédiger l'appréciation…"
               />
 

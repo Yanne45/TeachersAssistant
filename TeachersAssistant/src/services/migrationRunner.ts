@@ -36,6 +36,7 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '016_correction_workflow.sql', url: '/db/016_correction_workflow.sql' },
   { filename: '017_competencies.sql', url: '/db/017_competencies.sql' },
   { filename: '018_skill_descriptors.sql', url: '/db/018_skill_descriptors.sql' },
+  { filename: '019_rubric_templates.sql', url: '/db/019_rubric_templates.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──

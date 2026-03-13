@@ -172,7 +172,6 @@ export async function classifyDocument(
 
 export async function processFiles(
   files: File[],
-  _dbPath: string,
   onProgress: (idx: number, total: number, step: 'copy' | 'classify', name: string) => void,
 ): Promise<ProcessedFile[]> {
   const results: ProcessedFile[] = [];

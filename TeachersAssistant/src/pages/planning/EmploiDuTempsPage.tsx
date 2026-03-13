@@ -1,4 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import {
+  DndContext,
+  useDraggable,
+  useDroppable,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
 import { Card, Button, EmptyState, SegmentedControl } from '../../components/ui';
 import { useApp, useData, useRouter } from '../../stores';
 import { CreneauForm, ICSMappingModal, GoogleCalendarModal } from '../../components/forms';
@@ -17,6 +27,8 @@ interface CourseSlot {
   classLabel: string;
   room?: string;
   recurrence: string;
+  startTimeStr: string;     // original "HH:MM"
+  endTimeStr: string;       // original "HH:MM"
 }
 
 const ALL_DAY_LABELS: Record<number, string> = {
@@ -58,7 +70,7 @@ function mapWeekSlotsToCourseSlots(data: any[]): CourseSlot[] {
     const startTime = s.startTime ?? s.start_time ?? '8:00';
     const [hStr, mStr] = startTime.split(':');
     return {
-      id: i + 1,
+      id: Number(s.id) || i + 1,
       dayOfWeek: s.dayOfWeek ?? s.day_of_week ?? 1,
       startHour: Number.parseInt(hStr, 10) || 8,
       startMinute: Number.parseInt(mStr, 10) || 0,
@@ -68,6 +80,8 @@ function mapWeekSlotsToCourseSlots(data: any[]): CourseSlot[] {
       classLabel: s.classLabel ?? s.class_short_name ?? 'Classe',
       room: s.room ?? undefined,
       recurrence: s.recurrence ?? 'all',
+      startTimeStr: startTime,
+      endTimeStr: s.endTime ?? s.end_time ?? '10:00',
     };
   });
 }
@@ -162,6 +176,49 @@ export const EmploiDuTempsPage: React.FC = () => {
     (s) => recurrence === 'all' || s.recurrence === 'all' || s.recurrence === recurrence,
   );
 
+  // ── Drag & Drop ──
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [draggingSlot, setDraggingSlot] = useState<CourseSlot | null>(null);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    setDraggingSlot(null);
+    const { active, over } = event;
+    if (!over || !activeYear) return;
+
+    // active.id = "slot-{id}", over.id = "cell-{dayNum}-{hour}"
+    const slotId = Number(String(active.id).replace('slot-', ''));
+    const cellMatch = String(over.id).match(/^cell-(\d+)-(\d+)$/);
+    if (!cellMatch) return;
+
+    const newDay = Number(cellMatch[1]) as DayOfWeek;
+    const newHour = Number(cellMatch[2]);
+
+    const slot = slots.find(s => s.id === slotId);
+    if (!slot) return;
+
+    // Same position → no-op
+    if (slot.dayOfWeek === newDay && slot.startHour === newHour) return;
+
+    // Compute new start/end times keeping the same minute offset and duration
+    const newStartTime = `${String(newHour).padStart(2, '0')}:${String(slot.startMinute).padStart(2, '0')}`;
+    const endTotalMin = newHour * 60 + slot.startMinute + slot.durationMinutes;
+    const newEndTime = `${String(Math.floor(endTotalMin / 60)).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}`;
+
+    try {
+      await timetableService.update(slotId, {
+        day_of_week: newDay,
+        start_time: newStartTime,
+        end_time: newEndTime,
+      });
+      const refreshed = await loadWeekSlots();
+      setSlots(mapWeekSlotsToCourseSlots(refreshed));
+      addToast('success', 'Créneau déplacé');
+    } catch (err) {
+      console.error('[EDT] drag error:', err);
+      addToast('error', 'Erreur lors du déplacement');
+    }
+  }, [slots, activeYear, loadWeekSlots, addToast]);
+
   const handleImportICS = useCallback(() => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -221,55 +278,60 @@ export const EmploiDuTempsPage: React.FC = () => {
         />
       )}
 
-      <Card noHover className="edt-grid-wrapper">
-        <div className="edt-grid" style={{ gridTemplateColumns: `50px repeat(${numDays}, 1fr)` }}>
-          <div className="edt-grid__corner" />
-          {dayLabels.map((d) => (
-            <div key={d} className="edt-grid__day-header">{d}</div>
-          ))}
+      <DndContext
+        sensors={sensors}
+        onDragStart={({ active }) => {
+          const id = Number(String(active.id).replace('slot-', ''));
+          setDraggingSlot(filteredSlots.find(s => s.id === id) ?? null);
+        }}
+        onDragEnd={handleDragEnd}
+      >
+        <Card noHover className="edt-grid-wrapper">
+          <div className="edt-grid" style={{ gridTemplateColumns: `50px repeat(${numDays}, 1fr)` }}>
+            <div className="edt-grid__corner" />
+            {dayLabels.map((d) => (
+              <div key={d} className="edt-grid__day-header">{d}</div>
+            ))}
 
-          {hours.map((hour) => {
-            const bLabel = breakLabel(hour);
-            const isBrk = isBreakHour(hour);
-            return (
-            <React.Fragment key={hour}>
-              <div className={`edt-grid__hour ${isBrk ? 'edt-grid__hour--break' : ''}`}>
-                {bLabel ? <span className="edt-grid__pause-label">{bLabel}</span> : `${hour}h`}
-              </div>
-              {orderedDays.map((dayNum) => (
-                <div
-                  key={`${hour}-${dayNum}`}
-                  className={`edt-grid__cell ${isBrk ? 'edt-grid__cell--break' : ''}`}
-                >
-                  {filteredSlots
-                    .filter((s) => s.dayOfWeek === dayNum && s.startHour === hour)
-                    .map((slot) => {
-                      const heightPx = (slot.durationMinutes / 60) * HOUR_HEIGHT;
-                      const topOffset = (slot.startMinute / 60) * HOUR_HEIGHT;
-                      return (
-                        <div
-                          key={slot.id}
-                          className="edt-slot"
-                          style={{
-                            height: `${heightPx}px`,
-                            top: `${topOffset}px`,
-                            borderLeftColor: slot.subjectColor,
-                            backgroundColor: `${slot.subjectColor}26`,
-                          }}
-                          title={`${slot.subjectLabel} - ${slot.classLabel}${slot.room ? ` (${slot.room})` : ''}`}
-                        >
-                          <span className="edt-slot__subject" style={{ color: slot.subjectColor }}>{slot.subjectLabel}</span>
-                          <span className="edt-slot__class">{slot.classLabel}</span>
-                        </div>
-                      );
-                    })}
+            {hours.map((hour) => {
+              const bLabel = breakLabel(hour);
+              const isBrk = isBreakHour(hour);
+              return (
+              <React.Fragment key={hour}>
+                <div className={`edt-grid__hour ${isBrk ? 'edt-grid__hour--break' : ''}`}>
+                  {bLabel ? <span className="edt-grid__pause-label">{bLabel}</span> : `${hour}h`}
                 </div>
-              ))}
-            </React.Fragment>
-          );
-          })}
-        </div>
-      </Card>
+                {orderedDays.map((dayNum) => (
+                  <EdtDropCell key={`${hour}-${dayNum}`} dayNum={dayNum} hour={hour} isBrk={isBrk}>
+                    {filteredSlots
+                      .filter((s) => s.dayOfWeek === dayNum && s.startHour === hour)
+                      .map((slot) => (
+                        <EdtDraggableSlot key={slot.id} slot={slot} />
+                      ))}
+                  </EdtDropCell>
+                ))}
+              </React.Fragment>
+            );
+            })}
+          </div>
+        </Card>
+        <DragOverlay>
+          {draggingSlot && (
+            <div
+              className="edt-slot edt-slot--dragging"
+              style={{
+                height: `${(draggingSlot.durationMinutes / 60) * HOUR_HEIGHT}px`,
+                borderLeftColor: draggingSlot.subjectColor,
+                backgroundColor: `${draggingSlot.subjectColor}26`,
+                width: 140,
+              }}
+            >
+              <span className="edt-slot__subject" style={{ color: draggingSlot.subjectColor }}>{draggingSlot.subjectLabel}</span>
+              <span className="edt-slot__class">{draggingSlot.classLabel}</span>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       <CreneauForm
         open={creneauFormOpen}
@@ -333,6 +395,57 @@ export const EmploiDuTempsPage: React.FC = () => {
           void loadWeekSlots().then((data) => setSlots(mapWeekSlotsToCourseSlots(data)));
         }}
       />
+    </div>
+  );
+};
+
+// ── Droppable grid cell ──
+
+const EdtDropCell: React.FC<{
+  dayNum: number;
+  hour: number;
+  isBrk: boolean;
+  children: React.ReactNode;
+}> = ({ dayNum, hour, isBrk, children }) => {
+  const { setNodeRef, isOver } = useDroppable({ id: `cell-${dayNum}-${hour}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`edt-grid__cell ${isBrk ? 'edt-grid__cell--break' : ''} ${isOver ? 'edt-grid__cell--drop-over' : ''}`}
+    >
+      {children}
+    </div>
+  );
+};
+
+// ── Draggable slot ──
+
+const EdtDraggableSlot: React.FC<{ slot: CourseSlot }> = ({ slot }) => {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `slot-${slot.id}`,
+  });
+
+  const heightPx = (slot.durationMinutes / 60) * HOUR_HEIGHT;
+  const topOffset = (slot.startMinute / 60) * HOUR_HEIGHT;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className={`edt-slot ${isDragging ? 'edt-slot--ghost' : ''}`}
+      style={{
+        height: `${heightPx}px`,
+        top: `${topOffset}px`,
+        borderLeftColor: slot.subjectColor,
+        backgroundColor: `${slot.subjectColor}26`,
+        cursor: 'grab',
+      }}
+      title={`${slot.subjectLabel} - ${slot.classLabel}${slot.room ? ` (${slot.room})` : ''}`}
+    >
+      <span className="edt-slot__subject" style={{ color: slot.subjectColor }}>{slot.subjectLabel}</span>
+      <span className="edt-slot__class">{slot.classLabel}</span>
     </div>
   );
 };

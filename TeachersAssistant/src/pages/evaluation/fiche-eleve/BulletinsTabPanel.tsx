@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Badge } from '../../../components/ui';
+import { Card, Badge, EmptyState } from '../../../components/ui';
 import '../FicheElevePage.css';
 
 interface BulletinsTabPanelProps {
@@ -32,7 +32,7 @@ export const BulletinsTabPanel: React.FC<BulletinsTabPanelProps> = ({
             </div>
           )}
           {bulletins.length === 0 ? (
-            <span className="fiche-eleve__placeholder-text">Aucune entrée de bulletin pour cette période.</span>
+            <EmptyState icon="📄" title="Aucune entrée de bulletin" description="Les appréciations apparaîtront après rédaction dans l'onglet Bulletins." />
           ) : (
             <div className="fiche-eleve__item-list">
               {bulletins.map((b) => (

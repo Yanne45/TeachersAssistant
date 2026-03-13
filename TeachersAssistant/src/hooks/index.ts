@@ -22,7 +22,10 @@ export {
 export {
   useToast, useTheme, useUIDensity,
   useKeyboardShortcuts, useCorrectionShortcuts, useDebounce, useOnlineStatus,
+  useUnsavedGuard,
 } from './useUI';
 export type { ToastData, CorrectionShortcutHandlers } from './useUI';
 
 export { usePageLoadTelemetry, trackCacheHit, trackCacheMiss } from './useDevTelemetry';
+
+export { useBibliothequeSidebar } from './useBibliothequeSidebar';

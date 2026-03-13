@@ -29,7 +29,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 type SidebarView = 'generate' | 'history' | 'queue';
 
 export const GenerateurIAPage: React.FC = () => {
-  const { addToast } = useApp();
+  const { addToast, activeYear } = useApp();
   const { route, setPage } = useRouter();
 
   // Navigation
@@ -37,6 +37,7 @@ export const GenerateurIAPage: React.FC = () => {
 
   useEffect(() => {
     if (route.page === 'ia-historique') setView('history');
+    else if (route.page === 'ia-queue') setView('queue');
     else setView('generate');
   }, [route.page]);
 
@@ -90,10 +91,11 @@ export const GenerateurIAPage: React.FC = () => {
     aiTaskService.getAll().then(setTasks).catch(() => setTasks([]));
     subjectService.getAll().then(setDbSubjects).catch(() => setDbSubjects([]));
     levelService.getAll().then(setDbLevels).catch(() => setDbLevels([]));
-    sequenceService.getByYear(1).then(setDbSequences).catch(() => setDbSequences([]));
+    const yearId = activeYear?.id ?? 1;
+    sequenceService.getByYear(yearId).then(setDbSequences).catch(() => setDbSequences([]));
     // Load queue count
     aiQueueService.pendingCount().then(setQueueCount).catch(() => {});
-  }, []);
+  }, [activeYear?.id]);
 
   // ---- Load history ----
   useEffect(() => {
@@ -375,7 +377,7 @@ export const GenerateurIAPage: React.FC = () => {
         </button>
         <button
           className={'ia-gen__view-btn' + (view === 'queue' ? ' ia-gen__view-btn--active' : '')}
-          onClick={() => setView('queue')}
+          onClick={() => { setView('queue'); setPage('ia-queue'); }}
         >
           File d'attente
           {queueCount > 0 && <span className="ia-gen__queue-badge">{queueCount}</span>}

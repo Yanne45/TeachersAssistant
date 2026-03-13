@@ -112,6 +112,120 @@ export const studentService = {
     );
   },
 
+  /**
+   * Enrichit les élèves d'une classe avec signaux de risque :
+   * avg (moyenne notes), trend (compétences), behavior, alerts[]
+   */
+  async getWithRiskSignals(classId: ID, yearId: ID): Promise<(StudentWithClass & {
+    avg: number;
+    trend: 'up' | 'down' | 'stable' | 'unknown';
+    behavior: number;
+    alerts: string[];
+  })[]> {
+    // 1. Base students
+    const students = await this.getByClass(classId);
+    if (students.length === 0) return [];
+
+    const ids = students.map(s => s.id);
+    const placeholders = ids.map(() => '?').join(',');
+
+    // 2. Average grades per student
+    const grades: any[] = await db.select<any>(
+      `SELECT s.student_id,
+         AVG(s.score) as avg_score,
+         AVG(s.score * 20.0 / NULLIF(a.max_score, 0)) as avg_pct,
+         COUNT(s.id) as submission_count
+       FROM submissions s
+       JOIN assignments a ON a.id = s.assignment_id
+       WHERE s.student_id IN (${placeholders})
+         AND a.academic_year_id = ?
+         AND s.score IS NOT NULL
+       GROUP BY s.student_id`,
+      [...ids, yearId]
+    );
+    const gradeMap = new Map(grades.map((g: any) => [g.student_id as ID, g]));
+
+    // 3. Latest period behavior
+    const latestPeriod = await db.selectOne<{ id: ID }>(
+      'SELECT id FROM report_periods WHERE academic_year_id = ? ORDER BY sort_order DESC LIMIT 1',
+      [yearId]
+    );
+    let behaviorMap = new Map<ID, number>();
+    if (latestPeriod) {
+      const profiles: any[] = await db.select<any>(
+        `SELECT student_id,
+           (COALESCE(behavior, 3) + COALESCE(work_ethic, 3) + COALESCE(participation, 3)) / 3.0 as avg_behavior
+         FROM student_period_profiles
+         WHERE student_id IN (${placeholders})
+           AND report_period_id = ?`,
+        [...ids, latestPeriod.id]
+      );
+      behaviorMap = new Map(profiles.map((p: any) => [p.student_id as ID, Math.round(p.avg_behavior)]));
+    }
+
+    // 4. Skill trends (simplified: latest vs previous period average level)
+    const trendMap = new Map<ID, 'up' | 'down' | 'stable' | 'unknown'>();
+    const periods: any[] = await db.select<any>(
+      'SELECT id FROM report_periods WHERE academic_year_id = ? ORDER BY sort_order',
+      [yearId]
+    );
+    if (periods.length >= 2) {
+      const prevId = periods[periods.length - 2].id as ID;
+      const lastId = periods[periods.length - 1].id as ID;
+      const skillAvgs: any[] = await db.select<any>(
+        `SELECT student_id, report_period_id as period_id, AVG(level) as avg_level
+         FROM student_skill_observations
+         WHERE student_id IN (${placeholders})
+           AND report_period_id IN (?, ?)
+         GROUP BY student_id, report_period_id`,
+        [...ids, prevId, lastId]
+      );
+      const byStudent = new Map<ID, { prev?: number; last?: number }>();
+      for (const row of skillAvgs) {
+        const entry = byStudent.get(row.student_id) ?? {};
+        if (row.period_id === prevId) entry.prev = row.avg_level;
+        if (row.period_id === lastId) entry.last = row.avg_level;
+        byStudent.set(row.student_id, entry);
+      }
+      for (const [sid, vals] of byStudent) {
+        if (vals.prev != null && vals.last != null) {
+          trendMap.set(sid, vals.last > vals.prev ? 'up' : vals.last < vals.prev ? 'down' : 'stable');
+        }
+      }
+    }
+
+    // 5. Missing submissions (assigned but not submitted/graded)
+    const missing: any[] = await db.select<any>(
+      `SELECT sce.student_id,
+         COUNT(CASE WHEN sub.id IS NULL THEN 1 END) as missing_count
+       FROM student_class_enrollments sce
+       JOIN assignments a ON a.class_id = sce.class_id AND a.academic_year_id = ?
+       LEFT JOIN submissions sub ON sub.assignment_id = a.id AND sub.student_id = sce.student_id
+       WHERE sce.class_id = ? AND sce.is_active = 1
+         AND a.status NOT IN ('draft')
+       GROUP BY sce.student_id`,
+      [yearId, classId]
+    );
+    const missingMap = new Map(missing.map((m: any) => [m.student_id as ID, m.missing_count as number]));
+
+    // 6. Assemble risk signals
+    return students.map(s => {
+      const g = gradeMap.get(s.id);
+      const avg = g ? Math.round(g.avg_pct * 10) / 10 : 0;
+      const trend = trendMap.get(s.id) ?? 'unknown';
+      const behavior = behaviorMap.get(s.id) ?? 3;
+      const missingCount = missingMap.get(s.id) ?? 0;
+
+      const alerts: string[] = [];
+      if (avg > 0 && avg < 8) alerts.push('Moyenne faible');
+      if (trend === 'down') alerts.push('En baisse');
+      if (behavior <= 2) alerts.push('Comportement');
+      if (missingCount >= 3) alerts.push(`${missingCount} copies manquantes`);
+
+      return { ...s, avg, trend, behavior, alerts };
+    });
+  },
+
   async getDocuments(studentId: ID, reportPeriodId?: ID | null): Promise<StudentDocumentWithDetails[]> {
     const withPeriodFilter = typeof reportPeriodId === 'number';
 

@@ -24,6 +24,8 @@ export const BilanDevoirPage: React.FC = () => {
   const [bilanComment, setBilanComment] = useState<string | null>(null);
   const [pdfHtml, setPdfHtml] = useState<string | null>(null);
   const [generatingBilan, setGeneratingBilan] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
 
   const routeAssignmentIdRaw = Number.parseInt(String(route.entityId ?? ''), 10);
   const routeAssignmentId = Number.isFinite(routeAssignmentIdRaw) ? routeAssignmentIdRaw : null;
@@ -222,7 +224,9 @@ export const BilanDevoirPage: React.FC = () => {
         <Button
           variant="secondary"
           size="M"
+          loading={exportingPdf}
           onClick={async () => {
+            setExportingPdf(true);
             try {
               const html = await pdfExportService.buildBilanHTML(assignmentId);
               if (!html.trim()) {
@@ -233,6 +237,8 @@ export const BilanDevoirPage: React.FC = () => {
             } catch (error) {
               console.error('[BilanDevoirPage] Erreur export PDF:', error);
               addToast('error', 'Erreur génération PDF');
+            } finally {
+              setExportingPdf(false);
             }
           }}
         >
@@ -241,7 +247,9 @@ export const BilanDevoirPage: React.FC = () => {
         <Button
           variant="secondary"
           size="M"
+          loading={exportingCsv}
           onClick={async () => {
+            setExportingCsv(true);
             try {
               const { rows, skills } = await grilleExportService.fetchGrilleData(assignmentId!);
               const csv = grilleExportService.buildCSV(rows, skills);
@@ -251,6 +259,8 @@ export const BilanDevoirPage: React.FC = () => {
             } catch (error) {
               console.error('[BilanDevoirPage] Erreur export CSV:', error);
               addToast('error', 'Erreur export CSV');
+            } finally {
+              setExportingCsv(false);
             }
           }}
           disabled={!assignmentId}

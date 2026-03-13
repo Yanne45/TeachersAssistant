@@ -27,26 +27,26 @@
 }
 
 .dashboard-indicator__icon {
-  font-size: 22px;
+  font-size: var(--font-size-lg);
   line-height: 1;
 }
 
 .dashboard-indicator__value {
-  font-size: 22px;
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text);
   line-height: 1;
 }
 
 .dashboard-indicator__label {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
 /* ── Mini-timeline semaine ── */
 
 .dashboard__section-title {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   margin-bottom: var(--space-3);
@@ -63,6 +63,12 @@
   border-radius: var(--radius-xs);
   padding: var(--space-1);
   transition: background-color var(--transition-fast);
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
 }
 
 .mini-timeline__day:hover {
@@ -204,6 +210,14 @@
   cursor: pointer;
   font-size: 12px;
   transition: opacity var(--transition-fast);
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  font-family: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
 }
 
 .dashboard-alert:hover {
@@ -230,6 +244,41 @@
   color: var(--color-text);
 }
 
+.dashboard__alerts-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-warn);
+  background: rgba(245, 166, 35, 0.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+.dashboard__alerts-more {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-2);
+  padding: 6px 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  border-radius: var(--radius-xs);
+  transition: background 0.12s;
+}
+
+.dashboard__alerts-more:hover {
+  background: rgba(61, 180, 198, 0.08);
+}
+
+.alerts-list--modal {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
 /* ── Couverture programme ── */
 
 .coverage-list {
@@ -253,6 +302,176 @@
 .coverage-item__pct {
   font-size: 11px;
   font-weight: var(--font-weight-bold);
+}
+
+.dashboard__coverage-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: rgba(61, 180, 198, 0.12);
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 6px;
+}
+
+.coverage-list--modal {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+/* ── Copilote hebdo ── */
+
+.copilot__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.copilot__summary {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.copilot__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+
+.copilot__day {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-1);
+  border-radius: var(--radius-xs);
+  min-height: 60px;
+}
+
+.copilot__day--today {
+  background-color: rgba(61, 180, 198, 0.08);
+}
+
+.copilot__day--past {
+  opacity: 0.6;
+}
+
+.copilot__day-label {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  padding: 0 2px;
+}
+
+.copilot__day--today .copilot__day-label {
+  color: var(--color-primary);
+}
+
+.copilot__empty {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 4px;
+}
+
+.copilot__task {
+  border-left: 3px solid;
+  border-radius: 4px;
+  padding: 4px 6px;
+  background-color: var(--color-bg);
+}
+
+.copilot__task--done {
+  opacity: 0.7;
+}
+
+.copilot__task--todo {
+  background-color: rgba(245, 166, 35, 0.06);
+}
+
+.copilot__task-time {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.copilot__task-label {
+  display: block;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.copilot__task-session {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copilot__task-action {
+  display: block;
+  font-size: 10px;
+  color: var(--color-warn);
+  font-style: italic;
+}
+
+.copilot__sub-title {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+}
+
+.copilot__assignments {
+  margin-bottom: var(--space-3);
+}
+
+.copilot__assignment {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 10px;
+  border-left: 3px solid;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  border-radius: var(--radius-xs);
+  background-color: var(--color-bg);
+  width: 100%;
+  font-family: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 4px;
+  transition: opacity var(--transition-fast);
+}
+
+.copilot__assignment:hover {
+  opacity: 0.85;
+}
+
+.copilot__assignment-title {
+  font-weight: var(--font-weight-bold);
+  flex: 1;
+}
+
+.copilot__assignment-meta {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.copilot__actions {
+  display: flex;
+  gap: var(--space-2);
 }
 
 /* ── Accès rapides ── */

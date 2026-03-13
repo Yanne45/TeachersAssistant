@@ -4,7 +4,7 @@
 // synchronisé avec le tab actif et la sidebar.
 // ============================================================================
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import type { TabId } from './AppContext';
 
 // ── Types ──
@@ -22,6 +22,9 @@ export interface Route {
   filter?: string | null;
 }
 
+/** Callback that returns true to allow navigation, false to block it */
+export type NavigationGuard = () => boolean;
+
 interface RouterState {
   route: Route;
   /** Navigation complète */
@@ -34,6 +37,8 @@ interface RouterState {
   goBack: () => void;
   /** Chemin complet sous forme de string (pour debug / breadcrumb) */
   pathString: string;
+  /** Register a guard that can block navigation (returns unregister fn) */
+  registerGuard: (guard: NavigationGuard) => () => void;
 }
 
 // ── Pages par défaut par tab ──
@@ -46,6 +51,8 @@ export const DEFAULT_PAGES: Record<TabId, string> = {
   cahier: 'all',
   classes: 'overview',
   evaluation: 'devoirs',
+  bibliotheque: 'recents',
+  parametres: 'annee-calendrier',
 };
 
 const RouterContext = createContext<RouterState | null>(null);
@@ -61,7 +68,22 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     filter: null,
   });
 
+  const guardsRef = useRef<Set<NavigationGuard>>(new Set());
+
+  const checkGuards = useCallback((): boolean => {
+    for (const guard of guardsRef.current) {
+      if (!guard()) return false;
+    }
+    return true;
+  }, []);
+
+  const registerGuard = useCallback((guard: NavigationGuard) => {
+    guardsRef.current.add(guard);
+    return () => { guardsRef.current.delete(guard); };
+  }, []);
+
   const navigate = useCallback((partial: Partial<Route> & { tab: TabId }) => {
+    if (!checkGuards()) return;
     setRoute({
       tab: partial.tab,
       page: partial.page ?? DEFAULT_PAGES[partial.tab] ?? 'home',
@@ -69,23 +91,25 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       subView: partial.subView ?? null,
       filter: partial.filter ?? null,
     });
-  }, []);
+  }, [checkGuards]);
 
   const setPage = useCallback((page: string, filter?: string | null) => {
+    if (!checkGuards()) return;
     setRoute(prev => ({ ...prev, page, entityId: null, subView: null, filter: filter ?? null }));
-  }, []);
+  }, [checkGuards]);
 
   const setEntity = useCallback((id: number | string | null, subView?: string | null) => {
     setRoute(prev => ({ ...prev, entityId: id, subView: subView ?? null }));
   }, []);
 
   const goBack = useCallback(() => {
+    if (!checkGuards()) return;
     setRoute(prev => {
       if (prev.subView) return { ...prev, subView: null };
       if (prev.entityId) return { ...prev, entityId: null };
       return { ...prev, page: DEFAULT_PAGES[prev.tab] };
     });
-  }, []);
+  }, [checkGuards]);
 
   const pathString = [
     route.tab,
@@ -94,7 +118,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     route.subView,
   ].filter(Boolean).join('/');
 
-  const value: RouterState = { route, navigate, setPage, setEntity, goBack, pathString };
+  const value: RouterState = { route, navigate, setPage, setEntity, goBack, pathString, registerGuard };
 
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 };

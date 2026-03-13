@@ -17,7 +17,7 @@ export interface SearchResult {
   matchExcerpt: string;
   score: number;
   navigateTo?: {
-    tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation';
+    tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation' | 'bibliotheque' | 'parametres';
     page: string;
     entity?: number;
   };
@@ -27,11 +27,17 @@ function escapeForLike(s: string): string {
   return s.replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function highlightMatch(text: string, terms: string[]): string {
   if (!text) return '';
-  let result = text;
+  // Escape HTML first to prevent XSS, then apply <mark> highlights
+  let result = escapeHtml(text);
   for (const term of terms) {
-    const re = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const escaped = escapeHtml(term);
+    const re = new RegExp(`(${escaped.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     result = result.replace(re, '<mark>$1</mark>');
   }
   // Truncate to ~150 chars around first match
@@ -88,7 +94,7 @@ export const searchService = {
           navigateTo: { tab: 'preparation', page: 'sequences', entity: r.id },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 2. Sessions ---
     try {
@@ -117,7 +123,7 @@ export const searchService = {
           navigateTo: { tab: 'preparation', page: 'sequences', entity: r.sequence_id },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 3. Documents ---
     try {
@@ -144,7 +150,7 @@ export const searchService = {
           navigateTo: { tab: 'preparation', page: 'bibliotheque', entity: r.id },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 4. Students ---
     try {
@@ -169,7 +175,7 @@ export const searchService = {
           navigateTo: { tab: 'evaluation', page: 'fiche-eleve', entity: r.id },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 5. Assignments ---
     try {
@@ -196,7 +202,7 @@ export const searchService = {
           navigateTo: { tab: 'evaluation', page: 'devoirs', entity: r.id },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 6. Lesson log ---
     try {
@@ -226,7 +232,7 @@ export const searchService = {
           navigateTo: { tab: 'cahier', page: 'default' },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // --- 7. Program topics ---
     try {
@@ -252,11 +258,162 @@ export const searchService = {
           navigateTo: { tab: 'programme', page: 'default' },
         });
       }
-    } catch {}
+    } catch (err) { console.warn('[Search] Requête échouée:', err); }
 
     // Sort by score DESC, then by title ASC
     results.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
 
     return results.slice(0, limit);
+  },
+
+  /**
+   * Recherche sémantique par intention.
+   * Parse la requête en langage naturel pour extraire :
+   *  - filtres de type (séquence, devoir, document, élève…)
+   *  - filtres de matière
+   *  - filtres de modalité (oral, écrit, IA…)
+   *  - mots-clés restants pour la recherche LIKE
+   * Booste les scores en fonction des filtres matchés.
+   */
+  async semanticSearch(query: string, limit = 30): Promise<SearchResult[]> {
+    if (!query || query.trim().length < 2) return [];
+
+    const q = query.toLowerCase();
+
+    // ── Parse entity type filter ──
+    const TYPE_PATTERNS: Record<string, SearchResult['type'][]> = {
+      'séquence': ['sequence'],
+      'sequence': ['sequence'],
+      'séance': ['session'],
+      'seance': ['session'],
+      'document': ['document'],
+      'doc': ['document'],
+      'élève': ['student'],
+      'eleve': ['student'],
+      'devoir': ['assignment'],
+      'évaluation': ['assignment'],
+      'evaluation': ['assignment'],
+      'cahier': ['lesson_log'],
+      'programme': ['program_topic'],
+    };
+
+    // ── Parse subject filter ──
+    const SUBJECT_PATTERNS: Record<string, string[]> = {
+      'histoire': ['histoire', 'hist'],
+      'géographie': ['géographie', 'géo', 'geo', 'geographie'],
+      'hggsp': ['hggsp'],
+      'emc': ['emc'],
+    };
+
+    // ── Parse modality filter ──
+    const MODALITY_PATTERNS: Record<string, string[]> = {
+      'oral': ['oral', 'oraux'],
+      'écrit': ['écrit', 'ecrit', 'rédaction', 'redaction', 'dissertation', 'commentaire'],
+      'carte': ['carte', 'croquis', 'cartographie'],
+      'ia': ['ia', 'intelligence artificielle', 'généré', 'genere'],
+    };
+
+    let typeFilter: SearchResult['type'][] | null = null;
+    let subjectFilter: string | null = null;
+    let modalityFilter: string | null = null;
+    const cleanedTerms: string[] = [];
+
+    // Split query into tokens
+    const rawTokens = q.split(/\s+/);
+    for (const token of rawTokens) {
+      let consumed = false;
+
+      // Check type patterns (exact match or plural)
+      for (const [pattern, types] of Object.entries(TYPE_PATTERNS)) {
+        if (token === pattern || token === pattern + 's') {
+          typeFilter = types;
+          consumed = true;
+          break;
+        }
+      }
+
+      if (!consumed) {
+        for (const [subject, patterns] of Object.entries(SUBJECT_PATTERNS)) {
+          if (patterns.includes(token)) {
+            subjectFilter = subject;
+            consumed = true;
+            break;
+          }
+        }
+      }
+
+      if (!consumed) {
+        for (const [modality, patterns] of Object.entries(MODALITY_PATTERNS)) {
+          if (patterns.includes(token)) {
+            modalityFilter = modality;
+            consumed = true;
+            break;
+          }
+        }
+      }
+
+      // Skip stopwords
+      const STOPWORDS = new Set(['mes', 'mon', 'ma', 'les', 'des', 'une', 'avec', 'sur', 'pour', 'dans', 'qui', 'que', 'et', 'ou', 'de', 'du', 'la', 'le', 'un']);
+      if (!consumed && !STOPWORDS.has(token) && token.length >= 2) {
+        cleanedTerms.push(token);
+      }
+    }
+
+    // If we extracted nothing useful, fall back to standard search
+    if (cleanedTerms.length === 0 && !typeFilter && !subjectFilter && !modalityFilter) {
+      return this.search(query, limit);
+    }
+
+    // Run standard search with cleaned terms (or original if no terms extracted)
+    const searchQuery = cleanedTerms.length > 0 ? cleanedTerms.join(' ') : query;
+    const rawResults = await this.search(searchQuery, limit * 2);
+
+    // Apply semantic scoring
+    const scored = rawResults.map(r => {
+      let bonus = 0;
+
+      // Type filter match
+      if (typeFilter && typeFilter.includes(r.type)) {
+        bonus += 15;
+      } else if (typeFilter && !typeFilter.includes(r.type)) {
+        bonus -= 10;
+      }
+
+      // Subject filter match
+      if (subjectFilter && r.subject) {
+        if (r.subject.toLowerCase().includes(subjectFilter)) {
+          bonus += 10;
+        } else {
+          bonus -= 5;
+        }
+      }
+
+      // Modality match (search in title + subtitle + excerpt)
+      if (modalityFilter) {
+        const fullText = `${r.title} ${r.subtitle} ${r.matchExcerpt}`.toLowerCase();
+        const patterns = MODALITY_PATTERNS[modalityFilter] ?? [];
+        if (patterns.some(p => fullText.includes(p))) {
+          bonus += 8;
+        }
+      }
+
+      // Term density bonus (more terms matched = higher score)
+      if (cleanedTerms.length > 1) {
+        const fullText = `${r.title} ${r.subtitle}`.toLowerCase();
+        const matchedCount = cleanedTerms.filter(t => fullText.includes(t)).length;
+        bonus += matchedCount * 2;
+      }
+
+      return { ...r, score: Math.max(1, r.score + bonus) };
+    });
+
+    // Filter out negative-score results if we have filters
+    const filtered = (typeFilter || subjectFilter)
+      ? scored.filter(r => r.score > 0)
+      : scored;
+
+    filtered.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+
+    return filtered.slice(0, limit);
   },
 };

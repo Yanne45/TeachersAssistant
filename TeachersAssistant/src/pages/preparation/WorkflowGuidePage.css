@@ -1,0 +1,100 @@
+/* ============================================================================
+   WorkflowGuidePage — Mode guidé Séquence → Évaluation → Bulletin
+   ============================================================================ */
+
+.workflow-guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.workflow-guide__title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.workflow-guide__subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.workflow-guide__loading {
+  padding: 40px;
+  color: var(--color-text-muted);
+}
+
+.workflow-guide__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ── Card ── */
+
+.workflow-guide__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.workflow-guide__card-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.workflow-guide__subject-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.workflow-guide__card-title {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.workflow-guide__card-meta {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ── Stepper wrap ── */
+
+.workflow-guide__stepper-wrap {
+  margin-bottom: var(--space-3);
+}
+
+.workflow-guide__stepper-wrap .stepper {
+  width: 100%;
+}
+
+.workflow-guide__stepper-wrap .stepper__connector {
+  flex: 1;
+  max-width: none;
+}
+
+/* ── Next action ── */
+
+.workflow-guide__next {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: var(--border-default);
+}
+
+.workflow-guide__next-label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}

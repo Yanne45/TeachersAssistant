@@ -2,7 +2,7 @@
 // Teacher Assistant — Services barrel export
 // ============================================================================
 
-export { db, initDatabase, openDatabase, createDatabase, closeDatabase, getCurrentPath, isOpen } from './db';
+export { db, openDatabase, createDatabase, closeDatabase, getCurrentPath, isOpen } from './db';
 export { runMigrations } from './migrationRunner';
 export { workspaceService } from './workspaceService';
 
@@ -119,9 +119,17 @@ export {
 } from './importExportService';
 export type { CSVStudent } from './importExportService';
 
+// Banque de rubriques
+export { rubricTemplateService } from './rubricTemplateService';
+export type { RubricTemplate, RubricCriterion, RubricDescriptor } from './rubricTemplateService';
+
 // Export grille compétences
 export { grilleExportService } from './grilleExportService';
 export type { GrilleRow } from './grilleExportService';
+
+// Timeline projection
+export { timelineProjectionService } from './timelineProjectionService';
+export type { TopicCoverage, PaceAnalysis, TimelineSlot, WhatIfResult } from './timelineProjectionService';
 
 // Notification engine
 export { generateNotifications } from './notificationEngine';

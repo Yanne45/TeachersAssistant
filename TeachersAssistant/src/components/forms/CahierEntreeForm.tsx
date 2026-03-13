@@ -4,6 +4,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Drawer } from '../ui/Drawer';
+import { classService, subjectService, db } from '../../services';
+import type { ClassWithLevel } from '../../types/academic';
+import type { Subject } from '../../types/academic';
 import './forms.css';
 
 interface CahierFormData {
@@ -23,20 +26,6 @@ const EMPTY: CahierFormData = {
   title: '', content: '', activities: '', homework: '', homework_due_date: '',
 };
 
-const MOCK_CLASSES = [
-  { id: '1', label: 'Tle 2' }, { id: '2', label: 'Tle 4' }, { id: '3', label: '1ère 3' },
-];
-
-const MOCK_SUBJECTS = [
-  { id: '1', label: 'Histoire' }, { id: '2', label: 'Géographie' }, { id: '3', label: 'HGGSP' },
-];
-
-const MOCK_SESSIONS = [
-  { id: '1', label: 'Séance 1 — Introduction' },
-  { id: '2', label: 'Séance 2 — Berlin' },
-  { id: '3', label: 'Séance 3 — Crises et détente' },
-];
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -47,12 +36,25 @@ interface Props {
 export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initialData }) => {
   const [form, setForm] = useState<CahierFormData>(EMPTY);
   const [errors, setErrors] = useState<Partial<Record<keyof CahierFormData, string>>>({});
+  const [classes, setClasses] = useState<ClassWithLevel[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [sessions, setSessions] = useState<{ id: number; title: string }[]>([]);
 
   useEffect(() => {
-    if (open) {
-      setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
-      setErrors({});
-    }
+    if (!open) return;
+    setForm(initialData ? { ...EMPTY, ...initialData } : EMPTY);
+    setErrors({});
+    Promise.all([
+      classService.getAll(),
+      subjectService.getAll(),
+      db.select<{ id: number; title: string }[]>(
+        'SELECT id, title FROM sessions ORDER BY sort_order DESC LIMIT 50'
+      ),
+    ]).then(([cls, subs, sess]) => {
+      setClasses(cls);
+      setSubjects(subs);
+      setSessions(sess);
+    }).catch(() => {});
   }, [open, initialData]);
 
   const set = (field: keyof CahierFormData, value: string) =>
@@ -89,7 +91,7 @@ export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initi
           <label className="form__label">Classe *</label>
           <select className={`form__select ${errors.class_id ? 'form__select--error' : ''}`} value={form.class_id} onChange={e => set('class_id', e.target.value)}>
             <option value="">— Choisir —</option>
-            {MOCK_CLASSES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {classes.map(c => <option key={c.id} value={String(c.id)}>{c.name}</option>)}
           </select>
           {errors.class_id && <span className="form__error">{errors.class_id}</span>}
         </div>
@@ -97,7 +99,7 @@ export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initi
           <label className="form__label">Matière</label>
           <select className="form__select" value={form.subject_id} onChange={e => set('subject_id', e.target.value)}>
             <option value="">— Choisir —</option>
-            {MOCK_SUBJECTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {subjects.map(s => <option key={s.id} value={String(s.id)}>{s.label}</option>)}
           </select>
         </div>
 
@@ -110,7 +112,7 @@ export const CahierEntreeForm: React.FC<Props> = ({ open, onClose, onSave, initi
           <label className="form__label">Séance liée</label>
           <select className="form__select" value={form.session_id} onChange={e => set('session_id', e.target.value)}>
             <option value="">— Aucune —</option>
-            {MOCK_SESSIONS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {sessions.map(s => <option key={s.id} value={String(s.id)}>{s.title}</option>)}
           </select>
         </div>
 
