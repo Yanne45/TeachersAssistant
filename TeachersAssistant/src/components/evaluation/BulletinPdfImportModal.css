@@ -1,0 +1,180 @@
+/* BulletinPdfImportModal */
+
+.bulletin-import__upload {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.bulletin-import__hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.bulletin-import__file-list {
+  margin-top: var(--space-2);
+}
+
+.bulletin-import__file-count {
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  margin-bottom: var(--space-1);
+}
+
+.bulletin-import__files {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+}
+
+.bulletin-import__file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 8px;
+  font-size: 12px;
+  border-bottom: var(--border-default);
+}
+
+.bulletin-import__file-item:last-child {
+  border-bottom: none;
+}
+
+.bulletin-import__file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bulletin-import__file-size {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.bulletin-import__file-remove {
+  background: none;
+  border: none;
+  color: var(--color-danger, #dc2626);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.bulletin-import__file-remove:hover {
+  background: var(--color-danger-bg, #fee2e2);
+}
+
+.bulletin-import__error {
+  color: var(--color-danger, #dc2626);
+  font-size: 12px;
+  margin-top: var(--space-2);
+}
+
+.bulletin-import__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.bulletin-import__table-wrap {
+  max-height: 400px;
+  overflow-y: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+}
+
+.bulletin-import__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.bulletin-import__table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-weight: var(--font-weight-bold);
+  background: var(--color-bg);
+  border-bottom: var(--border-default);
+  position: sticky;
+  top: 0;
+}
+
+.bulletin-import__table td {
+  padding: 4px 8px;
+  border-bottom: var(--border-default);
+}
+
+.bulletin-import__cell-file {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.bulletin-import__row--skip {
+  opacity: 0.4;
+}
+
+.bulletin-import__select-student,
+.bulletin-import__select-period {
+  width: 100%;
+  font-size: 11px;
+  font-family: var(--font-family);
+  padding: 2px 4px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.bulletin-import__badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-semibold);
+}
+
+.bulletin-import__badge--exact {
+  background: var(--color-success-light, #e6f4ea);
+  color: var(--color-success);
+}
+
+.bulletin-import__badge--partial {
+  background: var(--color-warning-light, #fff8e1);
+  color: var(--color-warning);
+}
+
+.bulletin-import__badge--none {
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+}
+
+.bulletin-import__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.bulletin-import__saving,
+.bulletin-import__done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  font-size: 13px;
+}

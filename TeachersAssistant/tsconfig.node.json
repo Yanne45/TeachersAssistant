@@ -10,6 +10,8 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
 
     "strict": true,
     "noUnusedLocals": true,

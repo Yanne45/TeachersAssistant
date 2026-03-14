@@ -52,6 +52,7 @@ export const DEFAULT_PAGES: Record<TabId, string> = {
   classes: 'overview',
   evaluation: 'devoirs',
   bibliotheque: 'recents',
+  messagerie: 'inbox',
   parametres: 'annee-calendrier',
 };
 

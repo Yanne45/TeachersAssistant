@@ -5,6 +5,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState, ErrorBoundary, PanelError } from '../../components/ui';
 import { PDFPreviewModal } from '../../components/forms';
+import { BulletinPdfImportModal } from '../../components/evaluation/BulletinPdfImportModal';
 import {
   aiBulletinService,
   bulletinService,
@@ -73,6 +74,8 @@ export const BulletinsPage: React.FC = () => {
   const [generatingBatch, setGeneratingBatch] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [showPdfImport, setShowPdfImport] = useState(false);
+  const [studentsList, setStudentsList] = useState<Array<{ id: number; last_name: string; first_name: string }>>([]);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [listScrollTop, setListScrollTop] = useState(0);
   const [listViewportHeight, setListViewportHeight] = useState(420);
@@ -226,6 +229,12 @@ export const BulletinsPage: React.FC = () => {
 
       setLoading(true);
       try {
+        // Fetch raw students for import modal
+        const rawStudents = await studentService.getByClass(activeClassId);
+        if (!cancelled) {
+          setStudentsList(rawStudents.map(s => ({ id: s.id, last_name: s.last_name, first_name: s.first_name })));
+        }
+
         const mappedRows = await reloadRowsForClass(activeClassId, periods);
 
         if (!cancelled) {
@@ -502,6 +511,9 @@ export const BulletinsPage: React.FC = () => {
           {isDirty && <span className="bulletins-page__unsaved-badge">Non enregistré</span>}
         </h1>
         <div className="bulletins-page__header-actions">
+          <button className="bulletins-page__btn" onClick={() => setShowPdfImport(true)} disabled={studentsList.length === 0}>
+            Importer PDF
+          </button>
           <button className="bulletins-page__btn" onClick={() => void handleGenerateBatch()} disabled={generatingBatch || rows.length === 0}>
             {generatingBatch ? `Génération ${batchProgress?.current ?? 0}/${batchProgress?.total ?? '?'}...` : 'Générer batch (IA)'}
           </button>
@@ -570,8 +582,8 @@ export const BulletinsPage: React.FC = () => {
         />
       )}
 
-      <ErrorBoundary>
       <div className="bulletins-page__body">
+        <ErrorBoundary>
         <div
           className="bulletins-page__list"
           ref={listRef}
@@ -604,7 +616,9 @@ export const BulletinsPage: React.FC = () => {
             </table>
           )}
         </div>
+        </ErrorBoundary>
 
+        <ErrorBoundary>
         <div className="bulletins-page__editor">
           {selectedStudentId ? (
             <>
@@ -654,8 +668,8 @@ export const BulletinsPage: React.FC = () => {
             <EmptyState icon="📅" title="Aucun élève sélectionné" description="Sélectionnez un élève dans le tableau." />
           )}
         </div>
+        </ErrorBoundary>
       </div>
-      </ErrorBoundary>
 
       <PDFPreviewModal
         html={pdfHtml ?? ''}
@@ -663,6 +677,18 @@ export const BulletinsPage: React.FC = () => {
         filename="bulletin.html"
         open={!!pdfHtml}
         onClose={() => setPdfHtml(null)}
+      />
+
+      <BulletinPdfImportModal
+        open={showPdfImport}
+        onClose={() => setShowPdfImport(false)}
+        students={studentsList}
+        periods={periods.map(p => ({ id: p.id, label: p.label }))}
+        defaultPeriodId={activePeriodId}
+        onImported={() => {
+          void refreshRowsForCurrentClass();
+          addToast('success', 'Bulletins PDF importes');
+        }}
       />
     </div>
   );

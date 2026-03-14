@@ -34,6 +34,7 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searchMode, setSearchMode] = useState<SearchMode>('standard');
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -53,11 +54,12 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
     }
     const version = ++searchVersionRef.current;
     setLoading(true);
+    if (searchMode === 'intelligent') setAiLoading(true);
     try {
       const res = searchMode === 'vector'
         ? await searchService.vectorSearch(q)
         : searchMode === 'intelligent'
-          ? await searchService.semanticSearch(q)
+          ? await searchService.aiSearch(q)
           : await searchService.search(q);
       if (version !== searchVersionRef.current) return; // stale response
       setResults(res);
@@ -67,7 +69,10 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
       setResults([]);
       console.warn('[Search] Erreur:', err);
     } finally {
-      if (version === searchVersionRef.current) setLoading(false);
+      if (version === searchVersionRef.current) {
+        setLoading(false);
+        setAiLoading(false);
+      }
     }
   }, [searchMode]);
 
@@ -183,7 +188,9 @@ export const RechercheGlobalePage: React.FC<{ initialQuery?: string; onClose?: (
 
       {/* Loading */}
       {loading && (
-        <div className="search-page__loading">Recherche en cours…</div>
+        <div className={`search-page__loading${aiLoading ? ' search-page__loading--ai' : ''}`}>
+          {aiLoading ? '🧠 Analyse IA de la requête en cours…' : 'Recherche en cours…'}
+        </div>
       )}
 
       {/* Results */}

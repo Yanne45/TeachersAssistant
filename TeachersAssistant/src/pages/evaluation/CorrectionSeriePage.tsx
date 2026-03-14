@@ -47,10 +47,10 @@ interface StudentSubmission {
 }
 
 const DEFAULT_SKILLS: SkillDef[] = [
-  { id: null, label: 'Problematise' },
+  { id: null, label: 'Problématiser' },
   { id: null, label: 'Construire un plan' },
   { id: null, label: 'Mobiliser connaissances' },
-  { id: null, label: 'Redaction' },
+  { id: null, label: 'Rédaction' },
   { id: null, label: 'Analyser doc.' },
 ];
 
@@ -85,7 +85,7 @@ export const CorrectionSeriePage: React.FC = () => {
   const [pronoteImportOpen, setPronoteImportOpen] = useState(false);
   const [grilleModalOpen, setGrilleModalOpen] = useState(false);
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
-  const [previewError, setPreviewError] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState(0);
   const [activeSkillIdx, setActiveSkillIdx] = useState(0);
   const studentsListRef = useRef<HTMLDivElement | null>(null);
@@ -215,13 +215,26 @@ export const CorrectionSeriePage: React.FC = () => {
   const selected = useMemo(() => students.find((s) => s.id === selectedId) ?? null, [students, selectedId]);
 
   const [previewUrl, setPreviewUrl] = useState('');
+  const previewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [_previewLoaded, setPreviewLoaded] = useState(false);
   useEffect(() => {
-    setPreviewError(false);
+    setPreviewError(null);
+    setPreviewLoaded(false);
+    if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
     if (selected?.filePath) {
-      void toPreviewSrc(selected.filePath).then(setPreviewUrl);
+      void toPreviewSrc(selected.filePath).then((url) => {
+        setPreviewUrl(url);
+        // Start a 15s timeout — if iframe hasn't loaded by then, show error
+        previewTimeoutRef.current = setTimeout(() => {
+          setPreviewError((prev) => prev ?? 'Délai d\'attente dépassé — le fichier est peut-être trop volumineux ou inaccessible.');
+        }, 15000);
+      });
     } else {
       setPreviewUrl('');
     }
+    return () => {
+      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+    };
   }, [selectedId, selected?.filePath]);
 
   const updateSelectedStudent = (updater: (student: StudentSubmission) => StudentSubmission) => {
@@ -822,8 +835,8 @@ export const CorrectionSeriePage: React.FC = () => {
                 </div>
                 {previewError ? (
                   <PanelError
-                    message="Impossible de charger l'aperçu — vérifiez que le fichier existe et est au format PDF/image."
-                    onRetry={() => { setPreviewError(false); setPreviewKey((k) => k + 1); }}
+                    message={previewError}
+                    onRetry={() => { setPreviewError(null); setPreviewLoaded(false); setPreviewKey((k) => k + 1); }}
                   />
                 ) : (
                   <iframe
@@ -833,15 +846,18 @@ export const CorrectionSeriePage: React.FC = () => {
                     src={previewUrl}
                     onError={() => {
                       console.error('[CorrectionSeriePage] Preview iframe error:', selected.filePath);
-                      setPreviewError(true);
+                      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+                      setPreviewError('Impossible de charger l\'aperçu — vérifiez que le fichier existe et est au format PDF/image.');
                     }}
                     onLoad={(e) => {
+                      if (previewTimeoutRef.current) clearTimeout(previewTimeoutRef.current);
+                      setPreviewLoaded(true);
                       try {
                         const iframe = e.currentTarget;
                         const doc = iframe.contentDocument;
                         if (doc?.title === 'Error' || doc?.body?.textContent?.includes('ERR_FILE_NOT_FOUND')) {
                           console.error('[CorrectionSeriePage] Preview iframe: fichier introuvable', selected.filePath);
-                          setPreviewError(true);
+                          setPreviewError('Fichier introuvable — vérifiez le chemin : ' + (selected.filePath ?? ''));
                         }
                       } catch {
                         // Cross-origin iframe — cannot inspect, assume OK

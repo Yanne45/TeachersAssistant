@@ -38,6 +38,8 @@ export interface ProcessedFile {
   fileSize: number;
   /** Suggestions IA */
   classification: ClassificationResult;
+  /** Chemin relatif du thumbnail généré (null si non image) */
+  thumbnailPath: string | null;
   /** Erreur éventuelle lors du traitement */
   error: string | null;
 }
@@ -204,12 +206,23 @@ export async function processFiles(
       copyError = String(err);
     }
 
+    // 3. Génération thumbnail (images, PDF, DOCX, PPTX — non bloquant)
+    let thumbnailPath: string | null = null;
+    if (!copyError) {
+      try {
+        thumbnailPath = await generateThumbnail(file, ext);
+      } catch {
+        // Thumbnail non critique — on continue
+      }
+    }
+
     results.push({
       originalFile: file,
       destPath,
       fileExt: ext,
       fileSize: file.size,
       classification,
+      thumbnailPath,
       error: copyError,
     });
   }
@@ -257,6 +270,257 @@ export async function getFilePreviewUrl(filePath: string): Promise<string | null
     const { convertFileSrc } = await import('@tauri-apps/api/core');
     return convertFileSrc(resolved);
   } catch {
+    return null;
+  }
+}
+
+// ── Thumbnail generation ──
+
+const THUMB_W = 200;
+const THUMB_H = 260;
+
+const THUMB_SUPPORTED_EXTS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf', 'doc', 'docx', 'ppt', 'pptx'];
+
+function canGenerateThumbnail(ext: string): boolean {
+  return THUMB_SUPPORTED_EXTS.includes(ext.toLowerCase());
+}
+
+/** Sauvegarde un canvas en JPEG dans thumbnails/ et retourne le chemin relatif */
+async function saveCanvasThumb(canvas: HTMLCanvasElement): Promise<string | null> {
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, 'image/jpeg', 0.80),
+  );
+  if (!blob) return null;
+
+  const { writeFile } = await import('@tauri-apps/plugin-fs');
+  const thumbDir = await workspaceService.getAppSubDir('thumbnails');
+  const thumbName = `thumb_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const { join } = await import('@tauri-apps/api/path');
+  const thumbPath = await join(thumbDir, thumbName);
+  const buffer = await blob.arrayBuffer();
+  await writeFile(thumbPath, new Uint8Array(buffer));
+
+  return await toRelativePath(thumbPath);
+}
+
+/** Thumbnail d'une image (resize proportionnel) */
+async function thumbnailFromImage(file: File): Promise<string | null> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = url;
+    });
+
+    let w = img.naturalWidth;
+    let h = img.naturalHeight;
+    const ratio = Math.min(THUMB_W / w, THUMB_H / h, 1);
+    w = Math.round(w * ratio);
+    h = Math.round(h * ratio);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    return await saveCanvasThumb(canvas);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/** Thumbnail d'un PDF (rendu de la 1ère page via pdfjs-dist) */
+async function thumbnailFromPdf(file: File): Promise<string | null> {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+  const arrayBuf = await file.arrayBuffer();
+  const pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(arrayBuf) }).promise;
+  const page = await pdfDoc.getPage(1);
+
+  // Rendre à une taille raisonnable (scale pour que le plus grand côté = THUMB_W)
+  const vp = page.getViewport({ scale: 1 });
+  const scale = Math.min(THUMB_W / vp.width, THUMB_H / vp.height, 1.5);
+  const viewport = page.getViewport({ scale });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  // Fond blanc (les PDFs n'ont pas toujours de fond)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  pdfDoc.destroy();
+
+  return await saveCanvasThumb(canvas);
+}
+
+/** Thumbnail d'un DOCX (extraction texte mammoth → rendu canvas) */
+async function thumbnailFromDocx(file: File): Promise<string | null> {
+  const mammoth = await import('mammoth');
+  const arrayBuf = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer: arrayBuf });
+  const text = result.value.slice(0, 600);
+
+  return renderTextThumbnail(text, '#2B579A', '📝');
+}
+
+/** Thumbnail placeholder stylisé (PPTX et autres) */
+function renderTextThumbnail(text: string, accentColor: string, icon: string): Promise<string | null> {
+  const canvas = document.createElement('canvas');
+  canvas.width = THUMB_W;
+  canvas.height = THUMB_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return Promise.resolve(null);
+
+  // Fond
+  ctx.fillStyle = '#f8f9fa';
+  ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+
+  // Barre de couleur en haut
+  ctx.fillStyle = accentColor;
+  ctx.fillRect(0, 0, THUMB_W, 6);
+
+  // Icône
+  ctx.font = '28px serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(icon, THUMB_W / 2, 36);
+
+  // Texte (word-wrap manuel)
+  if (text.trim()) {
+    ctx.fillStyle = '#333';
+    ctx.font = '10px "Segoe UI", sans-serif';
+    ctx.textAlign = 'left';
+    const maxW = THUMB_W - 20;
+    const lines: string[] = [];
+    const words = text.replace(/\n+/g, ' ').split(/\s+/);
+    let line = '';
+    for (const word of words) {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxW && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+      if (lines.length >= 18) break;
+    }
+    if (line && lines.length < 18) lines.push(line);
+
+    let y = 50;
+    for (const l of lines) {
+      ctx.fillText(l, 10, y);
+      y += 13;
+    }
+  }
+
+  return saveCanvasThumb(canvas);
+}
+
+/**
+ * Génère un thumbnail pour un fichier uploadé.
+ * Supporte : images, PDF, DOCX, PPTX (placeholder stylisé).
+ */
+export async function generateThumbnail(
+  file: File,
+  ext: string,
+): Promise<string | null> {
+  const e = ext.toLowerCase();
+  if (!canGenerateThumbnail(e)) return null;
+
+  try {
+    if (isImageFile(e)) return await thumbnailFromImage(file);
+    if (e === 'pdf') return await thumbnailFromPdf(file);
+    if (e === 'docx' || e === 'doc') return await thumbnailFromDocx(file);
+    if (e === 'pptx' || e === 'ppt') {
+      // Pas de rendu natif pour PPT — placeholder avec le nom du fichier
+      const name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      return await renderTextThumbnail(name, '#D24726', '📊');
+    }
+    return null;
+  } catch (err) {
+    console.warn('[generateThumbnail] Erreur:', err);
+    return null;
+  }
+}
+
+/**
+ * Génère un thumbnail depuis un chemin de fichier déjà sauvé sur disque.
+ * Utile pour les documents existants (migration batch).
+ * Supporte les images et les PDF.
+ */
+export async function generateThumbnailFromPath(
+  filePath: string,
+  ext: string,
+): Promise<string | null> {
+  const e = ext.toLowerCase();
+  if (!canGenerateThumbnail(e)) return null;
+
+  try {
+    // Pour les PDF : lire le fichier et passer à thumbnailFromPdf
+    if (e === 'pdf') {
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const resolved = await resolveDocPath(filePath);
+      const data = await readFile(resolved);
+      const file = new File([data], 'doc.pdf', { type: 'application/pdf' });
+      return await thumbnailFromPdf(file);
+    }
+
+    // Pour les DOCX : lire et passer à thumbnailFromDocx
+    if (e === 'docx' || e === 'doc') {
+      const { readFile } = await import('@tauri-apps/plugin-fs');
+      const resolved = await resolveDocPath(filePath);
+      const data = await readFile(resolved);
+      const file = new File([data], 'doc.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      return await thumbnailFromDocx(file);
+    }
+
+    // Pour les PPT : placeholder
+    if (e === 'pptx' || e === 'ppt') {
+      const name = filePath.replace(/.*[/\\]/, '').replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+      return await renderTextThumbnail(name, '#D24726', '📊');
+    }
+
+    // Pour les images : charger via convertFileSrc
+    if (isImageFile(e)) {
+      const resolved = await resolveDocPath(filePath);
+      const { convertFileSrc } = await import('@tauri-apps/api/core');
+      const src = convertFileSrc(resolved);
+
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = reject;
+        el.src = src;
+      });
+
+      let w = img.naturalWidth;
+      let h = img.naturalHeight;
+      const ratio = Math.min(THUMB_W / w, THUMB_H / h, 1);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, w, h);
+
+      return await saveCanvasThumb(canvas);
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[generateThumbnailFromPath] Erreur:', err);
     return null;
   }
 }

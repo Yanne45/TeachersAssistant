@@ -65,23 +65,61 @@
 
 /* Task selection */
 .ia-gen__task-group {
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+}
+
+.ia-gen__task-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: background 0.12s;
+}
+
+.ia-gen__task-group-header:hover {
+  background: var(--color-hover);
+}
+
+.ia-gen__task-group-chevron {
+  font-size: 8px;
+  color: var(--color-text-muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.ia-gen__task-group-chevron--open {
+  transform: rotate(90deg);
 }
 
 .ia-gen__task-group-label {
-  display: block;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   color: var(--color-text-muted);
-  margin-bottom: 6px;
+}
+
+.ia-gen__task-group-count {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-hover);
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: auto;
 }
 
 .ia-gen__task-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  padding-top: 6px;
 }
 
 .ia-gen__task-card {
@@ -325,6 +363,28 @@
   background: var(--color-bg); padding: 10px; border-radius: var(--radius-xs);
   font-size: 12px; overflow-x: auto; border: var(--border-default);
   white-space: pre-wrap; font-family: 'Consolas', 'Monaco', monospace;
+}
+
+/* ── Raw JSON toggle (for slideshow/quiz) ── */
+
+.ia-gen__raw-toggle {
+  margin-top: var(--space-2);
+  border-top: var(--border-default);
+  padding-top: var(--space-2);
+}
+
+.ia-gen__raw-toggle summary {
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ia-gen__raw-toggle summary:hover { color: var(--color-primary); }
+
+.ia-gen__raw-toggle .ia-gen__result-text {
+  max-height: 300px;
+  margin-top: var(--space-2);
 }
 
 .ia-gen__result-actions {

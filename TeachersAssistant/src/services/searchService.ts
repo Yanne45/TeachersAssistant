@@ -5,6 +5,7 @@
 
 import { db } from './db';
 import { embeddingService } from './embeddingService';
+import { aiGenerationService } from './aiService';
 
 export interface SearchResult {
   id: number;
@@ -426,5 +427,75 @@ export const searchService = {
    */
   async vectorSearch(query: string, limit = 30): Promise<SearchResult[]> {
     return embeddingService.search(query, limit);
+  },
+
+  /**
+   * Recherche IA : interprète la requête en langage naturel via l'IA,
+   * puis applique les filtres extraits sur une recherche standard.
+   * Fallback sur semanticSearch si l'IA est indisponible.
+   */
+  async aiSearch(query: string, limit = 30): Promise<SearchResult[]> {
+    try {
+      // 1. Call AI to interpret the query
+      const aiResult = await aiGenerationService.generate({
+        taskCode: 'search_intent',
+        variables: { query },
+      });
+
+      // 2. Parse AI response
+      const rawContent = aiResult?.output_content ?? aiResult?.processed_result ?? '{}';
+      const cleaned = rawContent.replace(/```json\n?/g, '').replace(/```/g, '').trim();
+      const parsed = JSON.parse(cleaned) as {
+        keywords?: string[];
+        typeFilter?: string[];
+        subjectFilter?: string | null;
+        levelFilter?: string | null;
+        dateHint?: string | null;
+        reformulatedQuery?: string | null;
+      };
+
+      const { keywords, typeFilter, subjectFilter, reformulatedQuery } = parsed;
+
+      // 3. Use reformulated query for standard search
+      const searchQuery = reformulatedQuery || keywords?.join(' ') || query;
+      const results = await this.search(searchQuery, limit * 2);
+
+      // 4. Apply AI-suggested filters and boost scores
+      const scored = results.map(r => {
+        let bonus = 0;
+
+        // Type filter match
+        if (typeFilter && typeFilter.length > 0) {
+          if (typeFilter.includes(r.type)) {
+            bonus += 15;
+          } else {
+            bonus -= 10;
+          }
+        }
+
+        // Subject filter match
+        if (subjectFilter && r.subject) {
+          if (r.subject.toLowerCase().includes(subjectFilter.toLowerCase())) {
+            bonus += 10;
+          } else {
+            bonus -= 5;
+          }
+        }
+
+        return { ...r, score: Math.max(1, r.score + bonus) };
+      });
+
+      // Filter out low-score results when filters are active
+      const filtered = (typeFilter?.length || subjectFilter)
+        ? scored.filter(r => r.score > 0)
+        : scored;
+
+      filtered.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+
+      return filtered.slice(0, limit);
+    } catch (error) {
+      console.warn('[searchService] AI search failed, falling back to semantic:', error);
+      return this.semanticSearch(query);
+    }
   },
 };

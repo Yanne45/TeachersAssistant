@@ -199,3 +199,19 @@
   align-self: flex-start;
   margin-right: 8px;
 }
+
+/* ── AI search loading indicator ── */
+
+.search-page__loading--ai {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+@keyframes search-ai-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.search-page__loading--ai {
+  animation: search-ai-pulse 1.5s ease-in-out infinite;
+}

@@ -1,0 +1,102 @@
+/* ============================================================================
+   GrilleDescriptiveModal — Grille descriptive des niveaux de maîtrise
+   ============================================================================ */
+
+.grille-desc__footer {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.grille-desc__empty {
+  padding: var(--space-4);
+  color: var(--color-text-secondary);
+}
+
+.grille-desc__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ── Section par capacité ── */
+
+.grille-desc__section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.grille-desc__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.grille-desc__section-title {
+  font-size: var(--font-size-sm);
+}
+
+/* ── Tableau descripteurs ── */
+
+.grille-desc__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grille-desc__table thead tr {
+  background: var(--color-surface);
+}
+
+.grille-desc__table th {
+  padding: 6px 12px;
+  text-align: left;
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.grille-desc__table th:first-child {
+  width: 90px;
+}
+
+.grille-desc__table tbody tr {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.grille-desc__table td {
+  padding: 8px 12px;
+  vertical-align: top;
+}
+
+/* ── Pastille de niveau ── */
+
+.grille-desc__level-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: var(--font-size-xxs);
+  white-space: nowrap;
+}
+
+/* ── Champs d'édition ── */
+
+.grille-desc__input,
+.grille-desc__textarea {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.grille-desc__textarea {
+  resize: vertical;
+  font-family: inherit;
+}

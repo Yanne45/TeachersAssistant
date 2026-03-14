@@ -19,6 +19,9 @@ import { useApp, useRouter } from '../../stores';
 import { AI_TASK_STATUS_META } from '../../constants/statuses';
 import type { AITask, AITaskVariable, AITaskParam } from '../../services';
 import type { Subject, Level } from '../../types';
+import type { SlideshowData, QuizData } from '../../types/ai';
+import { SlideViewer } from '../../components/ai/SlideViewer';
+import { QuizViewer } from '../../components/ai/QuizViewer';
 import './GenerateurIAPage.css';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -81,6 +84,12 @@ export const GenerateurIAPage: React.FC = () => {
   const [availableModels, setAvailableModels] = useState<{ value: string; label: string }[]>([]);
   const [currentProvider, setCurrentProvider] = useState<AIProvider>('openai');
 
+  // Sections pliées/dépliées (toutes pliées par défaut)
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = useCallback((cat: string) => {
+    setCollapsedGroups(prev => ({ ...prev, [cat]: !prev[cat] }));
+  }, []);
+
   // Mode prompt libre (tâche ad hoc)
   const [freePromptMode, setFreePromptMode] = useState(false);
   const [freeSystemPrompt, setFreeSystemPrompt] = useState('Tu es un assistant pédagogique expert en histoire-géographie pour le lycée français.');
@@ -104,6 +113,27 @@ export const GenerateurIAPage: React.FC = () => {
     if (!resultContent) return '';
     return markdownToHTML(resultContent);
   }, [resultContent]);
+
+  // Détection du format structuré (slideshow / quiz en JSON)
+  const parsedSlideshow = useMemo((): SlideshowData | null => {
+    if (!resultContent || selectedTask?.code !== 'generate_slideshow') return null;
+    try {
+      const cleaned = resultContent.replace(/^```json\s*\n?/, '').replace(/\n?```\s*$/, '');
+      const obj = JSON.parse(cleaned);
+      if (obj && Array.isArray(obj.slides)) return obj as SlideshowData;
+    } catch { /* pas du JSON valide, fallback markdown */ }
+    return null;
+  }, [resultContent, selectedTask]);
+
+  const parsedQuiz = useMemo((): QuizData | null => {
+    if (!resultContent || selectedTask?.code !== 'generate_quiz') return null;
+    try {
+      const cleaned = resultContent.replace(/^```json\s*\n?/, '').replace(/\n?```\s*$/, '');
+      const obj = JSON.parse(cleaned);
+      if (obj && Array.isArray(obj.questions)) return obj as QuizData;
+    } catch { /* pas du JSON valide, fallback markdown */ }
+    return null;
+  }, [resultContent, selectedTask]);
 
   // Document attachment
   const [docSearch, setDocSearch] = useState('');
@@ -476,23 +506,39 @@ export const GenerateurIAPage: React.FC = () => {
                 <span className="ia-gen__task-label">Prompt libre</span>
               </button>
             </div>
-            {!freePromptMode && groupedTasks.map(group => (
-              <div key={group.category} className="ia-gen__task-group">
-                <span className="ia-gen__task-group-label">{group.label}</span>
-                <div className="ia-gen__task-grid">
-                  {group.tasks.map(task => (
-                    <button
-                      key={task.id}
-                      className={'ia-gen__task-card' + (selectedTask?.id === task.id ? ' ia-gen__task-card--active' : '')}
-                      onClick={() => { setFreePromptMode(false); selectTask(task); }}
-                    >
-                      <span className="ia-gen__task-icon">{task.icon}</span>
-                      <span className="ia-gen__task-label">{task.label}</span>
-                    </button>
-                  ))}
+            {!freePromptMode && groupedTasks.map(group => {
+              const isCollapsed = collapsedGroups[group.category] !== false;
+              const hasActive = group.tasks.some(t => selectedTask?.id === t.id);
+              const shown = !isCollapsed || hasActive;
+              return (
+                <div key={group.category} className="ia-gen__task-group">
+                  <button
+                    type="button"
+                    className="ia-gen__task-group-header"
+                    onClick={() => toggleGroup(group.category)}
+                    aria-expanded={shown}
+                  >
+                    <span className={'ia-gen__task-group-chevron' + (shown ? ' ia-gen__task-group-chevron--open' : '')}>&#9654;</span>
+                    <span className="ia-gen__task-group-label">{group.label}</span>
+                    <span className="ia-gen__task-group-count">{group.tasks.length}</span>
+                  </button>
+                  {shown && (
+                    <div className="ia-gen__task-grid">
+                      {group.tasks.map(task => (
+                        <button
+                          key={task.id}
+                          className={'ia-gen__task-card' + (selectedTask?.id === task.id ? ' ia-gen__task-card--active' : '')}
+                          onClick={() => { setFreePromptMode(false); selectTask(task); setCollapsedGroups(prev => ({ ...prev, [group.category]: false })); }}
+                        >
+                          <span className="ia-gen__task-icon">{task.icon}</span>
+                          <span className="ia-gen__task-label">{task.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </section>
 
           {/* Mode prompt libre */}
@@ -865,23 +911,44 @@ export const GenerateurIAPage: React.FC = () => {
 
               {resultContent && !generating && (
                 <Card className="ia-gen__result-card">
-                  <div className="ia-gen__result-toolbar">
-                    <button
-                      className={'ia-gen__render-toggle' + (renderMode === 'rendered' ? ' ia-gen__render-toggle--active' : '')}
-                      onClick={() => setRenderMode('rendered')}
-                    >Rendu</button>
-                    <button
-                      className={'ia-gen__render-toggle' + (renderMode === 'raw' ? ' ia-gen__render-toggle--active' : '')}
-                      onClick={() => setRenderMode('raw')}
-                    >Brut</button>
-                  </div>
-                  {renderMode === 'raw' ? (
-                    <pre className="ia-gen__result-text">{resultContent}</pre>
+                  {/* Viewer structuré ou rendu markdown classique */}
+                  {parsedSlideshow ? (
+                    <>
+                      <SlideViewer data={parsedSlideshow} />
+                      <details className="ia-gen__raw-toggle">
+                        <summary>Voir le JSON brut</summary>
+                        <pre className="ia-gen__result-text">{resultContent}</pre>
+                      </details>
+                    </>
+                  ) : parsedQuiz ? (
+                    <>
+                      <QuizViewer data={parsedQuiz} />
+                      <details className="ia-gen__raw-toggle">
+                        <summary>Voir le JSON brut</summary>
+                        <pre className="ia-gen__result-text">{resultContent}</pre>
+                      </details>
+                    </>
                   ) : (
-                    <div
-                      className="ia-gen__result-rendered"
-                      dangerouslySetInnerHTML={{ __html: renderedHtml }}
-                    />
+                    <>
+                      <div className="ia-gen__result-toolbar">
+                        <button
+                          className={'ia-gen__render-toggle' + (renderMode === 'rendered' ? ' ia-gen__render-toggle--active' : '')}
+                          onClick={() => setRenderMode('rendered')}
+                        >Rendu</button>
+                        <button
+                          className={'ia-gen__render-toggle' + (renderMode === 'raw' ? ' ia-gen__render-toggle--active' : '')}
+                          onClick={() => setRenderMode('raw')}
+                        >Brut</button>
+                      </div>
+                      {renderMode === 'raw' ? (
+                        <pre className="ia-gen__result-text">{resultContent}</pre>
+                      ) : (
+                        <div
+                          className="ia-gen__result-rendered"
+                          dangerouslySetInnerHTML={{ __html: renderedHtml }}
+                        />
+                      )}
+                    </>
                   )}
 
                   <div className="ia-gen__result-actions">

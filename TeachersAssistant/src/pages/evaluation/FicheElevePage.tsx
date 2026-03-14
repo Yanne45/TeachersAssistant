@@ -42,18 +42,18 @@ const FALLBACK_STUDENT = {
 };
 
 const FALLBACK_SKILL_LEVELS: { name: string; level: number }[] = [
-  { name: 'Problematiser', level: 3 },
+  { name: 'Problématiser', level: 3 },
   { name: 'Construire un plan', level: 3 },
   { name: 'Mobiliser connaissances', level: 4 },
-  { name: 'Redaction', level: 3 },
+  { name: 'Rédaction', level: 3 },
   { name: 'Analyser un document', level: 2 },
 ];
 
 const FALLBACK_SKILL_EVOLUTION: SkillEvolution[] = [
-  { name: 'Problematiser', t1: 2, t2: 3, t3: null },
+  { name: 'Problématiser', t1: 2, t2: 3, t3: null },
   { name: 'Construire un plan', t1: 2, t2: 3, t3: null },
   { name: 'Mobiliser connaiss.', t1: 3, t2: 4, t3: null },
-  { name: 'Redaction', t1: 2, t2: 3, t3: null },
+  { name: 'Rédaction', t1: 2, t2: 3, t3: null },
   { name: 'Analyser doc.', t1: 2, t2: 2, t3: null },
 ];
 
@@ -673,8 +673,8 @@ export const FicheElevePage: React.FC = () => {
 
       <Tabs tabs={STUDENT_TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <ErrorBoundary>
       {activeTab === 'overview' && (
+        <ErrorBoundary>
         <OverviewTabPanel
           gradesAverage={gradesAverage}
           finalizedCorrections={finalizedCorrections}
@@ -692,61 +692,139 @@ export const FicheElevePage: React.FC = () => {
           onNavigateProfile={() => setActiveTab('profile')}
           onNavigateDocs={() => setActiveTab('docs')}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'skills' && (
+        <ErrorBoundary>
         <SkillsTabPanel
           skillLevels={displayedSkillLevels}
           skillEvolution={displayedEvolution}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'grades' && (
+        <ErrorBoundary>
         <GradesTabPanel
           gradesAverage={gradesAverage}
           grades={grades}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'corrections' && (
+        <ErrorBoundary>
         <CorrectionsTabPanel
           corrections={corrections}
           onOpenAssignment={(assignmentId) => navigate({ tab: 'evaluation', page: 'correction-serie', entityId: assignmentId })}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'bulletins' && (
+        <ErrorBoundary>
         <BulletinsTabPanel
           periods={periods}
           selectedPeriodId={selectedPeriodId}
           bulletins={bulletins}
           onPeriodChange={setSelectedPeriodId}
+          onEdit={async (b, content) => {
+            await bulletinService.update(b.id, content, 'manual');
+            if (studentId && selectedPeriodId) {
+              const key = bulletinCacheKey(studentId, selectedPeriodId);
+              bulletinsCacheRef.current.delete(key);
+              bulletinsInflightRef.current.delete(key);
+              const refreshed = await getBulletinsCached(studentId, selectedPeriodId);
+              setBulletins(refreshed);
+            }
+            addToast('success', 'Appréciation modifiée');
+          }}
+          onDelete={async (id) => {
+            await bulletinService.delete(id);
+            if (studentId && selectedPeriodId) {
+              const key = bulletinCacheKey(studentId, selectedPeriodId);
+              bulletinsCacheRef.current.delete(key);
+              bulletinsInflightRef.current.delete(key);
+              const refreshed = await getBulletinsCached(studentId, selectedPeriodId);
+              setBulletins(refreshed);
+            }
+            addToast('success', 'Appréciation supprimée');
+          }}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'profile' && (
+        <ErrorBoundary>
         <ProfileTabPanel
           periods={periods}
           selectedPeriodId={selectedPeriodId}
           profile={profile}
           onPeriodChange={setSelectedPeriodId}
+          onSave={async (data) => {
+            if (!studentId || !selectedPeriodId) return;
+            await periodProfileService.upsert(studentId, selectedPeriodId, data);
+            const key = profileCacheKey(studentId, selectedPeriodId);
+            profileCacheRef.current.delete(key);
+            profileInflightRef.current.delete(key);
+            const refreshed = await getProfileCached(studentId, selectedPeriodId);
+            setProfile(refreshed);
+            addToast('success', 'Profil enregistré');
+          }}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'orientation' && (
+        <ErrorBoundary>
         <OrientationTabPanel
           orientationReports={orientationReports}
           orientationInterviews={orientationInterviews}
+          onDeleteReport={async (id) => {
+            await orientationService.deleteReport(id);
+            if (studentId) {
+              orientationReportsCacheRef.current.delete(studentId);
+              orientationReportsInflightRef.current.delete(studentId);
+              const refreshed = await getOrientationReportsCached(studentId);
+              setOrientationReports(refreshed);
+            }
+            addToast('success', 'Rapport supprimé');
+          }}
+          onDeleteInterview={async (id) => {
+            await orientationService.deleteInterview(id);
+            if (studentId) {
+              orientationInterviewsCacheRef.current.delete(studentId);
+              orientationInterviewsInflightRef.current.delete(studentId);
+              const refreshed = await getOrientationInterviewsCached(studentId);
+              setOrientationInterviews(refreshed);
+            }
+            addToast('success', 'Entretien supprimé');
+          }}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab === 'docs' && (
+        <ErrorBoundary>
         <DocumentsTabPanel
           periods={periods}
           selectedPeriodId={selectedPeriodId}
           studentDocuments={studentDocuments}
           onPeriodChange={setSelectedPeriodId}
+          onUnlink={async (studentDocumentId) => {
+            await studentService.unlinkDocument(studentDocumentId);
+            if (studentId) {
+              const key = documentsCacheKey(studentId, selectedPeriodId);
+              documentsCacheRef.current.delete(key);
+              documentsInflightRef.current.delete(key);
+              const refreshed = await getDocumentsCached(studentId, selectedPeriodId);
+              setStudentDocuments(refreshed);
+            }
+            addToast('success', 'Document délié');
+          }}
         />
+        </ErrorBoundary>
       )}
 
       {activeTab !== 'overview' && activeTab !== 'skills' && activeTab !== 'grades' && activeTab !== 'corrections' && activeTab !== 'bulletins' && activeTab !== 'profile' && activeTab !== 'orientation' && activeTab !== 'docs' && (
@@ -756,7 +834,6 @@ export const FicheElevePage: React.FC = () => {
           </span>
         </Card>
       )}
-      </ErrorBoundary>
 
       <div className="fiche-eleve__actions">
         <AITaskButtons

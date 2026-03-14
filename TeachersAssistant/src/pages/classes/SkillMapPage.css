@@ -1,0 +1,184 @@
+/* ============================================================================
+   SkillMapPage — Cartographie des compétences (heatmap + bar chart)
+   ============================================================================ */
+
+.skill-map { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* ── Header ── */
+
+.skill-map__header { display: flex; align-items: center; justify-content: space-between; }
+.skill-map__title { font-size: var(--font-size-md); font-weight: var(--font-weight-bold); }
+
+/* ── Filtres ── */
+
+.skill-map__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.skill-map__filter { display: flex; flex-direction: column; gap: 2px; }
+.skill-map__filter-label { font-size: var(--font-size-xxs); font-weight: var(--font-weight-semibold); color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+
+.skill-map__select {
+  height: 32px;
+  min-width: 160px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.skill-map__select:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 59,130,246), 0.15); }
+
+.skill-map__meta {
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* ── Loading ── */
+
+.skill-map__loading {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Table wrapper ── */
+
+.skill-map__table-wrap {
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+/* ── Table ── */
+
+.skill-map__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+.skill-map__th {
+  padding: var(--space-2) var(--space-3);
+  text-align: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xxs);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: var(--border-default);
+  white-space: nowrap;
+}
+
+.skill-map__th--skill {
+  text-align: left;
+  min-width: 200px;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--color-bg-subtle);
+}
+
+/* ── Category row ── */
+
+.skill-map__cat-row td {
+  border-bottom: none;
+}
+
+.skill-map__cat-label {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-primary);
+  background: var(--color-bg-subtle);
+  border-top: var(--border-default);
+}
+
+/* ── Data rows ── */
+
+.skill-map__row:hover td {
+  filter: brightness(0.97);
+}
+
+.skill-map__td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle, rgba(0,0,0,0.04));
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.skill-map__td--skill {
+  text-align: left;
+  padding: var(--space-1) var(--space-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.skill-map__td--cell {
+  min-width: 56px;
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weight-semibold);
+  cursor: default;
+  transition: filter 0.1s;
+}
+
+/* ── Légende ── */
+
+.skill-map__legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+}
+
+.skill-map__legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.skill-map__legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+/* ── Bar chart section ── */
+
+.skill-map__chart-section {
+  margin-top: var(--space-2);
+}
+
+.skill-map__section-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  margin-bottom: var(--space-3);
+}
+
+.skill-map__chart {
+  background: var(--color-bg);
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+}

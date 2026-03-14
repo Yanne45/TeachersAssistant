@@ -131,6 +131,55 @@ export const calendarEventService = {
     );
   },
 
+  async create(data: {
+    academic_year_id: ID;
+    title: string;
+    description?: string | null;
+    start_datetime: string;
+    end_datetime: string;
+    location?: string | null;
+    source?: string;
+    event_type?: string;
+  }): Promise<ID> {
+    return db.insert(
+      `INSERT INTO calendar_events (academic_year_id, source, title, description, start_datetime, end_datetime, location, event_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [data.academic_year_id, data.source ?? 'manual', data.title, data.description ?? null,
+       data.start_datetime, data.end_datetime, data.location ?? null, data.event_type ?? 'other']
+    );
+  },
+
+  async update(id: ID, data: Partial<{
+    title: string;
+    description: string | null;
+    start_datetime: string;
+    end_datetime: string;
+    location: string | null;
+    event_type: string;
+  }>): Promise<void> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    for (const [key, val] of Object.entries(data)) {
+      fields.push(`${key} = ?`);
+      values.push(val);
+    }
+    if (fields.length === 0) return;
+    fields.push("updated_at = datetime('now')");
+    values.push(id);
+    await db.execute(`UPDATE calendar_events SET ${fields.join(', ')} WHERE id = ?`, values);
+  },
+
+  async getByDateRange(yearId: ID, startDate: string, endDate: string): Promise<CalendarEvent[]> {
+    return db.select(
+      `SELECT * FROM calendar_events
+       WHERE academic_year_id = ?
+         AND start_datetime >= ?
+         AND start_datetime < ?
+       ORDER BY start_datetime`,
+      [yearId, startDate, endDate]
+    );
+  },
+
   async delete(id: ID): Promise<void> {
     await db.execute('DELETE FROM calendar_events WHERE id = ?', [id]);
   },

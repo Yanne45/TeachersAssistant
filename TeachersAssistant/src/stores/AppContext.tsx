@@ -12,7 +12,7 @@ import { generateNotifications } from '../services';
 
 // ── Types ──
 
-export type TabId = 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation' | 'bibliotheque' | 'parametres';
+export type TabId = 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'classes' | 'evaluation' | 'bibliotheque' | 'messagerie' | 'parametres';
 
 interface AppState {
   // Année
@@ -124,12 +124,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const addToast = useCallback((type: ToastData['type'], message: string) => {
-    const id = `toast-${++_toastId}`;
-    const toast: ToastData = { id, type, message, duration: 3000 };
-    setToasts(prev => [...prev, toast]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3000);
+    // Deduplicate: skip if an identical toast is already visible
+    setToasts(prev => {
+      if (prev.some(t => t.type === type && t.message === message)) return prev;
+      const id = `toast-${++_toastId}`;
+      const toast: ToastData = { id, type, message, duration: 3000 };
+      setTimeout(() => {
+        setToasts(p => p.filter(t => t.id !== id));
+      }, 3000);
+      return [...prev, toast];
+    });
   }, []);
 
   const dismissToast = useCallback((id: string) => {

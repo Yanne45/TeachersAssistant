@@ -55,6 +55,8 @@ export {
   skillEvaluationService,
   feedbackService,
   bilanService,
+  skillMapService,
+  gradeTableService,
   assignmentTypeService,
   generalCompetencyService,
   skillDescriptorService,
@@ -147,3 +149,7 @@ export { embeddingService } from './embeddingService';
 // Google Calendar
 export { googleCalendarService } from './googleCalendarService';
 export type { GoogleCalendarConfig, GCalCalendar, GCalEvent, ICSCompatEvent } from './googleCalendarService';
+
+// Email / Messagerie
+export { emailAccountService, emailMessageService, emailAttachmentService } from './emailService';
+export { gmailService } from './gmailService';

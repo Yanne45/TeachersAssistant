@@ -8,7 +8,9 @@ import type {
   Submission, SubmissionWithStudent, SubmissionStatus,
   Correction,
   SubmissionSkillEvaluation,
+  SkillMapCell, SkillMapResult,
   SubmissionFeedback,
+  GradeTableAssignment, GradeTableStudent, GradeTableScore, GradeTableResult,
   ID,
 } from '../types';
 
@@ -259,15 +261,10 @@ export const correctionService = {
   },
 
   async create(submissionId: ID, content: string, source: 'manual' | 'ai' | 'mixed'): Promise<ID> {
-    const lastVersion = await db.selectOne<{ v: number }>(
-      'SELECT MAX(version) as v FROM corrections WHERE submission_id = ?',
-      [submissionId]
-    );
-    const version = (lastVersion?.v ?? 0) + 1;
-
     return db.insert(
-      'INSERT INTO corrections (submission_id, content, source, version) VALUES (?, ?, ?, ?)',
-      [submissionId, content, source, version]
+      `INSERT INTO corrections (submission_id, content, source, version)
+       VALUES (?, ?, ?, COALESCE((SELECT MAX(version) FROM corrections WHERE submission_id = ?), 0) + 1)`,
+      [submissionId, content, source, submissionId]
     );
   },
 
@@ -301,14 +298,19 @@ export const skillEvaluationService = {
 
   async upsertBatch(items: Array<{ submissionId: ID; skillId: ID; level: number; source: string; comment?: string }>): Promise<void> {
     if (items.length === 0) return;
+    // Multi-row INSERT ON CONFLICT — chunked to stay within SQLite's 999-param limit (5 params/row → 199 rows max)
+    const CHUNK = 199;
     await db.transaction(async () => {
-      for (const item of items) {
+      for (let offset = 0; offset < items.length; offset += CHUNK) {
+        const chunk = items.slice(offset, offset + CHUNK);
+        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?)').join(', ');
+        const params = chunk.flatMap(item => [item.submissionId, item.skillId, item.level, item.source, item.comment ?? null]);
         await db.execute(
           `INSERT INTO submission_skill_evaluations (submission_id, skill_id, level, source, comment)
-           VALUES (?, ?, ?, ?, ?)
+           VALUES ${placeholders}
            ON CONFLICT(submission_id, skill_id)
            DO UPDATE SET level = excluded.level, source = excluded.source, comment = excluded.comment, updated_at = datetime('now')`,
-          [item.submissionId, item.skillId, item.level, item.source, item.comment ?? null]
+          params
         );
       }
     });
@@ -338,12 +340,17 @@ export const feedbackService = {
 
   async createBatch(items: Array<{ submissionId: ID; type: 'strength' | 'weakness' | 'suggestion'; content: string; source: 'manual' | 'ai' }>): Promise<void> {
     if (items.length === 0) return;
+    // Multi-row INSERT — chunked to stay within SQLite's 999-param limit (5 params/row → 199 rows max)
+    const CHUNK = 199;
     await db.transaction(async () => {
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i]!;
+      for (let offset = 0; offset < items.length; offset += CHUNK) {
+        const chunk = items.slice(offset, offset + CHUNK);
+        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?)').join(', ');
+        const params = chunk.flatMap((item, i) => [item.submissionId, item.type, item.content, item.source, offset + i]);
         await db.execute(
-          'INSERT INTO submission_feedback (submission_id, feedback_type, content, source, sort_order) VALUES (?, ?, ?, ?, ?)',
-          [item.submissionId, item.type, item.content, item.source, i]
+          `INSERT INTO submission_feedback (submission_id, feedback_type, content, source, sort_order)
+           VALUES ${placeholders}`,
+          params
         );
       }
     });
@@ -626,5 +633,133 @@ export const bilanService = {
       top_strengths: strengths.map(s => s.content),
       top_weaknesses: weaknesses.map(w => w.content),
     };
+  },
+};
+
+// ── Cartographie compétences classe ──
+
+export const skillMapService = {
+  async getClassSkillMap(classId: ID, subjectId: ID, yearId: ID): Promise<SkillMapResult> {
+    // Nombre total d'élèves inscrits
+    const countRow = await db.selectOne<{ cnt: number }>(
+      'SELECT COUNT(*) as cnt FROM student_class_enrollments WHERE class_id = ? AND is_active = 1',
+      [classId],
+    );
+    const totalStudents = countRow?.cnt ?? 0;
+
+    // Périodes de l'année
+    const periods = await db.select<{ id: ID; code: string; label: string }[]>(
+      'SELECT id, code, label FROM report_periods WHERE academic_year_id = ? ORDER BY sort_order',
+      [yearId],
+    );
+
+    // Agrégation : pour chaque (compétence, période), on prend le MAX(level) par élève
+    // (si un élève est évalué plusieurs fois sur la même compétence dans la même période,
+    // on garde le meilleur résultat), puis on agrège sur tous les élèves.
+    const cells = await db.select<SkillMapCell[]>(
+      `SELECT
+          sk.id           AS skill_id,
+          sk.label        AS skill_label,
+          sk.category     AS skill_category,
+          rp.id           AS period_id,
+          rp.code         AS period_code,
+          ROUND(AVG(best.best_level), 2)  AS avg_level,
+          COUNT(best.student_id)          AS total_evaluated,
+          SUM(CASE WHEN best.best_level >= 3 THEN 1 ELSE 0 END) AS count_acquired,
+          ROUND(100.0 * SUM(CASE WHEN best.best_level >= 3 THEN 1 ELSE 0 END) / MAX(COUNT(best.student_id), 1), 1) AS pct_acquired
+       FROM (
+          SELECT s.student_id, sse.skill_id, rp2.id AS rp_id, MAX(sse.level) AS best_level
+          FROM submission_skill_evaluations sse
+          JOIN submissions s ON sse.submission_id = s.id
+          JOIN assignments a ON s.assignment_id = a.id
+          JOIN report_periods rp2
+            ON rp2.academic_year_id = a.academic_year_id
+           AND COALESCE(a.assignment_date, a.due_date) BETWEEN rp2.start_date AND rp2.end_date
+          WHERE a.class_id = ? AND a.subject_id = ? AND a.academic_year_id = ?
+          GROUP BY s.student_id, sse.skill_id, rp2.id
+       ) best
+       JOIN skills sk ON best.skill_id = sk.id
+       JOIN report_periods rp ON best.rp_id = rp.id
+       GROUP BY best.skill_id, best.rp_id
+       ORDER BY sk.category, sk.sort_order, sk.label, rp.sort_order`,
+      [classId, subjectId, yearId],
+    );
+
+    // Liste distincte des compétences présentes
+    const skillMap = new Map<number, { id: ID; label: string; category: string | null }>();
+    for (const c of cells) {
+      if (!skillMap.has(c.skill_id as number)) {
+        skillMap.set(c.skill_id as number, { id: c.skill_id, label: c.skill_label, category: c.skill_category });
+      }
+    }
+
+    return {
+      cells,
+      periods,
+      skills: Array.from(skillMap.values()),
+      totalStudents,
+    };
+  },
+};
+
+// ── Tableau de notes (grille élèves × évaluations) ──
+
+export const gradeTableService = {
+  /**
+   * Charge la grille complète : élèves, devoirs, notes.
+   * @param periodStart / periodEnd — optionnels, filtrent les devoirs par date.
+   */
+  async getGradeTable(
+    classId: ID,
+    subjectId: ID,
+    yearId: ID,
+    periodStart?: string | null,
+    periodEnd?: string | null,
+  ): Promise<GradeTableResult> {
+    // 1. Élèves inscrits dans la classe
+    const students = await db.select<GradeTableStudent[]>(
+      `SELECT s.id, s.last_name, s.first_name
+       FROM students s
+       JOIN student_class_enrollments e ON e.student_id = s.id
+       WHERE e.class_id = ? AND e.is_active = 1
+       ORDER BY s.last_name, s.first_name`,
+      [classId],
+    );
+
+    // 2. Devoirs notés de la classe / matière / année, filtrés par période
+    let dateFilter = '';
+    const params: unknown[] = [classId, subjectId, yearId];
+    if (periodStart && periodEnd) {
+      dateFilter = ' AND COALESCE(a.assignment_date, a.due_date) BETWEEN ? AND ?';
+      params.push(periodStart, periodEnd);
+    }
+
+    const assignments = await db.select<GradeTableAssignment[]>(
+      `SELECT a.id, a.title, a.max_score, a.coefficient,
+              a.assignment_date, a.due_date,
+              at.label AS assignment_type_label
+       FROM assignments a
+       LEFT JOIN assignment_types at ON at.id = a.assignment_type_id
+       WHERE a.class_id = ? AND a.subject_id = ? AND a.academic_year_id = ?
+         AND a.is_graded = 1 AND a.status NOT IN ('draft')${dateFilter}
+       ORDER BY COALESCE(a.assignment_date, a.due_date)`,
+      params,
+    );
+
+    if (assignments.length === 0) {
+      return { students, assignments: [], scores: [] };
+    }
+
+    // 3. Toutes les notes pour ces devoirs
+    const assignmentIds = assignments.map(a => a.id);
+    const placeholders = assignmentIds.map(() => '?').join(',');
+    const scores = await db.select<GradeTableScore[]>(
+      `SELECT s.student_id, s.assignment_id, s.score, s.status
+       FROM submissions s
+       WHERE s.assignment_id IN (${placeholders})`,
+      assignmentIds,
+    );
+
+    return { students, assignments, scores };
   },
 };

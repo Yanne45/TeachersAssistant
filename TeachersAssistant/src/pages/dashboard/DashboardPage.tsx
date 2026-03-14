@@ -4,9 +4,12 @@
 // ============================================================================
 
 import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button, ProgressBar, Modal } from '../../components/ui';
-import { useData, useRouter } from '../../stores';
+import { Card, Badge, Button, ProgressBar, Modal, StatusBadge } from '../../components/ui';
+import { useData, useRouter, useApp } from '../../stores';
 import type { DashboardIndicators, WeekSlot, CoverageItem, AlertItem, WeeklyPrepData, PrepTask } from '../../stores';
+import { ASSIGNMENT_STATUS_META } from '../../constants/statuses';
+import { calendarEventService } from '../../services';
+import type { CalendarEvent } from '../../types/timetable';
 import './DashboardPage.css';
 
 // ── Helpers ──
@@ -174,9 +177,7 @@ const WeeklyPrepCopilot: React.FC<{
             >
               <span className="copilot__assignment-title">{a.title}</span>
               <span className="copilot__assignment-meta">{a.classLabel} — {a.dueDate}</span>
-              <Badge variant={a.status === 'corrected' || a.status === 'returned' ? 'success' : 'warn'}>
-                {a.status}
-              </Badge>
+              <StatusBadge value={a.status} meta={ASSIGNMENT_STATUS_META} />
             </button>
           ))}
         </div>
@@ -197,16 +198,44 @@ const WeeklyPrepCopilot: React.FC<{
   );
 };
 
+// ── Event type metadata ──
+
+const EVENT_TYPE_META: Record<string, { label: string; color: string; icon: string }> = {
+  parent_meeting: { label: 'RDV parents', color: '#4A90D9', icon: '👨‍👩‍👧' },
+  staff_meeting:  { label: 'Réunion', color: '#E67E22', icon: '👥' },
+  council:        { label: 'Conseil', color: '#9B59B6', icon: '🏛' },
+  exam:           { label: 'Examen', color: '#E74C3C', icon: '📝' },
+  training:       { label: 'Formation', color: '#27AE60', icon: '🎓' },
+  administrative: { label: 'Administratif', color: '#95A5A6', icon: '📋' },
+  other:          { label: 'Autre', color: '#34495E', icon: '📌' },
+};
+
+function formatEventDate(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const isTomorrow = d.toDateString() === tomorrow.toDateString();
+
+  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Aujourd'hui ${time}`;
+  if (isTomorrow) return `Demain ${time}`;
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ` ${time}`;
+}
+
 // ── Page ──
 
 export const DashboardPage: React.FC = () => {
   const { loadDashboard, loadWeekSlots, loadCoverage, loadAlerts, loadWeeklyPrep } = useData();
+  const { activeYear } = useApp();
 
   const [indicators, setIndicators] = useState<DashboardIndicators | null>(null);
   const [weekSlots, setWeekSlots] = useState<WeekSlot[]>([]);
   const [coverage, setCoverage] = useState<CoverageItem[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [prepData, setPrepData] = useState<WeeklyPrepData | null>(null);
+  const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
   const [selectedDow, setSelectedDow] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAllAlerts, setShowAllAlerts] = useState(false);
@@ -228,6 +257,17 @@ export const DashboardPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [loadDashboard, loadWeekSlots, loadCoverage, loadAlerts, loadWeeklyPrep]);
 
+  // Load upcoming events (next 14 days)
+  useEffect(() => {
+    if (!activeYear?.id) return;
+    const now = new Date();
+    const end = new Date(now);
+    end.setDate(end.getDate() + 14);
+    calendarEventService.getByDateRange(
+      activeYear.id, now.toISOString(), end.toISOString(),
+    ).then(setUpcomingEvents).catch(() => {});
+  }, [activeYear]);
+
   const dayMap = groupByDay(weekSlots);
   const currentDow = todayDow();
   const displayDow = selectedDow ?? currentDow;
@@ -236,15 +276,16 @@ export const DashboardPage: React.FC = () => {
   const { navigate: routerNav } = useRouter();
 
   const navigate = (path: string) => {
-    // Parse path to Route
-    const routeMap: Record<string, { tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'evaluation' | 'bibliotheque' | 'parametres'; page: string }> = {
+    const routeMap: Record<string, { tab: 'dashboard' | 'programme' | 'preparation' | 'planning' | 'cahier' | 'evaluation' | 'bibliotheque' | 'messagerie' | 'parametres'; page: string }> = {
       '/preparation/sequences': { tab: 'preparation', page: 'sequences' },
       '/planning/edt': { tab: 'planning', page: 'edt' },
+      '/planning/agenda': { tab: 'planning', page: 'agenda' },
       '/programme/progression': { tab: 'programme', page: 'progression' },
       '/cahier-de-textes': { tab: 'cahier', page: 'all' },
       '/evaluation/devoirs': { tab: 'evaluation', page: 'devoirs' },
       '/preparation/bibliotheque': { tab: 'preparation', page: 'bibliotheque' },
       '/preparation/ia/generer': { tab: 'preparation', page: 'ia-generer' },
+      '/messagerie': { tab: 'messagerie', page: 'inbox' },
     };
     const target = routeMap[path];
     if (target) routerNav(target);
@@ -297,6 +338,50 @@ export const DashboardPage: React.FC = () => {
 
       {/* Copilote préparation hebdo */}
       {prepData && <WeeklyPrepCopilot data={prepData} onNavigate={navigate} />}
+
+      {/* Événements à venir (agenda) */}
+      {upcomingEvents.length > 0 && (
+        <Card className="dashboard__upcoming" noHover>
+          <div className="upcoming__header">
+            <h3 className="dashboard__section-title">📅 Événements à venir</h3>
+            <Button variant="ghost" size="S" onClick={() => navigate('/planning/agenda')}>
+              Voir l'agenda
+            </Button>
+          </div>
+          <div className="upcoming__list">
+            {upcomingEvents.slice(0, 5).map(evt => {
+              const meta = EVENT_TYPE_META[evt.event_type] ?? EVENT_TYPE_META['other']!;
+              return (
+                <button
+                  key={evt.id}
+                  type="button"
+                  className="upcoming__event"
+                  style={{ borderLeftColor: meta.color }}
+                  onClick={() => navigate('/planning/agenda')}
+                >
+                  <span className="upcoming__event-icon">{meta.icon}</span>
+                  <div className="upcoming__event-info">
+                    <span className="upcoming__event-title">{evt.title}</span>
+                    <span className="upcoming__event-date">{formatEventDate(evt.start_datetime)}</span>
+                  </div>
+                  <Badge variant="info" style={{ backgroundColor: meta.color + '22', color: meta.color }}>
+                    {meta.label}
+                  </Badge>
+                </button>
+              );
+            })}
+          </div>
+          {upcomingEvents.length > 5 && (
+            <button
+              className="dashboard__alerts-more"
+              onClick={() => navigate('/planning/agenda')}
+              type="button"
+            >
+              Voir les {upcomingEvents.length} événements
+            </button>
+          )}
+        </Card>
+      )}
 
       {/* Aujourd'hui + Alertes / Couverture */}
       <section className="dashboard__middle">

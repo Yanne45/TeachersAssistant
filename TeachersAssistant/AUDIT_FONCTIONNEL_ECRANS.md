@@ -30,6 +30,8 @@ Périmètre: `TeachersAssistant/TeachersAssistant`
 | Évaluation | BilanDevoirPage | Implémenté partiel | Branché, données mock + IA partielle. |
 | Évaluation | ListeElevesPage | Implémenté partiel | Branché, fallback mock, ajout élève non persisté. |
 | Évaluation | FicheElevePage | Implémenté partiel | Branché mais contenu majoritairement statique/mock. |
+| Classes | SkillMapPage | Implémenté + branché | Cartographie compétences classe : heatmap élèves × capacités, filtres classe/matière/période. |
+| Évaluation | TableauNotesPage | Implémenté + branché | Grille élèves × évaluations, filtres classe/matière/période, moyennes pondérées /20, import PDF Pronote. |
 | Évaluation | BulletinsPage | Implémenté partiel | Branché mais flux principal mock. |
 | Recherche | RechercheGlobalePage | Implémenté + branché | Overlay branché, navigation vers pages active. |
 | Paramètres | ParametresPage | Implémenté + branché | Hub + sous-pages branchés, backup ZIP fonctionnel. |
@@ -924,6 +926,86 @@ Validation:
 - `npm run lint`: OK.
 - `npm run build`: OK.
 
+## 40) Avancement complémentaire - Tableau de notes, Import Pronote PDF, Diaporama JSON, Quiz interactif
+
+### 1. Tableau de notes (`TableauNotesPage`)
+
+- Nouvelle page `src/pages/evaluation/TableauNotesPage.tsx` + CSS :
+  - grille élèves × évaluations avec filtres classe / matière / période ;
+  - filtre période basé sur `report_periods` (fonctionne trimestres ET semestres) ;
+  - moyennes pondérées /20 par élève (coefficient de chaque évaluation) ;
+  - moyenne de classe par évaluation et moyenne générale ;
+  - coloration par seuils (vert ≥80%, noir ≥50%, orange ≥30%, rouge <30%) ;
+  - colonnes sticky (nom élève à gauche, moyenne à droite) ;
+  - bouton import PDF Pronote intégré.
+- Service `gradeTableService.getGradeTable(classId, subjectId, yearId, periodStart?, periodEnd?)` ajouté dans `evaluationService.ts`.
+- Types `GradeTableResult`, `GradeTableAssignment`, `GradeTableStudent`, `GradeTableScore` dans `evaluation.ts`.
+- Navigation : sidebar Évaluation > NOTES > Tableau de notes (`page: 'tableau-notes'`), branché dans `App.tsx`.
+
+### 2. Import de notes PDF Pronote multi-évaluations
+
+- Parser `pronoteGradeParser.ts` (`src/utils/`) :
+  - extraction texte PDF via `pdfjs-dist` ;
+  - parsing header Pronote : détection `Coef. X - Y`, titres d'évaluations, dates ;
+  - parsing lignes données : code classe, scores multiples, moyenne, noms (majuscules consécutives = nom de famille) ;
+  - gestion des valeurs nulles : `Abs`, `Disp`, `N.N`, `X`, `–` ;
+  - détection format "liste d'élèves" vs "tableau de notes" (erreur explicite) ;
+  - PDF uniquement (pas de CSV — Pronote n'exporte pas en CSV).
+- Modal `PronoteGradeImportModal.tsx` (`src/components/evaluation/`) :
+  - workflow 4 phases : upload → config → preview → saving → done ;
+  - config : tableau des évaluations détectées (checkbox, titre éditable, barème, coefficient) ;
+  - preview : correspondance élèves avec badges confiance (exact/partiel/—), dropdown de correction manuelle ;
+  - save : création automatique des évaluations (`assignmentService.create`) + submissions (`submissionService.createBatch`) + injection notes (`submissionService.updateScore`) ;
+  - métadonnées Pronote affichées (matière, période, groupe).
+
+### 3. Diaporama structuré JSON (`generate_slideshow`)
+
+- Migration `026_slideshow_and_quiz.sql` :
+  - `generate_slideshow` mis à jour en `output_format: 'json'` avec prompt structuré ;
+  - JSON : `{ title, subtitle, totalSlides, slides: [{ number, title, content[], notes, visualSuggestion, type }], conclusion, suggestedActivity }` ;
+  - types de diapositives : `title`, `content`, `document`, `activity`, `transition`, `summary`.
+- Composant `SlideViewer` (`src/components/ai/SlideViewer.tsx` + CSS) :
+  - mode **Diapo** : navigation unitaire (← →), raccourcis clavier, dots cliquables ;
+  - mode **Liste** : cartes cliquables avec aperçu condensé ;
+  - toggle notes professeur, suggestions visuelles ;
+  - pied de page : conclusion + activité suggérée.
+- Types `SlideshowData`, `SlideshowSlide`, `SlideType` ajoutés dans `types/ai.ts`.
+
+### 4. Quiz interactif (`generate_quiz`)
+
+- Migration `026_slideshow_and_quiz.sql` :
+  - nouvelle tâche `generate_quiz` (catégorie `evaluations`, `output_format: 'json'`) ;
+  - paramètres spécifiques : `num_questions`, `question_type` (qcm/multiple/vrai_faux/mixte), `time_per_question` ;
+  - variables contextuelles : matière, niveau, chapitre, séance, capacités, documents ;
+  - JSON : `{ title, subject, chapter, totalQuestions, questions: [{ number, type, question, choices[], correctAnswers[], explanation, timeLimit, difficulty, skill }] }`.
+- Composant `QuizViewer` (`src/components/ai/QuizViewer.tsx` + CSS) :
+  - mode **Liste** ou **Question** (navigation unitaire) ;
+  - réponses correctes colorées en vert (masquables) ;
+  - explications pédagogiques (masquables) ;
+  - badges difficulté colorés (facile/standard/approfondi/expert) ;
+  - **export Kahoot CSV** : téléchargement direct, format compatible import Kahoot ;
+  - **export Moodle XML** : format `multichoice` standard, catégorie, feedbacks, support choix multiples.
+- Types `QuizData`, `QuizQuestion`, `QuizQuestionType` ajoutés dans `types/ai.ts`.
+
+### 5. Intégration dans `GenerateurIAPage`
+
+- Détection automatique du format JSON structuré quand la tâche est `generate_slideshow` ou `generate_quiz` ;
+- Affichage du viewer adapté (SlideViewer / QuizViewer) au lieu du rendu markdown ;
+- Fallback `<details>` "Voir le JSON brut" pour debug/copie ;
+- Les actions existantes (sauvegarder, copier, régénérer, noter) restent disponibles.
+
+### 6. Documents de référence dans les générations contextuelles
+
+- `useScreenAITasks` (`src/hooks/useScreenAITasks.ts`) :
+  - `ScreenAIContext` enrichi avec `documentIds?: ID[]` et `rawDocumentContexts?: string[]` ;
+  - le hook transmet désormais ces champs dans `AIGenerationRequest` lors de l'appel à `smartGenerate()` ;
+  - les écrans contextuels (séquence, correction, fiche élève) peuvent joindre des documents de la bibliothèque ou des fichiers ad-hoc au même titre que le `GenerateurIAPage`.
+- Le `GenerateurIAPage` supportait déjà les deux modes (bibliothèque + ad-hoc .txt/.docx) depuis le lot 38.
+
+Validation:
+
+- `npx tsc --noEmit`: OK.
+
 ## Reste à faire (backlog priorisé)
 
 ### Priorité 1 - Stabilisation technique
@@ -939,7 +1021,7 @@ Validation:
 - Réduire les requêtes écriture en rafale côté correction:
   - regrouper les `upsert/create` séquentiels par soumission quand possible,
   - limiter les allers-retours DB pour feedbacks/compétences.
-- Ajouter une télémétrie légère en dev (compteurs cache hit/miss, temps de chargement par écran) pour vérifier l’impact réel des optimisations.
+
 
 ### Priorité 2 - Qualité fonctionnelle
 
@@ -954,45 +1036,76 @@ Validation:
   - ~~**Template de correction imprimable**~~ ✅ **Implémenté** — `CorrectionTemplateModal` avec grille capacités colorée + `window.print()`.
   - Permettre l’analyse IA en batch sur toutes les copies d’un devoir (pipeline : import texte → `assemblePrompt` correction → `smartCorrect` → persistance `corrections` + `submission_skill_evaluations` + `submission_feedback` pour chaque copie).
   - Raccourcis clavier manquants dans le mode correction 3 colonnes (navigation copie suivante/précédente, finalisation rapide).
-- **Remplissage prédictif du cahier de textes** (effort faible) :
-  - Bouton “Générer le résumé IA” dans `CahierEntreeForm` : envoie titre séance, matière, classe, notes libres saisies (ou retranscription vocale) à une tâche IA dédiée → texte résumé propre pour les élèves/parents + liste de devoirs suggérée.
-  - Prérequis déjà en place : `VoiceInput`, `CahierEntreeForm` persisté, `assemblePrompt` / `smartGenerate`.
-- **Différenciation pédagogique instantanée** (effort faible) :
-  - Tâche IA catalogue “Différencier un document” avec paramètre `niveau` : simplifié (lexique, syntaxe allégés) / standard / enrichi (approfondissements).
-  - Génération des 3 versions en une seule interaction (prompt unique retournant les 3, ou 3 appels parallèles).
-  - Aucune infrastructure nouvelle requise — s’intègre dans le `GenerateurIAPage` existant avec le document joint en référence.
-- **Rapport de classe pour conseil de classe** (effort faible) :
-  - Tâche IA “Synthèse conseil de classe” : agrège moyenne classe, répartition des notes, top compétences acquises/manquantes, mentions indicatives par élève → texte équilibré et factuel exportable PDF.
-  - Données déjà disponibles : `assignmentService`, `bilanService`, `submission_skill_evaluations`, `studentService`.
-- Compléter les flows CRUD manquants restants dans les onglets encore partiels (actions secondaires, confirmations, cas vides).
-- Harmoniser les statuts métiers affichés avec un dictionnaire unique (libellé, couleur, icône) partagé UI/services.
-- Vérifier les filtres sidebar et recherche globale sur jeux de données volumineux (combinatoire filtres + pagination).
+- ~~**Remplissage prédictif du cahier de textes** (effort faible)~~ — **FAIT** :
+  - Bouton “Générer le résumé IA” dans `CahierEntreeForm` via `useScreenAITasks(AI_SCREEN.CAHIER_ENTREE)`. Envoie titre, matière, classe, notes libres/vocales à la tâche `generate_lesson_log`. Parsing structuré (contenu/activités/devoirs) + fallback texte brut. Migration 024.
+- ~~**Différenciation pédagogique instantanée** (effort faible)~~ — **FAIT** :
+  - Tâche IA catalogue `differentiate_document` : génère 3 versions (simplifié / standard / enrichi) en un seul prompt. Variables : matière, niveau, document source, chapitre, capacités. Intégrée au `GenerateurIAPage` via `target_screens`. Migration 025.
+- ~~**Rapport de classe pour conseil de classe** (effort faible)~~ — **FAIT** :
+  - Tâche IA `generate_council_report` : agrège moyenne classe, répartition des notes, bilan compétences, mentions indicatives par élève → synthèse structurée (bilan général, points forts, axes d’amélioration, recommandations) exportable PDF. Écrans : `generateur_ia`, `correction_serie`. Migration 025.
+- ~~Compléter les flows CRUD manquants restants dans les onglets encore partiels (actions secondaires, confirmations, cas vides).~~ — **FAIT** :
+  - `ProfileTabPanel` : édition complète (score pills 1-5, textarea notes, save/cancel), `onSave` → `periodProfileService.upsert()` avec invalidation cache.
+  - `BulletinsTabPanel` : édition inline du contenu + suppression avec `ConfirmDialog`, `StatusBadge` avec `BULLETIN_STATUS_META`, labels français `entry_type`.
+  - `OrientationTabPanel` : suppression rapports et entretiens avec `ConfirmDialog`, `orientationService.deleteReport/deleteInterview`.
+  - `DocumentsTabPanel` : bouton « Délier » avec `ConfirmDialog`, `studentService.unlinkDocument()`.
+  - CSS dédié : `.fiche-eleve__score-pills`, `.fiche-eleve__score-pill`, `.fiche-eleve__profile-notes`, `.fiche-eleve__profile-actions`, `.fiche-eleve__section-header-row`, `.fiche-eleve__inline-btn`.
+- ~~Harmoniser les statuts métiers affichés avec un dictionnaire unique (libellé, couleur, icône) partagé UI/services.~~ — **FAIT** :
+  - 6 dictionnaires centralisés dans `src/constants/statuses.ts` : `SUBMISSION_STATUS_META`, `BULLETIN_STATUS_META`, `ASSIGNMENT_STATUS_META`, `SEQUENCE_STATUS_META`, `SESSION_STATUS_META`, `AI_TASK_STATUS_META`.
+  - Composant `StatusBadge` utilisé dans `DashboardPage`, `ListeDevoirsPage`, `BulletinsTabPanel`, `CorrectionSeriePage`, `BulletinsPage`.
+  - `ListeDevoirsPage` : filtres dynamiques via `STATUS_FILTER_ORDER` + `ASSIGNMENT_STATUS_META`.
+- ~~Vérifier les filtres sidebar et recherche globale sur jeux de données volumineux (combinatoire filtres + pagination).~~ — **FAIT** :
+  - Virtualisation ajoutée sur `TableauNotesPage` (seuil 50 lignes, ROW_HEIGHT=32, OVERSCAN=8), `ListeDevoirsPage`, `ListeElevesPage`, `BulletinsPage`, `CorrectionSeriePage`.
+  - Pattern uniforme : `VIRTUAL_ROW_HEIGHT`, `VIRTUAL_OVERSCAN`, `VIRTUAL_THRESHOLD`, spacers top/bottom, activation conditionnelle.
 
 ### Priorité 3 - Qualité UX/UI et fonctionnalités analytiques
 
-- Remplacer les styles inline répétitifs des pages Evaluation par des classes CSS dédiées pour homogénéiser et faciliter la maintenance.
+- ~~Remplacer les styles inline répétitifs des pages Evaluation par des classes CSS dédiées pour homogénéiser et faciliter la maintenance.~~ — **FAIT** :
+  - `GrilleDescriptiveModal` : réécriture complète, 14+ classes CSS BEM dans `GrilleDescriptiveModal.css` (seules les couleurs dynamiques des badges restent inline).
+  - `GrandOralPage` : 7 inline styles remplacés par classes CSS dédiées (`.go-page__empty-icon`, `.go-page__detail-status`, `.go-page__teacher-notes`, etc.).
+  - `FicheElevePage` : classes profil/édition ajoutées (score pills, profile notes, actions, section header).
 - Renforcer l’accessibilité clavier/ARIA sur tableaux virtualisés, badges cliquables et actions secondaires.
-- Uniformiser les microcopies finales (terminologie métier, accents, messages d’action) sur l’ensemble des écrans restants.
+- ~~Uniformiser les microcopies finales (terminologie métier, accents, messages d’action) sur l’ensemble des écrans restants.~~ — **FAIT** :
+  - Accents corrigés : `Problematiser` → `Problématiser`, `Redaction` → `Rédaction` dans `FicheElevePage` et `CorrectionSeriePage`.
+  - Labels `entry_type` français dans `BulletinsTabPanel` (Professeur principal, Enseignant matière, CPE, Chef d’établissement).
+  - Toasts cohérents : « Profil enregistré », « Appréciation modifiée/supprimée », « Rapport supprimé », « Document délié ».
 - **Détection des “signaux faibles” élèves** (effort moyen) :
   - Algorithme de tendance sur `submission_skill_evaluations` : si un élève est en baisse sur une compétence donnée 3 devoirs consécutifs → alerte dans `FicheElevePage` et/ou dashboard.
   - Pas d’IA nécessaire (logique SQL + seuils) ; l’IA peut enrichir le commentaire d’alerte une fois le signal détecté.
   - Exemples d’alertes : “Maîtrise la théorie mais chute sur l’analyse de documents depuis 3 devoirs”, “Note en baisse constante depuis le trimestre 2”.
-- **Cartographie des compétences de la classe** (effort moyen) :
-  - Vue synthétique cross-devoirs : agréger les `submission_skill_evaluations` sur tous les devoirs de l’année par classe → heatmap ou radar par compétence (compétences en ligne, périodes en colonne).
-  - Mettre en évidence les compétences acquises par ≥ 80% des élèves vs. celles en dessous du seuil → cibles de révision collective.
-  - `recharts` déjà disponible ; données déjà en base.
+- ~~**Cartographie des compétences de la classe** (effort moyen)~~ — **FAIT** :
+  - `SkillMapPage` (`src/pages/classes/SkillMapPage.tsx` + CSS) : heatmap élèves × capacités cross-devoirs, filtres classe/matière/période ;
+  - agrégation des `submission_skill_evaluations` par élève et capacité → niveau moyen arrondi ;
+  - coloration 4 niveaux (Non atteint / Partiellement / Atteint / Dépassé) ;
+  - légende intégrée + résumé statistique ;
+  - navigation : sidebar Classes > SUIVI > Cartographie compétences (`page: ‘skill-map’`), branché dans `App.tsx`.
 
 ### Priorité 4 - Industrialisation et fonctionnalités avancées
 
-- Ajouter des tests ciblés:
-  - unitaires sur helpers cache/invalidation,
-  - intégration sur les parcours critiques (chargement, sauvegarde, finalisation, génération IA).
+- ~~Ajouter des tests ciblés :~~ — **FAIT (unitaires)** :
+  - Vitest installé + configuré (`vite.config.ts`, `jsdom`, scripts `test`/`test:watch`).
+  - `statuses.test.ts` : 132 assertions — complétude et cohérence des 6 dictionnaires de statuts (labels, icons, couleurs, inter-dict consistency).
+  - `virtualScroll.test.ts` : logique virtualisation extraite dans `utils/virtualScroll.ts`, 7 tests (seuil, scroll, bornes, invariant topSpacer+visible+bottomSpacer=total).
+  - `toastDedup.test.ts` : logique dédup extraite dans `utils/toastDedup.ts`, 6 tests (ajout, doublon, type/message différents, IDs uniques).
+  - `requestCache.test.ts` : cache single-flight générique `utils/requestCache.ts`, 7 tests (fetch, cache hit, single-flight concurrent, invalidate, clear, erreur, clés composites).
+  - Tests d'intégration parcours critiques : reportés (nécessitent mock Tauri DB).
 - Mettre en place une checklist CI “stabilité” (lint, build, test, smoke navigation) avant push de lots importants.
 - **Séquence “à rebours”** (effort élevé) :
   - L’enseignant fixe une date d’évaluation finale et des compétences cibles → l’IA rétro-planifie les séances dans l’emploi du temps en tenant compte des jours fériés, des vacances et du volume horaire de la matière.
   - Prérequis : `timetableService` (créneaux EDT), `calendarService` (jours fériés/vacances), `sequenceService` (création séances), tâche IA `generate_sequence_plan` étendue.
   - Complexité principale : logique calendaire (calculer les créneaux disponibles, gérer les contraintes).
-- **Génération de supports multimédias** (effort élevé) :
-  - Trame de présentation : tâche IA avec `output_format: slides` → texte structuré (titre/sous-titres/puces) exportable ou affiché dans un visualisateur simple.
-  - Quiz interactif : nouveau type d’écran dédié ou export vers format standard (Kahoot CSV, Moodle XML).
-  - Nécessite une dépendance externe (ex. `pptxgenjs`) pour l’export PPTX réel.
+- ~~**Génération de supports multimédias** (effort élevé)~~ — **FAIT (niveaux 1+2)** :
+  - Tâche `generate_slideshow` migrée en `output_format: json` → JSON structuré (slides avec titre, points clés, notes prof, suggestion visuelle, type). Migration 026.
+  - Composant `SlideViewer` : navigation diapo par diapo (clavier + dots), vue liste, notes prof masquables, suggestions visuelles.
+  - Nouvelle tâche `generate_quiz` (catégorie évaluations) : QCM/vrai-faux/mixte, paramètres (nb questions, type, temps). Migration 026.
+  - Composant `QuizViewer` : vue liste/unitaire, réponses colorées, explications masquables, **export Kahoot CSV** + **export Moodle XML**.
+  - Intégration dans `GenerateurIAPage` : détection auto du JSON structuré, viewer adapté au lieu du rendu markdown, fallback "Voir le JSON brut".
+  - Niveau 3 (export PPTX réel via `pptxgenjs`) reporté — le viewer intégré + copier/adapter suffit pour l’usage courant.
+- ~~**Import bulletin PDF Pronote** (effort moyen)~~ — **FAIT** :
+  - Parser `utils/bulletinPdfParser.ts` : extraction nom élève (3 patterns regex), période, classe depuis PDF Pronote.
+  - `BulletinPdfImportModal` (4 phases) : DropZone multi-PDF → parsing → matching élèves (exact/partiel/none, dropdown override, skip) → copie fichier + création document + lien `student_documents`.
+  - `studentService.linkDocument()` ajouté pour l’association élève-document-période.
+  - Bouton « Importer PDF » intégré dans `BulletinsPage`.
+- ~~**Recherche naturelle IA** (effort faible)~~ — **FAIT** :
+  - Migration 027 : tâche IA `search_intent` (catégorie `systeme`) — prompt JSON structuré extrayant keywords, typeFilter, subjectFilter, levelFilter, dateHint, reformulatedQuery.
+  - `searchService.aiSearch()` : appelle l’IA pour interpréter la requête → filtre + boost résultats standard → fallback `semanticSearch()` si IA indisponible.
+  - Mode « Intelligent » (🧠) dans `RechercheGlobalePage` utilise désormais `aiSearch()` au lieu du parsing regex.
+  - Indicateur de chargement IA dédié avec animation pulsée.

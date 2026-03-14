@@ -39,6 +39,8 @@ export interface TimetableSlotWithDetails extends TimetableSlot {
 
 export type CalendarEventSource = 'google' | 'ics' | 'manual';
 
+export type CalendarEventType = 'parent_meeting' | 'staff_meeting' | 'council' | 'exam' | 'training' | 'administrative' | 'other';
+
 export interface CalendarEvent extends TrackedEntity {
   academic_year_id: ID;
   external_id: string | null;
@@ -52,6 +54,7 @@ export interface CalendarEvent extends TrackedEntity {
   recurrence_rule: string | null;
   raw_data: string | null;      // JSON brut
   last_synced_at: ISODateTime | null;
+  event_type: CalendarEventType;
 }
 
 // ── Mapping événement ↔ classe/matière ──

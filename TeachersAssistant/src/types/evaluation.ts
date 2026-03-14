@@ -159,3 +159,55 @@ export interface AssignmentStats {
   top_strengths: string[];
   top_weaknesses: string[];
 }
+
+// ── Cartographie compétences classe ──
+
+export interface SkillMapCell {
+  skill_id: ID;
+  skill_label: string;
+  skill_category: string | null;
+  period_id: ID;
+  period_code: string;
+  avg_level: number;
+  total_evaluated: number;
+  count_acquired: number;
+  pct_acquired: number;
+}
+
+export interface SkillMapResult {
+  cells: SkillMapCell[];
+  periods: { id: ID; code: string; label: string }[];
+  skills: { id: ID; label: string; category: string | null }[];
+  totalStudents: number;
+}
+
+// ── Tableau de notes (grille élèves × évaluations) ──
+
+export interface GradeTableAssignment {
+  id: ID;
+  title: string;
+  max_score: number;
+  coefficient: number;
+  assignment_date: ISODate | null;
+  due_date: ISODate | null;
+  assignment_type_label: string | null;
+}
+
+export interface GradeTableStudent {
+  id: ID;
+  last_name: string;
+  first_name: string;
+}
+
+export interface GradeTableScore {
+  student_id: ID;
+  assignment_id: ID;
+  score: number | null;
+  status: string;
+}
+
+export interface GradeTableResult {
+  students: GradeTableStudent[];
+  assignments: GradeTableAssignment[];
+  scores: GradeTableScore[];
+}

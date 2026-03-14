@@ -8,6 +8,7 @@ import { DropZone } from '../../components/dnd';
 import { ImportModal } from '../../components/library/ImportModal';
 import { TagManager } from '../../components/library/TagManager';
 import { db, documentService, subjectService, programTopicService } from '../../services';
+import { getFilePreviewUrl } from '../../services/documentUploadService';
 import { useRouter, useApp } from '../../stores';
 import type { DocumentWithDetails, ProgramTopic } from '../../types';
 import './BibliothequePage.css';
@@ -78,6 +79,7 @@ export const BibliothequePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('gallery');
+  const [thumbUrls, setThumbUrls] = useState<Record<number, string>>({});
   const [filesToImport, setFilesToImport] = useState<File[] | null>(null);
   const [activeTagId, setActiveTagId] = useState<number | null>(null);
   const [activeTagLabel, setActiveTagLabel] = useState<string | null>(null);
@@ -230,6 +232,28 @@ export const BibliothequePage: React.FC = () => {
 
   useEffect(() => { loadDocs(); }, [loadDocs]);
 
+  // Résoudre les URLs de thumbnails pour les docs qui en ont
+  useEffect(() => {
+    let cancelled = false;
+    const withThumbs = docs.filter(d => d.thumbnail_path);
+    if (withThumbs.length === 0) { setThumbUrls({}); return; }
+
+    Promise.all(
+      withThumbs.map(async d => {
+        const url = await getFilePreviewUrl(d.thumbnail_path!);
+        return [d.id, url] as const;
+      }),
+    ).then(pairs => {
+      if (cancelled) return;
+      const map: Record<number, string> = {};
+      for (const [id, url] of pairs) {
+        if (url) map[id as number] = url;
+      }
+      setThumbUrls(map);
+    });
+    return () => { cancelled = true; };
+  }, [docs]);
+
   const handleImportSaved = useCallback((count: number) => {
     if (count > 0) loadDocs();
   }, [loadDocs]);
@@ -344,19 +368,28 @@ export const BibliothequePage: React.FC = () => {
             {docs.map(doc => (
               <Card
                 key={doc.id}
-                borderTopColor={doc.subject_color ?? undefined}
+                borderTopColor={thumbUrls[doc.id as number] ? undefined : (doc.subject_color ?? undefined)}
                 className="doc-card"
               >
                 <div
                   className="doc-card__thumb"
-                  style={{ backgroundColor: doc.subject_color ? `${doc.subject_color}14` : undefined }}
+                  style={thumbUrls[doc.id as number] ? undefined : { backgroundColor: doc.subject_color ? `${doc.subject_color}10` : undefined }}
                 >
-                  <span
-                    className="doc-card__icon"
-                    style={{ color: doc.subject_color ?? undefined }}
-                  >
-                    {fileIcon(doc.file_type)}
-                  </span>
+                  {thumbUrls[doc.id as number] ? (
+                    <img
+                      className="doc-card__thumb-img"
+                      src={thumbUrls[doc.id as number]}
+                      alt={doc.title}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span
+                      className="doc-card__icon"
+                      style={{ color: doc.subject_color ?? undefined }}
+                    >
+                      {fileIcon(doc.file_type)}
+                    </span>
+                  )}
                 </div>
                 <div className="doc-card__info">
                   <span className="doc-card__title">{doc.title}</span>

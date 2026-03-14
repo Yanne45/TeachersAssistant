@@ -249,6 +249,17 @@ export const studentService = {
       [studentId, withPeriodFilter ? 1 : 0, reportPeriodId ?? null]
     );
   },
+
+  async unlinkDocument(studentDocumentId: ID): Promise<void> {
+    await db.execute('DELETE FROM student_documents WHERE id = ?', [studentDocumentId]);
+  },
+
+  async linkDocument(studentId: ID, documentId: ID, reportPeriodId: ID | null, label: string | null): Promise<ID> {
+    return db.insert(
+      'INSERT INTO student_documents (student_id, document_id, report_period_id, label) VALUES (?, ?, ?, ?)',
+      [studentId, documentId, reportPeriodId, label]
+    );
+  },
 };
 
 // ── Périodes de bulletin ──
@@ -439,6 +450,11 @@ export const bulletinService = {
       [entryId]
     );
   },
+
+  async delete(id: ID): Promise<void> {
+    await db.execute('DELETE FROM bulletin_entry_versions WHERE bulletin_entry_id = ?', [id]);
+    await db.execute('DELETE FROM bulletin_entries WHERE id = ?', [id]);
+  },
 };
 
 // ── Orientation ──
@@ -476,5 +492,13 @@ export const orientationService = {
        data.attendees ?? null, data.summary ?? '', data.decisions ?? null,
        data.next_steps ?? null, data.parcoursup_wishes ?? null]
     );
+  },
+
+  async deleteReport(id: ID): Promise<void> {
+    await db.execute('DELETE FROM orientation_reports WHERE id = ?', [id]);
+  },
+
+  async deleteInterview(id: ID): Promise<void> {
+    await db.execute('DELETE FROM orientation_interviews WHERE id = ?', [id]);
   },
 };

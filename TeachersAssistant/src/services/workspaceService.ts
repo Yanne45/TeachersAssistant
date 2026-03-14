@@ -347,7 +347,7 @@ export const workspaceService = {
    * Le dossier est créé s'il n'existe pas.
    */
   async getAppSubDir(
-    type: 'copies' | 'documents' | 'exports' | 'generations_ia' | 'backups',
+    type: 'copies' | 'documents' | 'exports' | 'generations_ia' | 'backups' | 'thumbnails',
     ...parts: (string | null | undefined)[]
   ): Promise<string> {
     const { appDataDir, join } = await import('@tauri-apps/api/path');

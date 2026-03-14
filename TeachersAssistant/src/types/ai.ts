@@ -88,3 +88,49 @@ export interface AIRequestQueue extends BaseEntity {
   max_retries: number;
   processed_at: ISODateTime | null;
 }
+
+// ── Diaporama structuré (generate_slideshow, output_format='json') ──
+
+export type SlideType = 'title' | 'content' | 'document' | 'activity' | 'transition' | 'summary';
+
+export interface SlideshowSlide {
+  number: number;
+  title: string;
+  content: string[];
+  notes: string;
+  visualSuggestion?: string;
+  type: SlideType;
+}
+
+export interface SlideshowData {
+  title: string;
+  subtitle?: string;
+  totalSlides: number;
+  slides: SlideshowSlide[];
+  conclusion?: string;
+  suggestedActivity?: string;
+}
+
+// ── Quiz interactif (generate_quiz, output_format='json') ──
+
+export type QuizQuestionType = 'qcm' | 'qcm_multiple' | 'vrai_faux';
+
+export interface QuizQuestion {
+  number: number;
+  type: QuizQuestionType;
+  question: string;
+  choices: string[];
+  correctAnswers: number[];
+  explanation: string;
+  timeLimit: number;
+  difficulty: string;
+  skill?: string;
+}
+
+export interface QuizData {
+  title: string;
+  subject?: string;
+  chapter?: string;
+  totalQuestions: number;
+  questions: QuizQuestion[];
+}

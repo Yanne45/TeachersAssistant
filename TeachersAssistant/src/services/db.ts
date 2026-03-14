@@ -234,17 +234,39 @@ export const db = {
     return rows.length > 0 ? (rows[0] ?? null) : null;
   },
 
+  /** Nesting-safe transaction: inner calls use SAVEPOINTs. */
   async transaction(fn: () => Promise<void>): Promise<void> {
     const d = getDb();
-    await d.execute('BEGIN TRANSACTION', []);
-    try {
-      await fn();
-      await d.execute('COMMIT', []);
-    } catch (err) {
-      await d.execute('ROLLBACK', []);
-      throw err;
+    if (this._txDepth > 0) {
+      const sp = `sp_${this._txDepth}`;
+      await d.execute(`SAVEPOINT ${sp}`, []);
+      this._txDepth++;
+      try {
+        await fn();
+        await d.execute(`RELEASE ${sp}`, []);
+      } catch (err) {
+        await d.execute(`ROLLBACK TO ${sp}`, []);
+        throw err;
+      } finally {
+        this._txDepth--;
+      }
+    } else {
+      this._txDepth = 1;
+      await d.execute('BEGIN TRANSACTION', []);
+      try {
+        await fn();
+        await d.execute('COMMIT', []);
+      } catch (err) {
+        await d.execute('ROLLBACK', []);
+        throw err;
+      } finally {
+        this._txDepth = 0;
+      }
     }
   },
+
+  /** @internal transaction nesting depth */
+  _txDepth: 0,
 
   async close(): Promise<void> {
     await closeDatabase();

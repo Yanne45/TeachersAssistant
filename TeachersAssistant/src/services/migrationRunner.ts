@@ -41,6 +41,10 @@ const MIGRATIONS: MigrationDescriptor[] = [
   { filename: '021_embeddings.sql', url: '/db/021_embeddings.sql' },
   { filename: '022_grand_oral.sql', url: '/db/022_grand_oral.sql' },
   { filename: '023_ai_task_screens.sql', url: '/db/023_ai_task_screens.sql' },
+  { filename: '027_ai_search_task.sql', url: '/db/027_ai_search_task.sql' },
+  { filename: '028_calendar_event_type.sql', url: '/db/028_calendar_event_type.sql' },
+  { filename: '029_email_tables.sql', url: '/db/029_email_tables.sql' },
+  { filename: '030_assignment_types_is_active.sql', url: '/db/030_assignment_types_is_active.sql' },
 ];
 
 // ── Bootstrap : créer la table de suivi ──

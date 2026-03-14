@@ -298,7 +298,7 @@ export const GrandOralPage: React.FC = () => {
       <div className="go-page__detail">
         {!selectedQ ? (
           <div className="go-page__empty-detail">
-            <span style={{ fontSize: 48 }}>🎤</span>
+            <span className="go-page__empty-icon">🎤</span>
             <p>Sélectionnez une question pour voir le détail</p>
           </div>
         ) : editMode ? (
@@ -348,7 +348,7 @@ export const GrandOralPage: React.FC = () => {
                 <div className="go-page__detail-meta">
                   {selectedQ.student_name} · Q{selectedQ.question_number}
                   {selectedQ.subject_label && <> · {selectedQ.subject_label}</>}
-                  <span style={{ color: STATUS_META[selectedQ.status]?.color, marginLeft: 8 }}>
+                  <span className="go-page__detail-status" style={{ color: STATUS_META[selectedQ.status]?.color }}>
                     {STATUS_META[selectedQ.status]?.label}
                   </span>
                 </div>
@@ -357,23 +357,23 @@ export const GrandOralPage: React.FC = () => {
             </div>
 
             {selectedQ.problematique && (
-              <Card style={{ marginBottom: 12 }}>
+              <Card className="go-page__detail-card">
                 <div className="go-page__section-label">Problématique</div>
                 <p>{selectedQ.problematique}</p>
               </Card>
             )}
 
             {selectedQ.plan_outline && (
-              <Card style={{ marginBottom: 12 }}>
+              <Card className="go-page__detail-card">
                 <div className="go-page__section-label">Plan détaillé</div>
                 <pre className="go-page__plan-text">{selectedQ.plan_outline}</pre>
               </Card>
             )}
 
             {selectedQ.teacher_notes && (
-              <Card style={{ marginBottom: 12 }}>
+              <Card className="go-page__detail-card">
                 <div className="go-page__section-label">Notes professeur</div>
-                <p style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{selectedQ.teacher_notes}</p>
+                <p className="go-page__teacher-notes">{selectedQ.teacher_notes}</p>
               </Card>
             )}
 
@@ -408,7 +408,7 @@ export const GrandOralPage: React.FC = () => {
                       <input type="number" min="0" max="20" step="0.5" value={passageForm.suggested_score} onChange={e => setPassageForm(f => ({ ...f, suggested_score: e.target.value }))} />
                     </div>
                   </div>
-                  <div className="go-page__form-field" style={{ marginTop: 8 }}>
+                  <div className="go-page__form-field go-page__form-field--mt">
                     <label>Commentaire <VoiceInput onResult={t => setPassageForm(f => ({ ...f, general_comment: f.general_comment ? f.general_comment + ' ' + t : t }))} /></label>
                     <textarea rows={2} value={passageForm.general_comment} onChange={e => setPassageForm(f => ({ ...f, general_comment: e.target.value }))} />
                   </div>
@@ -420,7 +420,7 @@ export const GrandOralPage: React.FC = () => {
                     <label>Axes d'amélioration <VoiceInput onResult={t => setPassageForm(f => ({ ...f, improvements: f.improvements ? f.improvements + ' ' + t : t }))} /></label>
                     <textarea rows={1} value={passageForm.improvements} onChange={e => setPassageForm(f => ({ ...f, improvements: e.target.value }))} />
                   </div>
-                  <button className="go-page__btn go-page__btn--primary" style={{ marginTop: 8 }} onClick={handleAddPassage}>Enregistrer le passage</button>
+                  <button className="go-page__btn go-page__btn--primary go-page__btn--mt" onClick={handleAddPassage}>Enregistrer le passage</button>
                 </Card>
               )}
 

@@ -15,3 +15,5 @@ export { ICSMappingModal } from './ICSMappingModal';
 export { GoogleCalendarModal } from './GoogleCalendarModal';
 
 export { PDFPreviewModal } from './PDFPreviewModal';
+export { AgendaEventForm } from './AgendaEventForm';
+export type { EventFormData, AgendaEventFormProps } from './AgendaEventForm';

@@ -141,7 +141,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({ files, onClose, onSave
           document_type_id: e.docTypeId,
           subject_id: e.subjectId,
           level_id: e.levelId,
-          thumbnail_path: null,
+          thumbnail_path: e.processed.thumbnailPath ?? null,
           extracted_text: e.processed.classification.summary || null,
           source: 'import',
           generated_from_ai_generation_id: null,

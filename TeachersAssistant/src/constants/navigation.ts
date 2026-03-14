@@ -16,6 +16,7 @@ export const APP_TABS: { id: TabId; label: string; icon?: string }[] = [
   { id: 'classes',       label: 'Classes',            icon: '👥' },
   { id: 'evaluation',    label: 'Évaluation',        icon: '📋' },
   { id: 'bibliotheque',  label: 'Bibliothèque',      icon: '📁' },
+  { id: 'messagerie',   label: 'Messagerie',         icon: '📧' },
   { id: 'parametres',    label: 'Paramètres',        icon: '⚙️' },
 ];
 
@@ -76,11 +77,14 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
   ],
 
   planning: [
+    { id: 'plan-agenda',       label: 'Agenda',                   page: 'agenda',      icon: '📅' },
     { id: 'plan-edt',          label: 'Emploi du temps',          page: 'edt',         icon: '🕐' },
     { id: 'plan-edt-semaine',  label: 'Vue semaine',              page: 'edt',         indent: 1 },
     { id: 'plan-edt-import',   label: 'Import',                   page: 'edt-import',  indent: 1 },
     { id: 'plan-cal',          label: 'Calendrier scolaire',      page: 'calendrier',  icon: '🗓' },
     { id: 'plan-cal-annuel',   label: 'Vue annuelle',             page: 'calendrier',  indent: 1 },
+    { id: 'plan-sep-mail',     label: 'MESSAGERIE',               isSection: true },
+    { id: 'plan-messagerie',   label: 'Messagerie',               page: 'messagerie',  indent: 1, icon: '📧' },
   ],
 
   cahier: [
@@ -95,6 +99,8 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
   classes: [
     { id: 'cls-sep-classes',  label: 'MES CLASSES',              isSection: true },
     { id: 'cls-overview',     label: 'Vue d\'ensemble',          page: 'overview',     indent: 1, icon: '👥' },
+    { id: 'cls-sep-suivi',    label: 'SUIVI',                    isSection: true },
+    { id: 'cls-skill-map',    label: 'Cartographie compétences', page: 'skill-map',    indent: 1, icon: '🗺️' },
     { id: 'cls-sep-import',   label: 'IMPORT',                   isSection: true },
     { id: 'cls-import',       label: 'Importer une classe',      page: 'import',       indent: 1, icon: '📥' },
   ],
@@ -107,6 +113,8 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'bib-sep-import',   label: 'GESTION',                     isSection: true },
     { id: 'bib-importer',     label: 'Importer documents',          page: 'importer',     indent: 1, icon: '📥' },
   ],
+
+  messagerie: [],
 
   parametres: [
     { id: 'param-sep-cadre',       label: 'CADRE ANNUEL',            isSection: true },
@@ -130,7 +138,9 @@ export const SIDEBAR_MENUS: Record<TabId, SidebarItem[]> = {
     { id: 'eval-bilan',         label: 'Bilan devoir',            page: 'bilan',            indent: 1 },
     { id: 'eval-rubrics',       label: 'Banque de grilles',       page: 'rubrics',          indent: 1, icon: '📋' },
     { id: 'eval-feedback',      label: 'Studio feedback vocal',   page: 'feedback-vocal',   indent: 1, icon: '🎤' },
-    { id: 'eval-sep-eleves',    label: 'ÉLÈVES',                  isSection: true },
+    { id: 'eval-sep-notes',     label: 'NOTES',                    isSection: true },
+    { id: 'eval-tableau',        label: 'Tableau de notes',         page: 'tableau-notes',    indent: 1, icon: '📊' },
+    { id: 'eval-sep-eleves',     label: 'ÉLÈVES',                  isSection: true },
     { id: 'eval-par-classe',    label: 'Par classe',              page: 'eleves',           indent: 1, icon: '👥' },
     { id: 'eval-fiche',         label: 'Fiche élève',             page: 'fiche-eleve',      indent: 1 },
     { id: 'eval-sep-grand-oral', label: 'GRAND ORAL',              isSection: true },

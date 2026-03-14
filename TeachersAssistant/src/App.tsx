@@ -25,6 +25,8 @@ import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { ProgrammeOfficielPage } from './pages/programme/ProgrammeOfficielPage';
 import { ProgressionAnnuellePage } from './pages/programme/ProgressionAnnuellePage';
 import { TimelinePedagogiquePage } from './pages/programme/TimelinePedagogiquePage';
+import { AgendaPage } from './pages/planning/AgendaPage';
+import { MessageriePage } from './pages/planning/MessageriePage';
 import { EmploiDuTempsPage } from './pages/planning/EmploiDuTempsPage';
 import { CalendrierScolairePage } from './pages/planning/CalendrierScolairePage';
 import { SequenceDetailPage } from './pages/preparation/SequenceDetailPage';
@@ -38,7 +40,9 @@ import { FeedbackVocalStudioPage } from './pages/evaluation/FeedbackVocalStudioP
 import { ListeDevoirsPage } from './pages/evaluation/ListeDevoirsPage';
 import { ListeElevesPage } from './pages/evaluation/ListeElevesPage';
 import { GrandOralPage } from './pages/evaluation/GrandOralPage';
+import { TableauNotesPage } from './pages/evaluation/TableauNotesPage';
 import { ClassesPage } from './pages/classes/ClassesPage';
+import { SkillMapPage } from './pages/classes/SkillMapPage';
 
 // ── Pages lazy-loaded (lourdes, accès secondaire) ──
 
@@ -88,6 +92,8 @@ function PageResolver() {
   // Planning
   if (route.tab === 'planning') {
     switch (route.page) {
+      case 'agenda':       return <AgendaPage />;
+      case 'messagerie':   return <MessageriePage />;
       case 'edt':
       case 'edt-import':   return <EmploiDuTempsPage />;
       case 'calendrier':   return <CalendrierScolairePage />;
@@ -102,7 +108,10 @@ function PageResolver() {
 
   // Classes
   if (route.tab === 'classes') {
-    return <ClassesPage />;
+    switch (route.page) {
+      case 'skill-map': return <SkillMapPage />;
+      default:          return <ClassesPage />;
+    }
   }
 
   // Évaluation
@@ -113,6 +122,7 @@ function PageResolver() {
       case 'bilan':             return <BilanDevoirPage />;
       case 'rubrics':           return <RubricBankPage />;
       case 'feedback-vocal':    return <FeedbackVocalStudioPage />;
+      case 'tableau-notes':     return <TableauNotesPage />;
       case 'grand-oral':        return <GrandOralPage />;
       case 'eleves':            return <ListeElevesPage />;
       case 'fiche-eleve':       return <FicheElevePage />;
@@ -124,6 +134,11 @@ function PageResolver() {
   // Bibliothèque (propre tab)
   if (route.tab === 'bibliotheque') {
     return <BibliothequePage />;
+  }
+
+  // Messagerie (propre tab)
+  if (route.tab === 'messagerie') {
+    return <MessageriePage />;
   }
 
   // Paramètres

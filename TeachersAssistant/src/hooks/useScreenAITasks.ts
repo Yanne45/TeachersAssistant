@@ -16,6 +16,7 @@ export const AI_SCREEN = {
   CORRECTION_SERIE: 'correction_serie',
   FICHE_ELEVE: 'fiche_eleve',
   GENERATEUR_IA: 'generateur_ia',
+  CAHIER_ENTREE: 'cahier_entree',
 } as const;
 
 export type AIScreenCode = (typeof AI_SCREEN)[keyof typeof AI_SCREEN];
@@ -30,6 +31,10 @@ export interface ScreenAIContext {
   sessionId?: ID;
   contextEntityType?: string;
   contextEntityId?: ID;
+  /** IDs de documents de la bibliothèque à joindre comme contexte */
+  documentIds?: ID[];
+  /** Textes bruts de fichiers ad-hoc (non enregistrés en bibliothèque) */
+  rawDocumentContexts?: string[];
 }
 
 // ── Action returned per task ─────────────────────────────────────────────
@@ -70,6 +75,8 @@ export function useScreenAITasks(
         sessionId: ctx.sessionId,
         contextEntityType: ctx.contextEntityType,
         contextEntityId: ctx.contextEntityId,
+        documentIds: ctx.documentIds,
+        rawDocumentContexts: ctx.rawDocumentContexts,
       };
       return await smartGenerate(request);
     } finally {

@@ -1,0 +1,221 @@
+/* ============================================================================
+   TableauNotesPage — Tableau de notes (grille élèves × évaluations)
+   ============================================================================ */
+
+.grade-table { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* ── Header ── */
+
+.grade-table__header { display: flex; align-items: center; justify-content: space-between; }
+.grade-table__title { font-size: var(--font-size-md); font-weight: var(--font-weight-bold); }
+
+.grade-table__import-btn {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.grade-table__import-btn:hover {
+  background: var(--color-bg-subtle);
+  border-color: var(--color-primary);
+}
+
+/* ── Filtres ── */
+
+.grade-table__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.grade-table__filter { display: flex; flex-direction: column; gap: 2px; }
+.grade-table__filter-label {
+  font-size: var(--font-size-xxs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.grade-table__select {
+  height: 32px;
+  min-width: 160px;
+  border: var(--border-default);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.grade-table__select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(var(--color-primary-rgb, 59,130,246), 0.15);
+}
+
+.grade-table__meta {
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+}
+
+/* ── Loading ── */
+
+.grade-table__loading {
+  text-align: center;
+  padding: var(--space-6);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* ── Table wrapper ── */
+
+.grade-table__table-wrap {
+  overflow-x: auto;
+  border: var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+/* ── Table ── */
+
+.grade-table__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+}
+
+/* ── Header cells ── */
+
+.grade-table__th {
+  padding: var(--space-2) var(--space-2);
+  text-align: center;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-subtle);
+  border-bottom: var(--border-default);
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.grade-table__th--rank {
+  width: 32px;
+  text-align: center;
+}
+
+.grade-table__th--student {
+  text-align: left;
+  min-width: 160px;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--color-bg-subtle);
+}
+
+.grade-table__th--score {
+  min-width: 64px;
+  max-width: 100px;
+  cursor: help;
+}
+
+.grade-table__th--avg {
+  min-width: 72px;
+  background: var(--color-bg-subtle);
+  position: sticky;
+  right: 0;
+  z-index: 3;
+  border-left: 2px solid var(--color-border);
+}
+
+.grade-table__th-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+  white-space: nowrap;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-xxs);
+}
+
+.grade-table__th-meta {
+  font-size: 10px;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+.grade-table__coeff {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Data rows ── */
+
+.grade-table__row:hover td {
+  background: rgba(var(--color-primary-rgb, 59,130,246), 0.03);
+}
+
+.grade-table__td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle, rgba(0,0,0,0.04));
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.grade-table__td--rank {
+  font-size: var(--font-size-xxs);
+  color: var(--color-text-muted);
+  width: 32px;
+}
+
+.grade-table__td--student {
+  text-align: left;
+  padding-left: var(--space-3);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  white-space: nowrap;
+}
+
+.grade-table__td--score {
+  font-weight: var(--font-weight-medium);
+  min-width: 64px;
+}
+
+.grade-table__td--avg {
+  font-weight: var(--font-weight-bold);
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--color-bg);
+  border-left: 2px solid var(--color-border);
+}
+
+/* ── Footer (moyennes classe) ── */
+
+.grade-table__row--footer td {
+  background: var(--color-bg-subtle);
+  border-top: 2px solid var(--color-border);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-xxs);
+}
+
+.grade-table__row--footer .grade-table__td--student {
+  background: var(--color-bg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: var(--font-size-xxs);
+}
+
+.grade-table__row--footer .grade-table__td--avg {
+  background: var(--color-bg-subtle);
+}

@@ -3,6 +3,7 @@ import { Modal, Button } from '../../components/ui';
 import { assignmentService, skillDescriptorService } from '../../services';
 import type { SkillLevelDescriptor } from '../../services';
 import { useApp } from '../../stores';
+import './GrilleDescriptiveModal.css';
 
 interface Props {
   open: boolean;
@@ -130,7 +131,7 @@ export const GrilleDescriptiveModal: React.FC<Props> = ({
       title={title}
       size="large"
       footer={
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+        <div className="grille-desc__footer">
           <Button variant="ghost" size="S" onClick={onClose}>Fermer</Button>
           <Button
             variant="primary"
@@ -144,24 +145,17 @@ export const GrilleDescriptiveModal: React.FC<Props> = ({
       }
     >
       {loading ? (
-        <p style={{ padding: 16, color: 'var(--color-text-secondary)' }}>Chargement…</p>
+        <p className="grille-desc__empty">Chargement…</p>
       ) : skills.length === 0 ? (
-        <p style={{ padding: 16, color: 'var(--color-text-secondary)' }}>
+        <p className="grille-desc__empty">
           Aucune capacité liée à ce devoir. Associez des capacités depuis l'édition du devoir.
         </p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="grille-desc__list">
           {skills.map((entry, skillIdx) => (
-            <section key={entry.skill_id} style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden' }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '10px 16px',
-                background: 'var(--color-surface-elevated)',
-                borderBottom: '1px solid var(--color-border)',
-              }}>
-                <strong style={{ fontSize: '0.95rem' }}>{entry.skill_label}</strong>
+            <section key={entry.skill_id} className="grille-desc__section">
+              <div className="grille-desc__section-header">
+                <strong className="grille-desc__section-title">{entry.skill_label}</strong>
                 <Button
                   variant="secondary"
                   size="S"
@@ -171,71 +165,41 @@ export const GrilleDescriptiveModal: React.FC<Props> = ({
                   {saving === skillIdx ? 'Enregistrement…' : 'Enregistrer'}
                 </Button>
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="grille-desc__table">
                 <thead>
-                  <tr style={{ background: 'var(--color-surface)' }}>
-                    <th style={{ width: 90, padding: '6px 12px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                      Niveau
-                    </th>
-                    <th style={{ padding: '6px 12px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                      Libellé
-                    </th>
-                    <th style={{ padding: '6px 12px', textAlign: 'left', fontSize: '0.8rem', color: 'var(--color-text-secondary)', borderBottom: '1px solid var(--color-border)' }}>
-                      Description / Critères observables
-                    </th>
+                  <tr>
+                    <th>Niveau</th>
+                    <th>Libellé</th>
+                    <th>Description / Critères observables</th>
                   </tr>
                 </thead>
                 <tbody>
                   {entry.descriptors.map((desc) => (
-                    <tr key={desc.level} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 10px',
-                          borderRadius: 12,
-                          background: LEVEL_COLORS[desc.level],
-                          color: LEVEL_TEXT_COLORS[desc.level],
-                          fontWeight: 600,
-                          fontSize: '0.8rem',
-                          whiteSpace: 'nowrap',
-                        }}>
+                    <tr key={desc.level}>
+                      <td>
+                        <span
+                          className="grille-desc__level-badge"
+                          style={{ background: LEVEL_COLORS[desc.level], color: LEVEL_TEXT_COLORS[desc.level] }}
+                        >
                           N{desc.level}
                         </span>
                       </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
+                      <td>
                         <input
                           type="text"
+                          className="grille-desc__input"
                           value={desc.label}
                           onChange={e => updateDescriptor(skillIdx, desc.level, 'label', e.target.value)}
                           placeholder="Ex: Non atteint"
-                          style={{
-                            width: '100%',
-                            padding: '4px 8px',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 4,
-                            fontSize: '0.85rem',
-                            background: 'var(--color-surface)',
-                            color: 'var(--color-text)',
-                          }}
                         />
                       </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
+                      <td>
                         <textarea
+                          className="grille-desc__textarea"
                           value={desc.description}
                           onChange={e => updateDescriptor(skillIdx, desc.level, 'description', e.target.value)}
                           placeholder="Critères observables pour ce niveau…"
                           rows={2}
-                          style={{
-                            width: '100%',
-                            padding: '4px 8px',
-                            border: '1px solid var(--color-border)',
-                            borderRadius: 4,
-                            fontSize: '0.85rem',
-                            resize: 'vertical',
-                            background: 'var(--color-surface)',
-                            color: 'var(--color-text)',
-                            fontFamily: 'inherit',
-                          }}
                         />
                       </td>
                     </tr>

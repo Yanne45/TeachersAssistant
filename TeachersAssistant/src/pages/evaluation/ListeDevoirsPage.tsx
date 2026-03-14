@@ -7,11 +7,13 @@ import { EmptyState, StatusBadge, ConfirmDialog } from '../../components/ui';
 import { useApp, useData, useRouter } from '../../stores';
 import { assignmentService, submissionService, documentService, classService, getCurrentPath } from '../../services';
 import { ASSIGNMENT_STATUS_META } from '../../constants/statuses';
+import type { AssignmentStatus } from '../../constants/statuses';
 import { useDebounce } from '../../hooks';
 import { DevoirForm } from '../../components/forms';
 import './ListeDevoirsPage.css';
 
-type StatusFilter = 'all' | 'draft' | 'correcting' | 'corrected';
+type StatusFilter = 'all' | AssignmentStatus;
+const STATUS_FILTER_ORDER: StatusFilter[] = ['all', 'draft', 'assigned', 'collecting', 'correcting', 'corrected', 'returned'];
 
 const VIRTUAL_ROW_HEIGHT = 44;
 const VIRTUAL_OVERSCAN = 6;
@@ -119,7 +121,7 @@ export const ListeDevoirsPage: React.FC = () => {
       </div>
 
       <div className="devoirs-page__filters">
-        {(['all', 'draft', 'correcting', 'corrected'] as const).map(s => (
+        {STATUS_FILTER_ORDER.map(s => (
           <button key={s} className={`devoirs-page__filter ${statusFilter === s ? 'devoirs-page__filter--active' : ''}`} onClick={() => setStatusFilter(s)} aria-pressed={statusFilter === s}>
             {s === 'all' ? 'Tous' : ASSIGNMENT_STATUS_META[s]?.label ?? s}
             {s !== 'all' && <span className="devoirs-page__filter-count">{assignments.filter(d => d.status === s).length}</span>}

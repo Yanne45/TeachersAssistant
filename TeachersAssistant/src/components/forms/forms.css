@@ -123,4 +123,9 @@
   border: 1px solid var(--color-danger);
 }
 
+.form__btn--ai {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  color: white; border: none; white-space: nowrap;
+}
+
 .form__btn:disabled { opacity: 0.5; cursor: not-allowed; }
